@@ -150,6 +150,98 @@ async function loadAll(){
  }catch(e){alert("Não foi possível carregar os dados: "+e.message)}
 }
 async function add(table,row,after){const {error}=await sb.from(table).insert(row);if(error)alert(error.message);else{await loadAll();after?.()}}
+
+function findByLabel(arr, value, labelField){
+ const v=String(value||"").trim().toLowerCase();
+ if(!v)return null;
+ return arr.find(x=>String(x[labelField]||"").trim().toLowerCase()===v)||null;
+}
+function askField(label,current,type="text",choices=[]){
+ let suffix=choices.length ? `\n\nOpções: ${choices.join(" | ")}` : "";
+ return prompt(`${label}${suffix}`, current==null?"":String(current));
+}
+async function editRecord(table,id){
+ const maps={
+  cacambas:{
+   title:"Editar caçamba",
+   fields:[
+    ["numero","Número","text"],["status","Status","text",["Disponível","No pátio","No cliente","Manutenção"]],
+    ["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
+    ["material","Material","text"],["endereco_atual","Endereço atual","text"],["patio","Pátio","text",["Analice","Estrada das Rosas"]],
+    ["observacoes","Observações","text"]
+   ]
+  },
+  clientes:{
+   title:"Editar cliente",
+   fields:[["nome","Nome","text"],["responsavel","Responsável","text"],["telefone","Telefone","text"],["email","E-mail","text"],
+    ["endereco","Endereço","text"],["numero","Número","text"],["bairro","Bairro","text"],["cidade","Cidade","text"],["uf","UF","text"],["cep","CEP","text"],["observacoes","Observações","text"]]
+  },
+  motoristas:{
+   title:"Editar motorista",
+   fields:[["nome","Nome","text"],["telefone","Telefone","text"],["cnh","CNH","text"],["status","Status","text",["Ativo","Inativo"]],["observacoes","Observações","text"]]
+  },
+  caminhoes:{
+   title:"Editar caminhão",
+   fields:[["identificacao","Identificação","text"],["placa","Placa","text"],["motorista_id","Motorista","motorista"],
+    ["status","Status","text",["Disponível","Em operação","Manutenção","Inativo"]],["observacoes","Observações","text"]]
+  },
+  ordens_servico:{
+   title:"Editar ordem de serviço",
+   fields:[["numero","Número da OS","text"],["cliente_id","Cliente","cliente"],["cacamba_id","Caçamba","cacamba"],
+    ["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],["endereco","Endereço","text"],["material","Material","text"],
+    ["data_entrega","Data de entrega","text"],["data_retirada_prevista","Retirada prevista","text"],
+    ["status","Status","text",["Agendada","Em rota","Entregue","Retirada solicitada","Concluída","Cancelada"]],["observacoes","Observações","text"]]
+  },
+  movimentacoes:{
+   title:"Editar movimentação",
+   fields:[["tipo","Tipo","text",["Entrega","Retirada","Troca","Transferência","Entrada no pátio","Saída do pátio"]],
+    ["cacamba_id","Caçamba","cacamba"],["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
+    ["endereco","Endereço","text"],["material","Material","text"],["observacoes","Observações","text"]]
+  },
+  manutencoes:{
+   title:"Editar manutenção",
+   fields:[["cacamba_id","Caçamba","cacamba"],["data","Data","text"],["problema","Problema","text"],["custo","Custo","text"],
+    ["status","Status","text",["Aberta","Em andamento","Concluída"]],["observacoes","Observações","text"]]
+  }
+ };
+ const cfg=maps[table]; if(!cfg)return alert("Edição não disponível para esta aba.");
+ const source=(table==="movimentacoes"||table==="manutencoes") ? await load(table) : (cache[table]||[]);
+ const row=source.find(x=>x.id===id); if(!row)return alert("Registro não encontrado.");
+ const next={};
+ for(const [field,label,type,choices] of cfg.fields){
+   let current=row[field]??"";
+   if(type==="cliente") current=cache.clientes.find(x=>x.id===row[field])?.nome||"";
+   if(type==="caminhao") current=cache.caminhoes.find(x=>x.id===row[field])?.identificacao||"";
+   if(type==="motorista") current=cache.motoristas.find(x=>x.id===row[field])?.nome||"";
+   if(type==="cacamba") current=cache.cacambas.find(x=>x.id===row[field])?.numero||"";
+   const answer=askField(label,current,type,choices);
+   if(answer===null)return;
+   if(type==="cliente"){const f=findByLabel(cache.clientes,answer,"nome"); next[field]=f?.id||null;}
+   else if(type==="caminhao"){const f=findByLabel(cache.caminhoes,answer,"identificacao"); next[field]=f?.id||null;}
+   else if(type==="motorista"){const f=findByLabel(cache.motoristas,answer,"nome"); next[field]=f?.id||null;}
+   else if(type==="cacamba"){const f=findByLabel(cache.cacambas,answer,"numero"); next[field]=f?.id||null;}
+   else if(field==="custo"){next[field]=Number(answer.replace(",",".")||0);}
+   else next[field]=answer;
+ }
+ if(table==="manutencoes" && next.custo!=null && !Number.isFinite(next.custo)) return alert("Custo inválido.");
+ if(table==="cacambas" && !next.numero)return alert("O número da caçamba é obrigatório.");
+ if(table==="clientes" && !next.nome)return alert("O nome do cliente é obrigatório.");
+ if(table==="motoristas" && !next.nome)return alert("O nome do motorista é obrigatório.");
+ if(table==="caminhoes" && !next.identificacao)return alert("A identificação do caminhão é obrigatória.");
+ if(table==="ordens_servico" && !next.numero)return alert("O número da OS é obrigatório.");
+ const {error}=await sb.from(table).update(next).eq("id",id);
+ if(error){alert(error.message);return;}
+ await loadAll();
+ if(table==="cacambas")cacambas();
+ else if(table==="clientes")clientes();
+ else if(table==="motoristas")motoristas();
+ else if(table==="caminhoes")caminhoes();
+ else if(table==="ordens_servico")ordens();
+ else if(table==="movimentacoes")movimentacoes();
+ else if(table==="manutencoes")manutencoes();
+ alert("Registro atualizado com sucesso!");
+}
+
 async function delRow(table,id,after){if(!confirm("Excluir este registro?"))return;const {error}=await sb.from(table).delete().eq("id",id);if(error)alert(error.message);else{await loadAll();after?.()}}
 function options(arr,idField,labelField,blank="Selecione"){
  return `<option value="">${blank}</option>`+arr.map(x=>`<option value="${x[idField]}">${esc(x[labelField])}</option>`).join("")
@@ -264,7 +356,7 @@ function tableCac(){
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
   return [x.numero,x.status,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
@@ -276,7 +368,7 @@ function clientes(){
  <div><label>Nome *</label><input id="cln"></div><div><label>Responsável</label><input id="clr"></div><div><label>Telefone</label><input id="clt"></div><div><label>E-mail</label><input id="cle"></div>
  <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
  </div><br><button class="btn primary" onclick="addCliente()">Cadastrar cliente</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCliente(){
  if(!val("cln"))return alert("Informe o nome do cliente.");
@@ -285,13 +377,13 @@ async function addCliente(){
 
 function motoristas(){
  $("motoristas").innerHTML=`<h2>👤 Motoristas</h2><div class="card"><h3>Novo motorista</h3><div class="grid"><div><label>Nome *</label><input id="mn"></div><div><label>Telefone</label><input id="mtel"></div><div><label>CNH</label><input id="mcnh"></div><div><label>Status</label><select id="mst"><option>Ativo</option><option>Inativo</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="mobs" rows="3" placeholder="Ex.: disponibilidade, restrições, informações da CNH..."></textarea></div></div><br><button class="btn primary" onclick="addMotorista()">Cadastrar motorista</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Telefone</th><th>CNH</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.motoristas.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cnh)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('motoristas','${x.id}',motoristas)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Telefone</th><th>CNH</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.motoristas.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cnh)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('motoristas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('motoristas','${x.id}',motoristas)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
 async function addMotorista(){if(!val("mn"))return alert("Informe o nome.");await add("motoristas",{nome:val("mn"),telefone:val("mtel"),cnh:val("mcnh"),status:val("mst"),observacoes:val("mobs")},motoristas)}
 
 function caminhoes(){
  $("caminhoes").innerHTML=`<h2>🚛 Caminhões</h2><div class="card"><h3>Novo caminhão</h3><div class="grid"><div><label>Identificação *</label><input id="ti" placeholder="Caminhão 01"></div><div><label>Placa</label><input id="tp"></div><div><label>Motorista</label><select id="tm">${options(cache.motoristas,"id","nome")}</select></div><div><label>Status</label><select id="ts"><option>Disponível</option><option>Em operação</option><option>Manutenção</option><option>Inativo</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="tobs" rows="3" placeholder="Ex.: quilometragem, documentação, pneus, informações do veículo..."></textarea></div></div><br><button class="btn primary" onclick="addCaminhao()">Cadastrar caminhão</button></div>
- <div class="card tablewrap"><table><tr><th>Identificação</th><th>Placa</th><th>Motorista</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.caminhoes.map(x=>`<tr><td>${esc(x.identificacao)}</td><td>${esc(x.placa)}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('caminhoes','${x.id}',caminhoes)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Identificação</th><th>Placa</th><th>Motorista</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.caminhoes.map(x=>`<tr><td>${esc(x.identificacao)}</td><td>${esc(x.placa)}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('caminhoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('caminhoes','${x.id}',caminhoes)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCaminhao(){if(!val("ti"))return alert("Informe a identificação.");await add("caminhoes",{identificacao:val("ti"),placa:val("tp"),motorista_id:val("tm")||null,status:val("ts"),observacoes:val("tobs")},caminhoes)}
 
@@ -299,7 +391,7 @@ function ordens(){
  $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2><div class="card"><h3>Nova OS</h3><div class="grid">
  <div><label>Número *</label><input id="on"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
  </div><br><button class="btn primary" onclick="addOS()">Criar ordem</button></div>
- <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
 async function addOS(){
  if(!val("on"))return alert("Informe o número da OS.");
@@ -313,7 +405,7 @@ function movimentacoes(){
  </div><br><button class="btn primary" onclick="addMov()">Registrar movimentação</button></div>
  <div class="card tablewrap" id="movlist"><p class="small">Carregando histórico...</p></div>`;
  load("movimentacoes").then(rows=>{
- $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th></tr>${rows.map(x=>`<tr><td>${new Date(x.data).toLocaleString("pt-BR")}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td></tr>`).join("")}</table>`;
+ $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${new Date(x.data).toLocaleString("pt-BR")}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td><button class="btn" onclick="editRecord('movimentacoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('movimentacoes','${x.id}',movimentacoes)">Excluir</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("movlist").innerHTML="<p>"+esc(e.message)+"</p>");
 }
 async function addMov(){
@@ -332,7 +424,7 @@ async function addMov(){
 function manutencoes(){
  $("manutencoes").innerHTML=`<h2>🔧 Manutenção</h2><div class="card"><h3>Nova manutenção de caçamba</h3><div class="grid"><div><label>Caçamba</label><select id="mcac">${options(cache.cacambas,"id","numero")}</select></div><div><label>Data</label><input id="mdata" type="date" value="${today()}"></div><div><label>Problema *</label><input id="mprob"></div><div><label>Custo</label><input id="mcusto" type="number" step="0.01"></div><div><label>Status</label><select id="mstatus"><option>Aberta</option><option>Em andamento</option><option>Concluída</option></select></div><div><label>Observações</label><input id="mob"></div></div><br><button class="btn primary" onclick="addMan()">Registrar manutenção</button></div><div class="card tablewrap" id="manlist"></div>`;
  load("manutencoes").then(rows=>{
- $("manlist").innerHTML=`<table><tr><th>Data</th><th>Caçamba</th><th>Problema</th><th>Custo</th><th>Status</th></tr>${rows.map(x=>`<tr><td>${esc(x.data)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.problema)}</td><td>R$ ${Number(x.custo||0).toFixed(2)}</td><td>${esc(x.status)}</td></tr>`).join("")}</table>`;
+ $("manlist").innerHTML=`<table><tr><th>Data</th><th>Caçamba</th><th>Problema</th><th>Custo</th><th>Status</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.data)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.problema)}</td><td>R$ ${Number(x.custo||0).toFixed(2)}</td><td>${esc(x.status)}</td><td><button class="btn" onclick="editRecord('manutencoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('manutencoes','${x.id}',manutencoes)">Excluir</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("manlist").innerHTML=esc(e.message));
 }
 async function addMan(){
