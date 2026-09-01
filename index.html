@@ -38,6 +38,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
     <label>E-mail</label><input id="email" type="email" autocomplete="username">
     <br><label>Senha</label><input id="password" type="password" autocomplete="current-password">
     <br><button class="btn primary" style="width:100%" onclick="login()">Entrar</button>
+    <button class="btn" style="width:100%;margin-top:8px" onclick="forgotPassword()">🔑 Esqueci minha senha</button>
     <p class="small" style="margin-top:14px">Os dados ficam salvos na nuvem e podem ser acessados por usuários autorizados.</p>
   </div>
 </div>
@@ -97,6 +98,29 @@ async function login(){
  if(error)return msg("loginMsg",error.message);
  await startApp();
 }
+async function forgotPassword(){
+ const email=val("email");
+ if(!email)return msg("loginMsg","Digite seu e-mail para receber o link de redefinição da senha.");
+ const redirectTo=window.location.origin+window.location.pathname;
+ const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
+ if(error)return msg("loginMsg",error.message);
+ msg("loginMsg","E-mail enviado! Verifique sua caixa de entrada e siga o link para criar uma nova senha.",true);
+}
+async function updatePassword(){
+ const password=$("newPassword").value, confirm=$("confirmPassword").value;
+ if(password.length<6)return msg("resetMsg","A nova senha deve ter pelo menos 6 caracteres.");
+ if(password!==confirm)return msg("resetMsg","As senhas não são iguais.");
+ const {error}=await sb.auth.updateUser({password});
+ if(error)return msg("resetMsg",error.message);
+ msg("resetMsg","Senha alterada com sucesso! Agora você pode entrar com sua nova senha.",true);
+ setTimeout(()=>location.reload(),1200);
+}
+function showResetPassword(){
+ $("login").style.display="flex"; $("app").style.display="none";
+ const card=$("login").querySelector(".card");
+ card.innerHTML=`<div style="text-align:center"><img src="${logoData}" style="width:90px;height:90px;object-fit:cover;border-radius:18px;background:#fff;padding:4px"><h2>Redefinir senha</h2><p class="small">Crie uma nova senha para acessar o sistema.</p></div><div id="resetMsg"></div><label>Nova senha</label><input id="newPassword" type="password" autocomplete="new-password"><br><label>Confirmar nova senha</label><input id="confirmPassword" type="password" autocomplete="new-password"><br><button class="btn primary" style="width:100%" onclick="updatePassword()">Salvar nova senha</button>`;
+}
+sb.auth.onAuthStateChange((event)=>{if(event==="PASSWORD_RECOVERY")showResetPassword();});
 async function logout(){await sb.auth.signOut();location.reload()}
 async function startApp(){
  const {data:{session}}=await sb.auth.getSession();
@@ -156,7 +180,7 @@ function cacambas(){
  <div><label>Cliente</label><select id="cc">${options(cache.clientes,"id","nome")}</select></div>
  <div><label>Caminhão</label><select id="ct">${options(cache.caminhoes,"id","identificacao")}</select></div>
  <div><label>Motorista</label><select id="cm">${options(cache.motoristas,"id","nome")}</select></div>
- <div><label>Material</label><input id="cma"></div><div><label>Endereço atual</label><input id="ce"></div>
+ <div><label>Material</label><input id="cma"></div><div><label>Endereço atual</label><input id="ce"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="cobs" rows="3" placeholder="Ex.: avaria, identificação, situação ou informação importante"></textarea></div>
  </div><br><button class="btn primary" onclick="addCacamba()">Cadastrar caçamba</button></div>
  <div class="card"><input id="csearch" placeholder="🔎 Pesquisar por número, cliente ou endereço" oninput="tableCac()"><div id="ctable" class="tablewrap"></div></div>`;
  tableCac();
@@ -167,46 +191,46 @@ function tableCac(){
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
   return [x.numero,x.status,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td><button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
- await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce")},cacambas);
+ await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),observacoes:val("cobs")},cacambas);
 }
 
 function clientes(){
  $("clientes").innerHTML=`<h2>👥 Clientes</h2><div class="card"><h3>Novo cliente</h3><div class="grid">
  <div><label>Nome *</label><input id="cln"></div><div><label>Responsável</label><input id="clr"></div><div><label>Telefone</label><input id="clt"></div><div><label>E-mail</label><input id="cle"></div>
- <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div>
+ <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
  </div><br><button class="btn primary" onclick="addCliente()">Cadastrar cliente</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCliente(){
  if(!val("cln"))return alert("Informe o nome do cliente.");
- await add("clientes",{nome:val("cln"),responsavel:val("clr"),telefone:val("clt"),email:val("cle"),endereco:val("clend"),numero:val("clnum"),bairro:val("clb"),cidade:val("clc"),uf:val("cluf"),cep:val("clcep"),ativo:true},clientes);
+ await add("clientes",{nome:val("cln"),responsavel:val("clr"),telefone:val("clt"),email:val("cle"),endereco:val("clend"),numero:val("clnum"),bairro:val("clb"),cidade:val("clc"),uf:val("cluf"),cep:val("clcep"),observacoes:val("clobs"),ativo:true},clientes);
 }
 
 function motoristas(){
- $("motoristas").innerHTML=`<h2>👤 Motoristas</h2><div class="card"><h3>Novo motorista</h3><div class="grid"><div><label>Nome *</label><input id="mn"></div><div><label>Telefone</label><input id="mtel"></div><div><label>CNH</label><input id="mcnh"></div><div><label>Status</label><select id="mst"><option>Ativo</option><option>Inativo</option></select></div></div><br><button class="btn primary" onclick="addMotorista()">Cadastrar motorista</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Telefone</th><th>CNH</th><th>Status</th><th>Ação</th></tr>${cache.motoristas.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cnh)}</td><td>${esc(x.status)}</td><td><button class="btn danger" onclick="delRow('motoristas','${x.id}',motoristas)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ $("motoristas").innerHTML=`<h2>👤 Motoristas</h2><div class="card"><h3>Novo motorista</h3><div class="grid"><div><label>Nome *</label><input id="mn"></div><div><label>Telefone</label><input id="mtel"></div><div><label>CNH</label><input id="mcnh"></div><div><label>Status</label><select id="mst"><option>Ativo</option><option>Inativo</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="mobs" rows="3" placeholder="Ex.: disponibilidade, restrições, informações da CNH..."></textarea></div></div><br><button class="btn primary" onclick="addMotorista()">Cadastrar motorista</button></div>
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Telefone</th><th>CNH</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.motoristas.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cnh)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('motoristas','${x.id}',motoristas)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
-async function addMotorista(){if(!val("mn"))return alert("Informe o nome.");await add("motoristas",{nome:val("mn"),telefone:val("mtel"),cnh:val("mcnh"),status:val("mst")},motoristas)}
+async function addMotorista(){if(!val("mn"))return alert("Informe o nome.");await add("motoristas",{nome:val("mn"),telefone:val("mtel"),cnh:val("mcnh"),status:val("mst"),observacoes:val("mobs")},motoristas)}
 
 function caminhoes(){
- $("caminhoes").innerHTML=`<h2>🚛 Caminhões</h2><div class="card"><h3>Novo caminhão</h3><div class="grid"><div><label>Identificação *</label><input id="ti" placeholder="Caminhão 01"></div><div><label>Placa</label><input id="tp"></div><div><label>Motorista</label><select id="tm">${options(cache.motoristas,"id","nome")}</select></div><div><label>Status</label><select id="ts"><option>Disponível</option><option>Em operação</option><option>Manutenção</option><option>Inativo</option></select></div></div><br><button class="btn primary" onclick="addCaminhao()">Cadastrar caminhão</button></div>
- <div class="card tablewrap"><table><tr><th>Identificação</th><th>Placa</th><th>Motorista</th><th>Status</th><th>Ação</th></tr>${cache.caminhoes.map(x=>`<tr><td>${esc(x.identificacao)}</td><td>${esc(x.placa)}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td>${esc(x.status)}</td><td><button class="btn danger" onclick="delRow('caminhoes','${x.id}',caminhoes)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ $("caminhoes").innerHTML=`<h2>🚛 Caminhões</h2><div class="card"><h3>Novo caminhão</h3><div class="grid"><div><label>Identificação *</label><input id="ti" placeholder="Caminhão 01"></div><div><label>Placa</label><input id="tp"></div><div><label>Motorista</label><select id="tm">${options(cache.motoristas,"id","nome")}</select></div><div><label>Status</label><select id="ts"><option>Disponível</option><option>Em operação</option><option>Manutenção</option><option>Inativo</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="tobs" rows="3" placeholder="Ex.: quilometragem, documentação, pneus, informações do veículo..."></textarea></div></div><br><button class="btn primary" onclick="addCaminhao()">Cadastrar caminhão</button></div>
+ <div class="card tablewrap"><table><tr><th>Identificação</th><th>Placa</th><th>Motorista</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.caminhoes.map(x=>`<tr><td>${esc(x.identificacao)}</td><td>${esc(x.placa)}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('caminhoes','${x.id}',caminhoes)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
-async function addCaminhao(){if(!val("ti"))return alert("Informe a identificação.");await add("caminhoes",{identificacao:val("ti"),placa:val("tp"),motorista_id:val("tm")||null,status:val("ts")},caminhoes)}
+async function addCaminhao(){if(!val("ti"))return alert("Informe a identificação.");await add("caminhoes",{identificacao:val("ti"),placa:val("tp"),motorista_id:val("tm")||null,status:val("ts"),observacoes:val("tobs")},caminhoes)}
 
 function ordens(){
  $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2><div class="card"><h3>Nova OS</h3><div class="grid">
- <div><label>Número *</label><input id="on"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div>
+ <div><label>Número *</label><input id="on"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
  </div><br><button class="btn primary" onclick="addOS()">Criar ordem</button></div>
- <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td><button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
 async function addOS(){
  if(!val("on"))return alert("Informe o número da OS.");
- await add("ordens_servico",{numero:val("on"),cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:val("ode")||null,data_retirada_prevista:val("odr")||null,status:val("ost")},ordens);
+ await add("ordens_servico",{numero:val("on"),cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:val("ode")||null,data_retirada_prevista:val("odr")||null,status:val("ost"),observacoes:val("oobs")},ordens);
 }
 
 function movimentacoes(){
