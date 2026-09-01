@@ -172,23 +172,23 @@ function dashboard(){
  <div class="stats">
  <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('Disponível')">🟢 Disponíveis<b>${counts.disp}</b><span class="small">Toque para visualizar</span></div>
  <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('No cliente')">🔵 Com clientes<b>${counts.cliente}</b><span class="small">Toque para visualizar</span></div>
- <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('No pátio')">🟡 No pátio<b>${counts.patio}</b><span class="small">Toque para visualizar</span></div>
+ <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('No pátio')">🟡 No pátio — Total<b>${counts.patio}</b><span class="small">Analice + Estrada das Rosas</span></div>
  <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('Manutenção')">🔴 Manutenção<b>${counts.man}</b><span class="small">Toque para visualizar</span></div>
  <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('TODAS')">🗑️ Total<b>${counts.total}</b><span class="small">Toque para visualizar</span></div>
  </div>
  <div id="dashboardDetails"></div>
  <div class="card">
-   <h3>📍 Caçambas por pátio</h3>
+   <h3>📍 Pátios</h3>
    <div class="stats">
      <div class="card stat" style="cursor:pointer" onclick="showPatio('Analice')">
-       🏭 Analice
+       🗑️ No pátio — Analice
        <b>${c.filter(x=>x.status==="No pátio" && x.patio==="Analice").length}</b>
-       <span class="small">Toque para ver as caçambas</span>
+       <span class="small">Toque para visualizar as caçambas</span>
      </div>
      <div class="card stat" style="cursor:pointer" onclick="showPatio('Estrada das Rosas')">
-       🏭 Estrada das Rosas
+       🗑️ No pátio — Estrada das Rosas
        <b>${c.filter(x=>x.status==="No pátio" && x.patio==="Estrada das Rosas").length}</b>
-       <span class="small">Toque para ver as caçambas</span>
+       <span class="small">Toque para visualizar as caçambas</span>
      </div>
    </div>
    <div id="patioList" style="margin-top:12px"></div>
