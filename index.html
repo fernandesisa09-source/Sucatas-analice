@@ -170,14 +170,79 @@ function dashboard(){
  const counts={total:c.length,cliente:c.filter(x=>x.status==="No cliente").length,patio:c.filter(x=>x.status==="No pátio").length,man:c.filter(x=>x.status==="Manutenção").length,disp:c.filter(x=>x.status==="Disponível").length};
  $("dashboard").innerHTML=`<h2>📊 Painel da Operação</h2>
  <div class="stats">
- <div class="card stat">🟢 Disponíveis<b>${counts.disp}</b></div>
- <div class="card stat">🔵 Com clientes<b>${counts.cliente}</b></div>
- <div class="card stat">🟡 No pátio<b>${counts.patio}</b></div>
- <div class="card stat">🔴 Manutenção<b>${counts.man}</b></div>
- <div class="card stat">🗑️ Total<b>${counts.total}</b></div>
+ <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('Disponível')">🟢 Disponíveis<b>${counts.disp}</b><span class="small">Toque para visualizar</span></div>
+ <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('No cliente')">🔵 Com clientes<b>${counts.cliente}</b><span class="small">Toque para visualizar</span></div>
+ <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('No pátio')">🟡 No pátio<b>${counts.patio}</b><span class="small">Toque para visualizar</span></div>
+ <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('Manutenção')">🔴 Manutenção<b>${counts.man}</b><span class="small">Toque para visualizar</span></div>
+ <div class="card stat" style="cursor:pointer" onclick="showDashboardItems('TODAS')">🗑️ Total<b>${counts.total}</b><span class="small">Toque para visualizar</span></div>
+ </div>
+ <div id="dashboardDetails"></div>
+ <div class="card">
+   <h3>📍 Caçambas por pátio</h3>
+   <div class="stats">
+     <div class="card stat" style="cursor:pointer" onclick="showPatio('Analice')">
+       🏭 Analice
+       <b>${c.filter(x=>x.status==="No pátio" && x.patio==="Analice").length}</b>
+       <span class="small">Toque para ver as caçambas</span>
+     </div>
+     <div class="card stat" style="cursor:pointer" onclick="showPatio('Estrada das Rosas')">
+       🏭 Estrada das Rosas
+       <b>${c.filter(x=>x.status==="No pátio" && x.patio==="Estrada das Rosas").length}</b>
+       <span class="small">Toque para ver as caçambas</span>
+     </div>
+   </div>
+   <div id="patioList" style="margin-top:12px"></div>
  </div>
  <div class="card"><b>☁️ Dados na nuvem</b><p class="small">Conectado ao Supabase. As informações não ficam presas a este celular.</p>
  <button class="btn primary" onclick="loadAll().then(()=>dashboard())">Atualizar dados</button></div>`;
+}
+function showDashboardItems(filter){
+ const c=cache.cacambas||[];
+ const list=filter==="TODAS" ? c : c.filter(x=>x.status===filter);
+ const el=$("dashboardDetails");
+ if(!el)return;
+ const title=filter==="TODAS" ? "Todas as caçambas" : `Caçambas — ${filter}`;
+ el.innerHTML=`<div class="card" style="margin-top:14px">
+   <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+     <h3 style="margin:0">📋 ${esc(title)}</h3>
+     <button type="button" class="btn secondary" onclick="document.getElementById('dashboardDetails').innerHTML=''">Fechar</button>
+   </div>
+   ${list.length ? `<div class="tablewrap" style="margin-top:12px"><table>
+     <tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Pátio</th><th>Endereço</th><th>Material</th><th>Observações</th></tr>
+     ${list.map(x=>`<tr>
+       <td><b>${esc(x.numero)}</b></td>
+       <td>${esc(x.status)}</td>
+       <td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td>
+       <td>${esc(x.patio||"—")}</td>
+       <td>${esc(x.endereco_atual||"—")}</td>
+       <td>${esc(x.material||"—")}</td>
+       <td>${esc(x.observacoes||"—")}</td>
+     </tr>`).join("")}
+   </table></div>` : `<p class="small">Nenhuma caçamba encontrada nesta categoria.</p>`}
+ </div>`;
+ el.scrollIntoView({behavior:"smooth",block:"start"});
+}
+function showPatio(patio){
+ const list=(cache.cacambas||[]).filter(x=>x.status==="No pátio" && x.patio===patio);
+ const el=$("patioList");
+ if(!el)return;
+ el.innerHTML=`<div style="padding:14px;background:#f6f8fb;border-radius:12px">
+   <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
+     <h3 style="margin:0">🏭 Pátio ${esc(patio)}</h3>
+     <button type="button" class="btn secondary" onclick="document.getElementById('patioList').innerHTML=''">Fechar</button>
+   </div>
+   ${list.length ? `<div class="tablewrap" style="margin-top:12px"><table>
+     <tr><th>Nº</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Observações</th></tr>
+     ${list.map(x=>`<tr>
+       <td><b>${esc(x.numero)}</b></td>
+       <td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"—")}</td>
+       <td>${esc(x.endereco_atual||"—")}</td>
+       <td>${esc(x.material||"—")}</td>
+       <td>${esc(x.observacoes||"—")}</td>
+     </tr>`).join("")}
+   </table></div>` : `<p class="small">Nenhuma caçamba com status “No pátio” está cadastrada neste pátio.</p>`}
+ </div>`;
+ el.scrollIntoView({behavior:"smooth",block:"start"});
 }
 function cacambas(){
  $("cacambas").innerHTML=`<h2>🗑️ Caçambas</h2>
