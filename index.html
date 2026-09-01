@@ -180,7 +180,8 @@ function cacambas(){
  <div><label>Cliente</label><select id="cc">${options(cache.clientes,"id","nome")}</select></div>
  <div><label>Caminhão</label><select id="ct">${options(cache.caminhoes,"id","identificacao")}</select></div>
  <div><label>Motorista</label><select id="cm">${options(cache.motoristas,"id","nome")}</select></div>
- <div><label>Material</label><input id="cma"></div><div><label>Endereço atual</label><input id="ce"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="cobs" rows="3" placeholder="Ex.: avaria, identificação, situação ou informação importante"></textarea></div>
+ <div><label>Material</label><input id="cma"></div><div><label>Endereço atual</label><input id="ce"></div>
+<div><label>Pátio</label><select id="cp"><option value="">Selecione o pátio</option><option>Analice</option><option>Estrada das Rosas</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="cobs" rows="3" placeholder="Ex.: avaria, identificação, situação ou informação importante"></textarea></div>
  </div><br><button class="btn primary" onclick="addCacamba()">Cadastrar caçamba</button></div>
  <div class="card"><input id="csearch" placeholder="🔎 Pesquisar por número, cliente ou endereço" oninput="tableCac()"><div id="ctable" class="tablewrap"></div></div>`;
  tableCac();
@@ -191,11 +192,11 @@ function tableCac(){
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
   return [x.numero,x.status,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
- await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),observacoes:val("cobs")},cacambas);
+ await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),observacoes:val("cobs")},cacambas);
 }
 
 function clientes(){
