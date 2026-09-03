@@ -23,6 +23,22 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 .login .card{width:100%;max-width:420px}.msg{padding:10px;border-radius:9px;margin:10px 0}.ok{background:#e5f6ea;color:#176b2c}.err{background:#fdeaea;color:#9b1c1c}
 .badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#e7eef5;font-size:13px;font-weight:700}
 @media(max-width:600px){main{padding:12px}header{padding:14px}header img{width:56px;height:56px}h1{font-size:22px}.stats{grid-template-columns:1fr 1fr}}
+
+.edit-modal{display:none;position:fixed;inset:0;background:#0008;z-index:50;align-items:center;justify-content:center;padding:18px}
+.edit-box{background:#fff;width:min(900px,100%);max-height:92vh;overflow:auto;border-radius:18px;padding:20px;box-shadow:0 12px 40px #0005}
+.edit-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.edit-head h2{margin:0;color:#55358a}
+.edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;position:sticky;bottom:0;background:#fff;padding-top:12px}
+.edit-full{grid-column:1/-1}
+@media print{
+ body{background:#fff!important}
+ header,nav,.no-print,.btn,form,input,select,textarea{display:none!important}
+ main{padding:0!important;max-width:none!important}
+ .page{display:none!important}.page.active{display:block!important}
+ .card{box-shadow:none!important;border:1px solid #ddd!important}
+ table{min-width:0!important;font-size:11px}
+ td:last-child,th:last-child{display:none!important}
+ .edit-modal{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -54,7 +70,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <header>
   <img id="logo">
   <div><h1>Sucatas Analice</h1><div class="sub">Controle de Caçambas</div></div>
-  <div style="margin-left:auto;text-align:right"><div id="userName"></div><button class="btn secondary" onclick="logout()">Sair</button></div>
+  <div style="margin-left:auto;text-align:right"><div id="userName"></div><button class="btn secondary no-print" onclick="imprimirAtual()">🖨️ Imprimir</button> <button class="btn secondary no-print" onclick="logout()">Sair</button></div>
 </header>
 <nav>
  <button data-page="dashboard" class="active">📊 Painel</button>
@@ -79,6 +95,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <section id="manutencoes" class="page"></section>
 </main>
 </div>
+<div id="editModal" class="edit-modal" onclick="if(event.target===this)closeEditModal()"></div>
 
 <script>
 const SUPABASE_URL="https://xctuoxcmulcjuupswztp.supabase.co";
@@ -92,6 +109,7 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function msg(id,text,ok=false){$(id).innerHTML=`<div class="msg ${ok?'ok':'err'}">${esc(text)}</div>`}
 function val(id){return $(id)?.value?.trim()||""}
 function today(){return new Date().toISOString().slice(0,10)}
+function imprimirAtual(){window.print();}
 function show(page){
  document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
@@ -179,88 +197,99 @@ async function loadAll(){
 }
 async function add(table,row,after){const {error}=await sb.from(table).insert(row);if(error)alert(error.message);else{await loadAll();after?.()}}
 
-function findByLabel(arr, value, labelField){
- const v=String(value||"").trim().toLowerCase();
- if(!v)return null;
- return arr.find(x=>String(x[labelField]||"").trim().toLowerCase()===v)||null;
-}
-function askField(label,current,type="text",choices=[]){
- let suffix=choices.length ? `\n\nOpções: ${choices.join(" | ")}` : "";
- return prompt(`${label}${suffix}`, current==null?"":String(current));
-}
-async function editRecord(table,id){
+let editContext=null;
+
+function editRecord(table,id){ openEditModal(table,id); }
+
+async function openEditModal(table,id){
  const maps={
-  cacambas:{
-   title:"Editar caçamba",
-   fields:[
-    ["numero","Número","text"],["status","Status","text",["Disponível","No pátio","No cliente","Manutenção"]],["estado","Estado da caçamba","text",["Não informado","Nova","Boa","Com avarias","Danificada","Em manutenção","Inutilizada"]],
-    ["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
-    ["material","Material","text"],["endereco_atual","Endereço atual","text"],["patio","Pátio","text",["Analice","Estrada das Rosas"]],
-    ["observacoes","Observações","text"]
-   ]
-  },
-  clientes:{
-   title:"Editar cliente",
-   fields:[["nome","Nome","text"],["responsavel","Responsável","text"],["telefone","Telefone","text"],["email","E-mail","text"],
-    ["endereco","Endereço","text"],["numero","Número","text"],["bairro","Bairro","text"],["cidade","Cidade","text"],["uf","UF","text"],["cep","CEP","text"],["observacoes","Observações","text"]]
-  },
-  motoristas:{
-   title:"Editar motorista",
-   fields:[["nome","Nome","text"],["telefone","Telefone","text"],["cnh","CNH","text"],["status","Status","text",["Ativo","Inativo"]],["observacoes","Observações","text"]]
-  },
-  caminhoes:{
-   title:"Editar caminhão",
-   fields:[["identificacao","Identificação","text"],["placa","Placa","text"],["motorista_id","Motorista","motorista"],
-    ["status","Status","text",["Disponível","Em operação","Manutenção","Inativo"]],["observacoes","Observações","text"]]
-  },
-  ordens_servico:{
-   title:"Editar ordem de serviço",
-   fields:[["numero","Número da OS","text"],["cliente_id","Cliente","cliente"],["cacamba_id","Caçamba","cacamba"],
-    ["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],["endereco","Endereço","text"],["material","Material","text"],
-    ["data_entrega","Data de entrega","text"],["data_retirada_prevista","Retirada prevista","text"],
-    ["status","Status","text",["Agendada","Em rota","Entregue","Retirada solicitada","Concluída","Cancelada"]],["observacoes","Observações","text"]]
-  },
-  movimentacoes:{
-   title:"Editar movimentação",
-   fields:[["tipo","Tipo","text",["Entrega","Retirada","Troca","Transferência","Entrada no pátio","Saída do pátio"]],
-    ["cacamba_id","Caçamba","cacamba"],["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
-    ["endereco","Endereço","text"],["material","Material","text"],["observacoes","Observações","text"]]
-  },
-  manutencoes:{
-   title:"Editar manutenção",
-   fields:[["cacamba_id","Caçamba","cacamba"],["data","Data","text"],["problema","Problema","text"],["custo","Custo","text"],
-    ["status","Status","text",["Aberta","Em andamento","Concluída"]],["observacoes","Observações","text"]]
-  }
+  cacambas:{title:"Editar caçamba",fields:[
+   ["numero","Número","text"],["status","Status","choice",["Disponível","No pátio","No cliente","Manutenção"]],
+   ["estado","Estado da caçamba","choice",["","Nova","Boa","Com avarias","Danificada","Em manutenção","Inutilizada"]],
+   ["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
+   ["material","Material","text"],["endereco_atual","Endereço atual","text"],["patio","Pátio","choice",["","Analice","Estrada das Rosas"]],
+   ["observacoes","Observações","textarea"]
+  ]},
+  clientes:{title:"Editar cliente",fields:[
+   ["nome","Nome","text"],["responsavel","Responsável","text"],["telefone","Telefone","text"],["email","E-mail","text"],
+   ["endereco","Endereço","text"],["numero","Número","text"],["bairro","Bairro","text"],["cidade","Cidade","text"],["uf","UF","text"],["cep","CEP","text"],["observacoes","Observações","textarea"]
+  ]},
+  motoristas:{title:"Editar motorista",fields:[
+   ["nome","Nome","text"],["telefone","Telefone","text"],["cnh","CNH","text"],["status","Status","choice",["Ativo","Inativo"]],["observacoes","Observações","textarea"]
+  ]},
+  caminhoes:{title:"Editar caminhão",fields:[
+   ["identificacao","Identificação","text"],["placa","Placa","text"],["motorista_id","Motorista","motorista"],
+   ["status","Status","choice",["Disponível","Em operação","Manutenção","Inativo"]],["observacoes","Observações","textarea"]
+  ]},
+  ordens_servico:{title:"Editar ordem de serviço",fields:[
+   ["numero","Número da OS","text"],["cliente_id","Cliente","cliente"],["cacamba_id","Caçamba","cacamba"],
+   ["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],["endereco","Endereço","text"],["material","Material","text"],
+   ["data_entrega","Data de entrega","date"],["data_retirada_prevista","Retirada prevista","date"],
+   ["status","Status","choice",["Agendada","Em rota","Entregue","Retirada solicitada","Concluída","Cancelada"]],["observacoes","Observações","textarea"]
+  ]},
+  movimentacoes:{title:"Editar movimentação",fields:[
+   ["tipo","Tipo","choice",["Entrega","Retirada","Troca","Transferência","Entrada no pátio","Saída do pátio"]],
+   ["cacamba_id","Caçamba","cacamba"],["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
+   ["endereco","Endereço","text"],["material","Material","text"],["observacoes","Observações","textarea"]
+  ]},
+  manutencoes:{title:"Editar manutenção",fields:[
+   ["cacamba_id","Caçamba","cacamba"],["data","Data","date"],["problema","Problema","text"],["custo","Custo","number"],
+   ["status","Status","choice",["Aberta","Em andamento","Concluída"]],["observacoes","Observações","textarea"]
+  ]}
  };
  const cfg=maps[table]; if(!cfg)return alert("Edição não disponível para esta aba.");
- const source=(table==="movimentacoes"||table==="manutencoes") ? await load(table) : (cache[table]||[]);
+ let source=cache[table]||[];
+ if(table==="movimentacoes"||table==="manutencoes") source=await load(table);
  const row=source.find(x=>x.id===id); if(!row)return alert("Registro não encontrado.");
+ editContext={table,id,cfg,row};
+
+ const fields=cfg.fields.map(([field,label,type,choices])=>{
+   const value=row[field]??"";
+   if(type==="choice") return `<div><label>${esc(label)}</label><select id="edit_${field}">${(choices||[]).map(v=>`<option value="${esc(v)}" ${String(value)===String(v)?"selected":""}>${esc(v||"Não informado")}</option>`).join("")}</select></div>`;
+   if(type==="cliente"||type==="caminhao"||type==="motorista"||type==="cacamba"){
+     let arr=[],text="";
+     if(type==="cliente"){arr=cache.clientes||[];text="nome";}
+     if(type==="caminhao"){arr=cache.caminhoes||[];text="identificacao";}
+     if(type==="motorista"){arr=cache.motoristas||[];text="nome";}
+     if(type==="cacamba"){arr=cache.cacambas||[];text="numero";}
+     return `<div><label>${esc(label)}</label><select id="edit_${field}"><option value="">Selecione</option>${arr.map(o=>`<option value="${esc(o.id)}" ${o.id===value?"selected":""}>${esc(o[text])}</option>`).join("")}</select></div>`;
+   }
+   if(type==="textarea") return `<div class="edit-full"><label>${esc(label)}</label><textarea id="edit_${field}" rows="4">${esc(value)}</textarea></div>`;
+   return `<div><label>${esc(label)}</label><input id="edit_${field}" type="${type==="number"?"number":type==="date"?"date":"text"}" value="${esc(value)}" ${type==="number"?'step="0.01"':""}></div>`;
+ }).join("");
+
+ $("editModal").innerHTML=`<div class="edit-box">
+   <div class="edit-head"><h2>✏️ ${esc(cfg.title)}</h2><button class="btn" onclick="closeEditModal()">✕</button></div>
+   <div class="grid">${fields}</div>
+   <div class="edit-actions"><button class="btn secondary" onclick="closeEditModal()">Cancelar</button><button class="btn primary" onclick="saveEditModal()">💾 Salvar alterações</button></div>
+ </div>`;
+ $("editModal").style.display="flex";
+}
+
+function closeEditModal(){ $("editModal").style.display="none"; editContext=null; }
+
+async function saveEditModal(){
+ if(!editContext)return;
+ const {table,id}=editContext;
  const next={};
- for(const [field,label,type,choices] of cfg.fields){
-   let current=row[field]??"";
-   if(type==="cliente") current=cache.clientes.find(x=>x.id===row[field])?.nome||"";
-   if(type==="caminhao") current=cache.caminhoes.find(x=>x.id===row[field])?.identificacao||"";
-   if(type==="motorista") current=cache.motoristas.find(x=>x.id===row[field])?.nome||"";
-   if(type==="cacamba") current=cache.cacambas.find(x=>x.id===row[field])?.numero||"";
-   const answer=askField(label,current,type,choices);
-   if(answer===null)return;
-   if(type==="cliente"){const f=findByLabel(cache.clientes,answer,"nome"); next[field]=f?.id||null;}
-   else if(type==="caminhao"){const f=findByLabel(cache.caminhoes,answer,"identificacao"); next[field]=f?.id||null;}
-   else if(type==="motorista"){const f=findByLabel(cache.motoristas,answer,"nome"); next[field]=f?.id||null;}
-   else if(type==="cacamba"){const f=findByLabel(cache.cacambas,answer,"numero"); next[field]=f?.id||null;}
-   else if(field==="custo"){next[field]=Number(answer.replace(",",".")||0);}
-   else next[field]=answer;
+ for(const [field] of editContext.cfg.fields){
+   const el=$("edit_"+field); if(!el)continue;
+   const v=el.value;
+   if(["cliente_id","caminhao_id","motorista_id","cacamba_id"].includes(field)) next[field]=v||null;
+   else if(field==="custo") next[field]=Number(String(v).replace(",",".")||0);
+   else next[field]=v;
  }
- if(table==="manutencoes" && next.custo!=null && !Number.isFinite(next.custo)) return alert("Custo inválido.");
  if(table==="cacambas" && !next.numero)return alert("O número da caçamba é obrigatório.");
  if(table==="clientes" && !next.nome)return alert("O nome do cliente é obrigatório.");
  if(table==="motoristas" && !next.nome)return alert("O nome do motorista é obrigatório.");
  if(table==="caminhoes" && !next.identificacao)return alert("A identificação do caminhão é obrigatória.");
  if(table==="ordens_servico" && !next.numero)return alert("O número da OS é obrigatório.");
+ if(table==="manutencoes" && (!Number.isFinite(next.custo)||next.custo<0))return alert("Custo inválido.");
+
  const {error}=await sb.from(table).update(next).eq("id",id);
- if(error){alert(error.message);return;}
+ if(error)return alert(error.message);
+ closeEditModal();
  await loadAll();
- if(document.getElementById("dashboard")?.classList.contains("active")) dashboard();
  if(table==="cacambas")cacambas();
  else if(table==="clientes")clientes();
  else if(table==="motoristas")motoristas();
@@ -268,6 +297,7 @@ async function editRecord(table,id){
  else if(table==="ordens_servico")ordens();
  else if(table==="movimentacoes")movimentacoes();
  else if(table==="manutencoes")manutencoes();
+ else if(table==="estado")estadoCacambas();
  alert("Registro atualizado com sucesso!");
 }
 
@@ -398,7 +428,7 @@ function tableCac(){
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
- await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),estado:val("cestado")||"Boa",observacoes:val("cobs")},cacambas);
+ await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),estado:val("cestado")||null,observacoes:val("cobs")},cacambas);
 }
 
 function estadoCacambas(){
