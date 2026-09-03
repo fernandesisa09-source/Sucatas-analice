@@ -6,22 +6,26 @@
 <title>Sucatas Analice — Controle de Caçambas</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f3f6f9;color:#222}
-header{background:linear-gradient(#7f9eb7,#1f527d);color:#fff;padding:18px;display:flex;align-items:center;gap:14px}
+*{box-sizing:border-box}
+body{font-family:Arial,sans-serif;margin:0;background:#f5f3f8;color:#4b4f52}
+header{background:linear-gradient(135deg,#55358a 0%,#4b2f7a 55%,#0a9a4a 100%);color:#fff;padding:18px;display:flex;align-items:center;gap:14px;box-shadow:0 3px 12px #55358a33}
 header img{width:64px;height:64px;object-fit:cover;border-radius:14px;background:#fff;padding:3px}
-h1{margin:0;font-size:25px}.sub{font-size:16px;margin-top:4px;color:#e5eef5}
-nav{display:flex;gap:7px;overflow:auto;background:#fff;padding:10px;position:sticky;top:0;z-index:5;box-shadow:0 1px 6px #0001}
-nav button,.btn{border:0;border-radius:10px;padding:12px 15px;font-weight:700;font-size:15px;background:#e8eef5;color:#111;white-space:nowrap}
-nav button.active,.primary{background:#1f527d;color:#fff}.danger{background:#d32f2f!important;color:#fff}.secondary{background:#e9eef3}
+h1{margin:0;font-size:25px}.sub{font-size:16px;margin-top:4px;color:#f0edf7}
+nav{display:flex;gap:7px;overflow:auto;background:#fff;padding:10px;position:sticky;top:0;z-index:5;box-shadow:0 1px 8px #55358a18}
+nav button,.btn{border:0;border-radius:10px;padding:12px 15px;font-weight:700;font-size:15px;background:#eeeaf4;color:#4b4f52;white-space:nowrap}
+nav button:hover,.btn:hover{filter:brightness(.97)}
+nav button.active,.primary{background:#55358a;color:#fff}
+.primary:hover{background:#472c76}
+.danger{background:#c83b3b!important;color:#fff}.secondary{background:#e9e5ef}
 main{padding:22px;max-width:1200px;margin:auto}.page{display:none}.page.active{display:block}
 .card{background:#fff;border-radius:16px;padding:18px;margin:12px 0;box-shadow:0 2px 12px #0000000b}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.stat{font-size:18px}.stat b{display:block;font-size:38px;margin-top:8px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}label{display:block;font-weight:700;margin-bottom:5px}
-input,select,textarea{width:100%;padding:11px;border:1px solid #ccd4dc;border-radius:9px;font-size:15px;background:#fff}
-table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;border-bottom:1px solid #e5e9ed;text-align:left}th{background:#f1f5f8}
-.tablewrap{overflow:auto}.actions{display:flex;gap:7px;flex-wrap:wrap}.small{color:#66717b;font-size:14px}.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#eef3f7}
-.login .card{width:100%;max-width:420px}.msg{padding:10px;border-radius:9px;margin:10px 0}.ok{background:#e5f6ea;color:#176b2c}.err{background:#fdeaea;color:#9b1c1c}
-.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#e7eef5;font-size:13px;font-weight:700}
+input,select,textarea{width:100%;padding:11px;border:1px solid #d6d0df;border-radius:9px;font-size:15px;background:#fff}
+table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;border-bottom:1px solid #e4dfea;text-align:left}th{background:#eeeaf4}
+.tablewrap{overflow:auto}.actions{display:flex;gap:7px;flex-wrap:wrap}.small{color:#68656b;font-size:14px}.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#f5f3f8}
+.login .card{width:100%;max-width:420px}.msg{padding:10px;border-radius:9px;margin:10px 0}.ok{background:#e5f6ea;color:#087a3b}.err{background:#fdeaea;color:#9b1c1c}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eeeaf4;font-size:13px;font-weight:700}
 @media(max-width:600px){main{padding:12px}header{padding:14px}header img{width:56px;height:56px}h1{font-size:22px}.stats{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -139,7 +143,27 @@ async function startApp(){
  $("userName").innerHTML=esc(p?.nome||session.user.email)+" <span class='badge'>"+esc(p?.papel||"usuário")+"</span>";
  await loadAll();show("dashboard");
 }
-async function load(table,cols="*"){const {data,error}=await sb.from(table).select(cols).order("created_at",{ascending:false});if(error)throw error;return data||[]}
+function sortRecords(table,arr){
+ const a=[...(arr||[])];
+ const nameField={clientes:"nome",motoristas:"nome",caminhoes:"identificacao"}[table];
+ if(table==="cacambas" || table==="ordens_servico"){
+   const field=table==="cacambas"?"numero":"numero";
+   return a.sort((x,y)=>{
+     const nx=parseFloat(String(x[field]??"").replace(/[^0-9.-]/g,""));
+     const ny=parseFloat(String(y[field]??"").replace(/[^0-9.-]/g,""));
+     if(Number.isFinite(nx)&&Number.isFinite(ny)&&nx!==ny)return nx-ny;
+     return String(x[field]??"").localeCompare(String(y[field]??""),"pt-BR",{numeric:true,sensitivity:"base"});
+   });
+ }
+ if(nameField)return a.sort((x,y)=>String(x[nameField]??"").localeCompare(String(y[nameField]??""),"pt-BR",{numeric:true,sensitivity:"base"}));
+ if(table==="movimentacoes" || table==="manutencoes")return a.sort((x,y)=>String(y.data??y.created_at??"").localeCompare(String(x.data??x.created_at??"")));
+ return a;
+}
+async function load(table,cols="*"){
+ const {data,error}=await sb.from(table).select(cols);
+ if(error)throw error;
+ return sortRecords(table,data||[]);
+}
 async function loadAll(){
  try{
   cache.cacambas=await load("cacambas");
@@ -232,6 +256,7 @@ async function editRecord(table,id){
  const {error}=await sb.from(table).update(next).eq("id",id);
  if(error){alert(error.message);return;}
  await loadAll();
+ if(document.getElementById("dashboard")?.classList.contains("active")) dashboard();
  if(table==="cacambas")cacambas();
  else if(table==="clientes")clientes();
  else if(table==="motoristas")motoristas();
@@ -244,7 +269,14 @@ async function editRecord(table,id){
 
 async function delRow(table,id,after){if(!confirm("Excluir este registro?"))return;const {error}=await sb.from(table).delete().eq("id",id);if(error)alert(error.message);else{await loadAll();after?.()}}
 function options(arr,idField,labelField,blank="Selecione"){
- return `<option value="">${blank}</option>`+arr.map(x=>`<option value="${x[idField]}">${esc(x[labelField])}</option>`).join("")
+ const sorted=[...(arr||[])].sort((a,b)=>{
+   if(labelField==="numero"){
+     const na=parseFloat(String(a[labelField]??"").replace(/[^0-9.-]/g,"")), nb=parseFloat(String(b[labelField]??"").replace(/[^0-9.-]/g,""));
+     if(Number.isFinite(na)&&Number.isFinite(nb)&&na!==nb)return na-nb;
+   }
+   return String(a[labelField]??"").localeCompare(String(b[labelField]??""),"pt-BR",{numeric:true,sensitivity:"base"});
+ });
+ return `<option value="">${blank}</option>`+sorted.map(x=>`<option value="${x[idField]}">${esc(x[labelField])}</option>`).join("")
 }
 
 function renderPage(page){
@@ -274,12 +306,12 @@ function dashboard(){
    <div class="stats">
      <div class="card stat" style="cursor:pointer" onclick="showPatio('Analice')">
        🗑️ No pátio — Analice
-       <b>${c.filter(x=>x.status==="No pátio" && x.patio==="Analice").length}</b>
+       <b>${c.filter(x=>x.status==="No pátio" && String(x.patio||"").trim().toLowerCase()==="analice").length}</b>
        <span class="small">Toque para visualizar as caçambas</span>
      </div>
      <div class="card stat" style="cursor:pointer" onclick="showPatio('Estrada das Rosas')">
        🗑️ No pátio — Estrada das Rosas
-       <b>${c.filter(x=>x.status==="No pátio" && x.patio==="Estrada das Rosas").length}</b>
+       <b>${c.filter(x=>x.status==="No pátio" && String(x.patio||"").trim().toLowerCase()==="estrada das rosas").length}</b>
        <span class="small">Toque para visualizar as caçambas</span>
      </div>
    </div>
@@ -315,10 +347,10 @@ function showDashboardItems(filter){
  el.scrollIntoView({behavior:"smooth",block:"start"});
 }
 function showPatio(patio){
- const list=(cache.cacambas||[]).filter(x=>x.status==="No pátio" && x.patio===patio);
+ const list=(cache.cacambas||[]).filter(x=>x.status==="No pátio" && String(x.patio||"").trim().toLowerCase()===String(patio).trim().toLowerCase());
  const el=$("patioList");
  if(!el)return;
- el.innerHTML=`<div style="padding:14px;background:#f6f8fb;border-radius:12px">
+ el.innerHTML=`<div style="padding:14px;background:linear-gradient(135deg,#f3eef9,#eef8f2);border-radius:12px">
    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
      <h3 style="margin:0">🏭 Pátio ${esc(patio)}</h3>
      <button type="button" class="btn secondary" onclick="document.getElementById('patioList').innerHTML=''">Fechar</button>
