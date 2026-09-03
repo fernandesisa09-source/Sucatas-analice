@@ -6,26 +6,22 @@
 <title>Sucatas Analice — Controle de Caçambas</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-*{box-sizing:border-box}
-body{font-family:Arial,sans-serif;margin:0;background:#f5f3f8;color:#4b4f52}
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f5f3f8;color:#4b4f52}
 header{background:linear-gradient(135deg,#55358a 0%,#4b2f7a 55%,#0a9a4a 100%);color:#fff;padding:18px;display:flex;align-items:center;gap:14px;box-shadow:0 3px 12px #55358a33}
 header img{width:64px;height:64px;object-fit:cover;border-radius:14px;background:#fff;padding:3px}
 h1{margin:0;font-size:25px}.sub{font-size:16px;margin-top:4px;color:#f0edf7}
 nav{display:flex;gap:7px;overflow:auto;background:#fff;padding:10px;position:sticky;top:0;z-index:5;box-shadow:0 1px 8px #55358a18}
 nav button,.btn{border:0;border-radius:10px;padding:12px 15px;font-weight:700;font-size:15px;background:#eeeaf4;color:#4b4f52;white-space:nowrap}
-nav button:hover,.btn:hover{filter:brightness(.97)}
-nav button.active,.primary{background:#55358a;color:#fff}
-.primary:hover{background:#472c76}
-.danger{background:#c83b3b!important;color:#fff}.secondary{background:#e9e5ef}
+nav button.active,.primary{background:#55358a;color:#fff}.danger{background:#c83b3b!important;color:#fff}.secondary{background:#e9e5ef}
 main{padding:22px;max-width:1200px;margin:auto}.page{display:none}.page.active{display:block}
 .card{background:#fff;border-radius:16px;padding:18px;margin:12px 0;box-shadow:0 2px 12px #0000000b}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.stat{font-size:18px}.stat b{display:block;font-size:38px;margin-top:8px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}label{display:block;font-weight:700;margin-bottom:5px}
-input,select,textarea{width:100%;padding:11px;border:1px solid #d6d0df;border-radius:9px;font-size:15px;background:#fff}
-table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;border-bottom:1px solid #e4dfea;text-align:left}th{background:#eeeaf4}
-.tablewrap{overflow:auto}.actions{display:flex;gap:7px;flex-wrap:wrap}.small{color:#68656b;font-size:14px}.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#f5f3f8}
-.login .card{width:100%;max-width:420px}.msg{padding:10px;border-radius:9px;margin:10px 0}.ok{background:#e5f6ea;color:#087a3b}.err{background:#fdeaea;color:#9b1c1c}
-.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eeeaf4;font-size:13px;font-weight:700}
+input,select,textarea{width:100%;padding:11px;border:1px solid #ccd4dc;border-radius:9px;font-size:15px;background:#fff}
+table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;border-bottom:1px solid #e5e9ed;text-align:left}th{background:#f1f5f8}
+.tablewrap{overflow:auto}.actions{display:flex;gap:7px;flex-wrap:wrap}.small{color:#66717b;font-size:14px}.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#eef3f7}
+.login .card{width:100%;max-width:420px}.msg{padding:10px;border-radius:9px;margin:10px 0}.ok{background:#e5f6ea;color:#176b2c}.err{background:#fdeaea;color:#9b1c1c}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#e7eef5;font-size:13px;font-weight:700}
 @media(max-width:600px){main{padding:12px}header{padding:14px}header img{width:56px;height:56px}h1{font-size:22px}.stats{grid-template-columns:1fr 1fr}}
 </style>
 </head>
@@ -103,11 +99,17 @@ function show(page){
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.page));
 
 async function login(){
- const email=val("email"), password=$("password").value;
- if(!email||!password)return msg("loginMsg","Informe e-mail e senha.");
- const {error}=await sb.auth.signInWithPassword({email,password});
- if(error)return msg("loginMsg",error.message);
- await startApp();
+ try{
+  const email=val("email"), password=$("password").value;
+  if(!email||!password)return msg("loginMsg","Informe e-mail e senha.");
+  msg("loginMsg","Entrando...",false);
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  if(error)return msg("loginMsg",error.message);
+  await startApp();
+ }catch(e){
+  console.error(e);
+  msg("loginMsg","Não foi possível entrar. Verifique sua conexão e tente novamente.");
+ }
 }
 async function forgotPassword(){
  const email=val("email");
@@ -350,7 +352,7 @@ function showPatio(patio){
  const list=(cache.cacambas||[]).filter(x=>x.status==="No pátio" && String(x.patio||"").trim().toLowerCase()===String(patio).trim().toLowerCase());
  const el=$("patioList");
  if(!el)return;
- el.innerHTML=`<div style="padding:14px;background:linear-gradient(135deg,#f3eef9,#eef8f2);border-radius:12px">
+ el.innerHTML=`<div style="padding:14px;background:#f6f8fb;border-radius:12px">
    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
      <h3 style="margin:0">🏭 Pátio ${esc(patio)}</h3>
      <button type="button" class="btn secondary" onclick="document.getElementById('patioList').innerHTML=''">Fechar</button>
@@ -396,52 +398,13 @@ async function addCacamba(){
 }
 
 function clientes(){
-  const rows = (cache.clientes||[]).map(x=>{
-    const qtd=(cache.cacambas||[]).filter(c=>{
-      if(c.cliente_id===x.id) return true;
-      if(c.cliente_id && x.id && String(c.cliente_id).toLowerCase()===String(x.id).toLowerCase()) return true;
-      return false;
-    }).length;
-    return `<tr>
-      <td>${esc(x.nome)}</td>
-      <td>${esc(x.responsavel)}</td>
-      <td>${esc(x.telefone)}</td>
-      <td>${esc(x.cidade)}</td>
-      <td><strong style="font-size:18px">${qtd}</strong></td>
-      <td>${esc(x.observacoes)}</td>
-      <td>
-        <button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button>
-        <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button>
-      </td>
-    </tr>`;
-  }).join("");
-
-  app.innerHTML=`
-    <h2>Clientes</h2>
-    <div class="card">
-      <form onsubmit="addCliente(event)">
-        <input id="clnome" placeholder="Nome do cliente" required>
-        <input id="clresp" placeholder="Responsável">
-        <input id="cltel" placeholder="Telefone">
-        <input id="clemail" placeholder="E-mail">
-        <input id="clcidade" placeholder="Cidade">
-        <textarea id="clobs" placeholder="Observações"></textarea>
-        <button class="btn primary">Cadastrar cliente</button>
-      </form>
-    </div>
-    <div class="card">
-      <div style="overflow:auto">
-        <table>
-          <tr>
-            <th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th>
-            <th>Caçambas</th><th>Observações</th><th>Ação</th>
-          </tr>
-          ${rows}
-        </table>
-      </div>
-    </div>`;
+ $("clientes").innerHTML=`<h2>👥 Clientes</h2><div class="card"><h3>Novo cliente</h3><div class="grid">
+ <div><label>Nome *</label><input id="cln"></div><div><label>Responsável</label><input id="clr"></div><div><label>Telefone</label><input id="clt"></div><div><label>E-mail</label><input id="cle"></div>
+ <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
+ </div><br><button class="btn primary" onclick="addCliente()">Cadastrar cliente</button></div>
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Caçambas</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><strong>${cache.cacambas.filter(c=>String(c.cliente_id||"")===String(x.id)).length}</strong></td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button></td></tr>`).join("")}</table></div>`;
 }
-function addCliente(){
+async function addCliente(){
  if(!val("cln"))return alert("Informe o nome do cliente.");
  await add("clientes",{nome:val("cln"),responsavel:val("clr"),telefone:val("clt"),email:val("cle"),endereco:val("clend"),numero:val("clnum"),bairro:val("clb"),cidade:val("clc"),uf:val("cluf"),cep:val("clcep"),observacoes:val("clobs"),ativo:true},clientes);
 }
@@ -533,6 +496,12 @@ async function forgotPassword(){
   if(error){ alert(error.message); return; }
   alert("Enviamos o link de redefinição de senha para seu e-mail.");
 }
+</script>
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+ const f=document.getElementById("login");
+ if(f) f.addEventListener("submit",e=>{e.preventDefault();login();});
+});
 </script>
 </body>
 </html>
