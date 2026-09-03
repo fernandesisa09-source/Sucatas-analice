@@ -497,6 +497,17 @@ function caminhoes(){
 }
 async function addCaminhao(){if(!val("ti"))return alert("Informe a identificação.");await add("caminhoes",{identificacao:val("ti"),placa:val("tp"),motorista_id:val("tm")||null,status:val("ts"),observacoes:val("tobs")},caminhoes)}
 
+
+function proximoNumeroOS(){
+ const lista=cache.ordens_servico||[];
+ let maior=0;
+ lista.forEach(o=>{
+   const m=String(o.numero||"").match(/\d+/);
+   if(m) maior=Math.max(maior,parseInt(m[0],10));
+ });
+ return "OS-"+String(maior+1).padStart(4,"0");
+}
+
 function ordens(){
  $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2><div class="card"><h3>Nova OS</h3><div class="grid">
  <div><label>Número *</label><input id="on"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
@@ -577,6 +588,18 @@ async function forgotPassword(){
 document.addEventListener("DOMContentLoaded",()=>{
  const f=document.getElementById("login");
  if(f) f.addEventListener("submit",e=>{e.preventDefault();login();});
+});
+</script>
+<script>
+document.addEventListener("click",function(ev){
+ const b=ev.target.closest("button");
+ if(b && b.textContent && b.textContent.includes("Ordens")){
+   setTimeout(()=>{
+    const el=document.getElementById("onumero");
+    if(el && !el.value) el.value=proximoNumeroOS();
+    if(el) el.readOnly=true;
+   },100);
+ }
 });
 </script>
 </body>
