@@ -392,17 +392,56 @@ function tableCac(){
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
- await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),patio:val("cp"),observacoes:val("cobs")},cacambas);
+ await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),observacoes:val("cobs")},cacambas);
 }
 
 function clientes(){
- $("clientes").innerHTML=`<h2>👥 Clientes</h2><div class="card"><h3>Novo cliente</h3><div class="grid">
- <div><label>Nome *</label><input id="cln"></div><div><label>Responsável</label><input id="clr"></div><div><label>Telefone</label><input id="clt"></div><div><label>E-mail</label><input id="cle"></div>
- <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
- </div><br><button class="btn primary" onclick="addCliente()">Cadastrar cliente</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button></td></tr>`).join("")}</table></div>`;
+  const rows = (cache.clientes||[]).map(x=>{
+    const qtd=(cache.cacambas||[]).filter(c=>{
+      if(c.cliente_id===x.id) return true;
+      if(c.cliente_id && x.id && String(c.cliente_id).toLowerCase()===String(x.id).toLowerCase()) return true;
+      return false;
+    }).length;
+    return `<tr>
+      <td>${esc(x.nome)}</td>
+      <td>${esc(x.responsavel)}</td>
+      <td>${esc(x.telefone)}</td>
+      <td>${esc(x.cidade)}</td>
+      <td><strong style="font-size:18px">${qtd}</strong></td>
+      <td>${esc(x.observacoes)}</td>
+      <td>
+        <button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button>
+        <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  app.innerHTML=`
+    <h2>Clientes</h2>
+    <div class="card">
+      <form onsubmit="addCliente(event)">
+        <input id="clnome" placeholder="Nome do cliente" required>
+        <input id="clresp" placeholder="Responsável">
+        <input id="cltel" placeholder="Telefone">
+        <input id="clemail" placeholder="E-mail">
+        <input id="clcidade" placeholder="Cidade">
+        <textarea id="clobs" placeholder="Observações"></textarea>
+        <button class="btn primary">Cadastrar cliente</button>
+      </form>
+    </div>
+    <div class="card">
+      <div style="overflow:auto">
+        <table>
+          <tr>
+            <th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th>
+            <th>Caçambas</th><th>Observações</th><th>Ação</th>
+          </tr>
+          ${rows}
+        </table>
+      </div>
+    </div>`;
 }
-async function addCliente(){
+function addCliente(){
  if(!val("cln"))return alert("Informe o nome do cliente.");
  await add("clientes",{nome:val("cln"),responsavel:val("clr"),telefone:val("clt"),email:val("cle"),endereco:val("clend"),numero:val("clnum"),bairro:val("clb"),cidade:val("clc"),uf:val("cluf"),cep:val("clcep"),observacoes:val("clobs"),ativo:true},clientes);
 }
