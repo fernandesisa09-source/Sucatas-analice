@@ -59,6 +59,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <nav>
  <button data-page="dashboard" class="active">📊 Painel</button>
  <button data-page="cacambas">🗑️ Caçambas</button>
+ <button data-page="estado">📌 Estado</button>
  <button data-page="clientes">👥 Clientes</button>
  <button data-page="motoristas">👤 Motoristas</button>
  <button data-page="caminhoes">🚛 Caminhões</button>
@@ -69,6 +70,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <main>
 <section id="dashboard" class="page active"></section>
 <section id="cacambas" class="page"></section>
+<section id="estado" class="page"></section>
 <section id="clientes" class="page"></section>
 <section id="motoristas" class="page"></section>
 <section id="caminhoes" class="page"></section>
@@ -191,7 +193,7 @@ async function editRecord(table,id){
   cacambas:{
    title:"Editar caçamba",
    fields:[
-    ["numero","Número","text"],["status","Status","text",["Disponível","No pátio","No cliente","Manutenção"]],
+    ["numero","Número","text"],["status","Status","text",["Disponível","No pátio","No cliente","Manutenção"]],["estado","Estado da caçamba","text",["Não informado","Nova","Boa","Com avarias","Danificada","Em manutenção","Inutilizada"]],
     ["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
     ["material","Material","text"],["endereco_atual","Endereço atual","text"],["patio","Pátio","text",["Analice","Estrada das Rosas"]],
     ["observacoes","Observações","text"]
@@ -284,6 +286,7 @@ function options(arr,idField,labelField,blank="Selecione"){
 function renderPage(page){
  if(page==="dashboard")dashboard();
  if(page==="cacambas")cacambas();
+ if(page==="estado")estadoCacambas();
  if(page==="clientes")clientes();
  if(page==="motoristas")motoristas();
  if(page==="caminhoes")caminhoes();
@@ -375,6 +378,7 @@ function cacambas(){
  <div class="card"><h3>Nova caçamba</h3><div class="grid">
  <div><label>Número *</label><input id="cn"></div>
  <div><label>Status</label><select id="cs"><option>Disponível</option><option>No pátio</option><option>No cliente</option><option>Manutenção</option></select></div>
+ <div><label>Estado da caçamba</label><select id="cestado"><option value="">Não informado</option><option>Nova</option><option>Boa</option><option>Com avarias</option><option>Danificada</option><option>Em manutenção</option><option>Inutilizada</option></select></div>
  <div><label>Cliente</label><select id="cc">${options(cache.clientes,"id","nome")}</select></div>
  <div><label>Caminhão</label><select id="ct">${options(cache.caminhoes,"id","identificacao")}</select></div>
  <div><label>Motorista</label><select id="cm">${options(cache.motoristas,"id","nome")}</select></div>
@@ -388,13 +392,32 @@ function tableCac(){
  const q=(val("csearch")||"").toLowerCase();
  const rows=cache.cacambas.filter(x=>{
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
-  return [x.numero,x.status,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
+  return [x.numero,x.status,x.estado,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
- await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),observacoes:val("cobs")},cacambas);
+ await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),estado:val("cestado")||"Boa",observacoes:val("cobs")},cacambas);
+}
+
+function estadoCacambas(){
+ const estados=["Nova","Boa","Com avarias","Danificada","Em manutenção","Inutilizada","Não informado"];
+ const counts={};
+ estados.forEach(e=>counts[e]=0);
+ (cache.cacambas||[]).forEach(c=>{
+   const e=c.estado||"Não informado";
+   counts[e]=(counts[e]||0)+1;
+ });
+ const cards=estados.map(e=>`<div class="card stat"><span>${esc(e)}</span><b>${counts[e]||0}</b></div>`).join("");
+ const rows=[...cache.cacambas].sort((a,b)=>(Number(a.numero)||0)-(Number(b.numero)||0)).map(c=>{
+   const cl=cache.clientes.find(x=>x.id===c.cliente_id)?.nome||"";
+   return `<tr><td>${esc(c.numero)}</td><td>${esc(c.estado||"Não informado")}</td><td>${esc(c.status||"")}</td><td>${esc(cl)}</td><td>${esc(c.patio||"")}</td><td><button class="btn" onclick="editRecord('cacambas','${c.id}')">Editar</button></td></tr>`;
+ }).join("");
+ $("estado").innerHTML=`<h2>📌 Estado das Caçambas</h2>
+ <p class="small">Aqui você consegue acompanhar a conservação de cada caçamba.</p>
+ <div class="stats">${cards}</div>
+ <div class="card tablewrap"><table><tr><th>Nº</th><th>Estado</th><th>Status</th><th>Cliente</th><th>Pátio</th><th>Ação</th></tr>${rows}</table></div>`;
 }
 
 function clientes(){
