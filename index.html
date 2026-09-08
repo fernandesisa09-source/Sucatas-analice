@@ -358,20 +358,79 @@ function adPut(x){localStorage.setItem(AD_KEY,JSON.stringify(x))}
 function adSaldo(a){return Math.max(0,Number(a.valor||0)-(a.abatimentos||[]).reduce((s,x)=>s+Number(x.valor||0),0))}
 function adR$(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}
 function adEsc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function adNumeroBR(v){
+  let s=String(v??"").replace(/\D/g,"");
+  if(!s)return "";
+  s=(Number(s)/100).toFixed(2);
+  return s.replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+}
+function adParseBR(v){
+  const s=String(v??"").trim();
+  if(!s)return 0;
+  return Number(s.replace(/\./g,"").replace(",","."));
+}
+function adDataBR(v){
+  if(!v)return "";
+  const s=String(v);
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m)return `${m[3]}/${m[2]}/${m[1]}`;
+  return s;
+}
 function adRender(){
  const el=$("adiantamentos");if(!el)return;
- el.innerHTML=`<h2>💰 Adiantamentos</h2><div class="card"><p class="small">Controle particular dos seus adiantamentos. Estes dados ficam somente neste dispositivo.</p><div class="grid"><div><label>Pessoa *</label><input id="adp"></div><div><label>Data *</label><input id="add" placeholder="DD/MM/AAAA" value=""></div><div><label>Valor *</label><input id="adv" type="number" min="0.01" step="0.01"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="ado"></textarea></div></div><br><button class="btn primary" onclick="adAdd()">💾 Registrar adiantamento</button></div><div class="card"><h3>📋 Meus adiantamentos</h3><div id="adlist"></div></div>`;
+ el.innerHTML=`<h2>💰 Adiantamentos</h2>
+ <div class="card"><p class="small">Controle particular dos seus adiantamentos. Estes dados ficam somente neste dispositivo.</p>
+ <div class="grid">
+ <div><label>Pessoa *</label><input id="adp"></div>
+ <div><label>Data *</label><input id="add" type="date" value="${today()}"></div>
+ <div><label>Valor *</label><input id="adv" inputmode="decimal" placeholder="0,00" oninput="this.value=adNumeroBR(this.value)"></div>
+ <div style="grid-column:1/-1"><label>Observações</label><textarea id="ado" rows="3" placeholder="Ex.: motivo do adiantamento, combinado com a pessoa, forma de desconto..."></textarea></div>
+ </div><br><button class="btn primary" onclick="adAdd()">💾 Registrar adiantamento</button></div>
+ <div class="card"><h3>📋 Meus adiantamentos</h3><div id="adlist"></div></div>`;
  const list=adList().sort((a,b)=>String(b.data).localeCompare(String(a.data)));
- $("adlist").innerHTML=list.map(a=>{const s=adSaldo(a),abat=Number(a.valor)-s;return `<div class="card"><b>${adEsc(a.pessoa)}</b> — ${adEsc(a.data)}<br>Adiantado: <b>${adR$(a.valor)}</b> | Abatido: <b>${adR$(abat)}</b> | Saldo: <b>${adR$(s)}</b> — ${s<=0?"🟢 QUITADO":"🟡 EM ABERTO"}<br><button class="btn secondary" onclick="adAbater('${a.id}')">➕ Abater</button> <button class="btn secondary" onclick="adPrint('${a.id}')">🖨️</button> <button class="btn danger" onclick="adDel('${a.id}')">Excluir</button>${(a.abatimentos||[]).length?`<div class="small"><b>Abatimentos:</b> ${a.abatimentos.map(x=>adEsc(x.data)+" — "+adR$(x.valor)).join(" | ")}</div>`:""}</div>`}).join("")||"<p class='small'>Nenhum adiantamento cadastrado.</p>";
+ $("adlist").innerHTML=list.map(a=>{
+   const s=adSaldo(a),abat=Number(a.valor)-s;
+   return `<div class="card">
+   <b>${adEsc(a.pessoa)}</b> — ${adDataBR(a.data)}<br>
+   Adiantado: <b>${adR$(a.valor)}</b> | Abatido: <b>${adR$(abat)}</b> | Saldo: <b>${adR$(s)}</b> — ${s<=0?"🟢 QUITADO":"🟡 EM ABERTO"}
+   ${a.observacoes?`<div class="small" style="margin-top:8px"><b>Observações:</b> ${adEsc(a.observacoes)}</div>`:""}
+   <br><button class="btn secondary" onclick="adAbater('${a.id}')">➕ Abater</button>
+   <button class="btn secondary" onclick="adPrint('${a.id}')">🖨️</button>
+   <button class="btn danger" onclick="adDel('${a.id}')">Excluir</button>
+   ${(a.abatimentos||[]).length?`<div class="small"><b>Abatimentos:</b> ${a.abatimentos.map(x=>adDataBR(x.data)+" — "+adR$(x.valor)).join(" | ")}</div>`:""}
+   </div>`;
+ }).join("")||"<p class='small'>Nenhum adiantamento cadastrado.</p>";
 }
-function adAdd(){const pessoa=$("adp").value.trim(),dataBr=$("add").value.trim(),valor=Number($("adv").value);
-  const p=dataBr.split("/");
-  const data=(p.length===3 && p[0].length===2) ? `${p[2]}-${p[1]}-${p[0]}` : dataBr;if(!pessoa||!data||!valor)return alert("Preencha pessoa, data e valor.");const a=adList();a.push({id:crypto.randomUUID(),pessoa,data,valor,observacoes:$("ado").value.trim(),abatimentos:[]});adPut(a);adRender()}
-function adAbater(id){const lista=adList();const a=lista.find(x=>String(x.id)===String(id));if(!a)return;const saldo=adSaldo(a);if(saldo<=0)return alert("Já está quitado.");const v=prompt("Valor do abatimento:",saldo.toFixed(2).replace(".",","));if(v===null)return;const texto=String(v).trim();const n=Number(texto.includes(",")?texto.replace(/\./g,"").replace(",","."):texto);if(!Number.isFinite(n)||n<=0||n>saldo)return alert("Valor inválido. Informe um valor até o saldo restante.");const d=prompt("Data do abatimento (DD/MM/AAAA):",hojeBR());if(!d)return;a.abatimentos=a.abatimentos||[];const partes=d.split("/");
-  const dataISO=partes.length===3 && partes[0].length===2 ? `${partes[2]}-${partes[1]}-${partes[0]}` : d;
-  a.abatimentos.push({id:crypto.randomUUID(),valor:n,data:dataISO});adPut(lista);adRender();alert("Abatimento salvo com sucesso!")}
+function adAdd(){
+ const pessoa=$("adp").value.trim(),data=$("add").value,valor=adParseBR($("adv").value),observacoes=$("ado").value.trim();
+ if(!pessoa||!data||!valor)return alert("Preencha pessoa, data e valor.");
+ const a=adList();
+ a.push({id:crypto.randomUUID(),pessoa,data,valor,observacoes,abatimentos:[]});
+ adPut(a);
+ adRender();
+}
+function adAbater(id){
+ const lista=adList(),a=lista.find(x=>x.id===id);if(!a)return;
+ const saldo=adSaldo(a);if(saldo<=0)return alert("Já está quitado.");
+ const v=prompt("Valor do abatimento (ex.: 1.500,00):",adR$(saldo).replace("R$ ",""));
+ if(v===null)return;
+ const n=adParseBR(v);
+ if(!Number.isFinite(n)||n<=0||n>saldo)return alert("Valor inválido. Informe um valor até o saldo restante.");
+ const d=prompt("Data do abatimento (AAAA-MM-DD):",new Date().toISOString().slice(0,10));
+ if(!d)return;
+ a.abatimentos=a.abatimentos||[];
+ a.abatimentos.push({id:crypto.randomUUID(),valor:n,data:d});
+ adPut(lista);
+ adRender();
+}
 function adDel(id){if(confirm("Excluir este adiantamento?")){adPut(adList().filter(x=>x.id!==id));adRender()}}
-function adPrint(id){const a=adList().find(x=>x.id===id);if(!a)return;const s=adSaldo(a),w=window.open("","_blank");if(!w)return alert("Permita pop-ups.");w.document.write("<html><head><meta charset='utf-8'><title>Adiantamento</title><style>body{font-family:Arial;margin:35px}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}</style></head><body><h1>Ficha de Adiantamento</h1><p><b>Pessoa:</b> "+adEsc(a.pessoa)+"</p><p><b>Data:</b> "+adEsc(a.data)+"</p><p><b>Valor:</b> "+adR$(a.valor)+"</p><table><tr><th>Data</th><th>Abatimento</th></tr>"+a.abatimentos.map(x=>"<tr><td>"+adEsc(x.data)+"</td><td>"+adR$(x.valor)+"</td></tr>").join("")+"</table><p><b>Saldo:</b> "+adR$(s)+" — "+(s<=0?"QUITADO":"EM ABERTO")+"</p></body></html>");w.document.close();setTimeout(()=>w.print(),250)}
+function adPrint(id){
+ const a=adList().find(x=>x.id===id);if(!a)return;
+ const s=adSaldo(a),w=window.open("","_blank");if(!w)return alert("Permita pop-ups.");
+ const obs=a.observacoes?`<p><b>Observações:</b> ${adEsc(a.observacoes)}</p>`:"";
+ w.document.write("<html><head><meta charset='utf-8'><title>Adiantamento</title><style>body{font-family:Arial;margin:35px}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}</style></head><body><h1>Ficha de Adiantamento</h1><p><b>Pessoa:</b> "+adEsc(a.pessoa)+"</p><p><b>Data:</b> "+adDataBR(a.data)+"</p><p><b>Valor:</b> "+adR$(a.valor)+"</p>"+obs+"<table><tr><th>Data</th><th>Abatimento</th></tr>"+(a.abatimentos||[]).map(x=>"<tr><td>"+adDataBR(x.data)+"</td><td>"+adR$(x.valor)+"</td></tr>").join("")+"</table><p><b>Saldo:</b> "+adR$(s)+" — "+(s<=0?"QUITADO":"EM ABERTO")+"</p></body></html>");
+ w.document.close();setTimeout(()=>w.print(),250);
+}
 
 function renderPage(page){
  if(page==="dashboard")dashboard();
