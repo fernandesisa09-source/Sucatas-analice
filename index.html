@@ -642,25 +642,51 @@ function caminhoes(){
 async function addCaminhao(){if(!val("ti"))return alert("Informe a identificação.");await add("caminhoes",{identificacao:val("ti"),placa:val("tp"),motorista_id:val("tm")||null,status:val("ts"),observacoes:val("tobs")},caminhoes)}
 
 
-function proximoNumeroOS(){
- const lista=cache.ordens_servico||[];
+async function proximoNumeroOS(){
+ const {data,error}=await sb.from("ordens_servico").select("numero");
+ if(error) return proximoNumeroOSLocal();
+ let maior=0;
+ (data||[]).forEach(o=>{
+   const m=String(o.numero||"").match(/(\d+)\s*$/);
+   if(m) maior=Math.max(maior,parseInt(m[1],10));
+ });
+ return "OS-"+String(maior+1).padStart(4,"0");
+}
+function proximoNumeroOSLocal(){
+ const lista=cache.ordens_servico||cache.ordens||[];
  let maior=0;
  lista.forEach(o=>{
-   const m=String(o.numero||"").match(/\d+/);
-   if(m) maior=Math.max(maior,parseInt(m[0],10));
+   const m=String(o.numero||"").match(/(\d+)\s*$/);
+   if(m) maior=Math.max(maior,parseInt(m[1],10));
  });
  return "OS-"+String(maior+1).padStart(4,"0");
 }
 
-function ordens(){
+async function ordens(){
+ const numeroNovo=await proximoNumeroOS();
  $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2><div class="card"><h3>Nova OS</h3><div class="grid">
- <div><label>Número *</label><input id="on" readonly placeholder="Gerado automaticamente"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
+ <div><label>Número *</label><input id="on" readonly value="${esc(numeroNovo)}"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
  </div><br><button class="btn primary" onclick="addOS()">Criar ordem</button></div>
  <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id||x.row_id||x.ordem_id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addOS(){
- if(!val("on"))document.getElementById("on").value=proximoNumeroOS();
- await add("ordens_servico",{numero:(val("on")||proximoNumeroOS()),cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:val("ode")||null,data_retirada_prevista:val("odr")||null,status:val("ost"),observacoes:val("oobs")},ordens);
+ const dados={cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:val("ode")||null,data_retirada_prevista:val("odr")||null,status:val("ost"),observacoes:val("oobs")};
+ let numero=await proximoNumeroOS();
+ for(let tentativa=0;tentativa<3;tentativa++){
+   const {error}=await sb.from("ordens_servico").insert({...dados,numero});
+   if(!error){
+     await loadAll();
+     await ordens();
+     alert("Ordem criada com sucesso: "+numero);
+     return;
+   }
+   if(!String(error.message||"").toLowerCase().includes("duplicate key") || !String(error.message||"").includes("ordens_servico_numero_key")){
+     alert(error.message);
+     return;
+   }
+   numero=await proximoNumeroOS();
+ }
+ alert("Não foi possível gerar um número único para a OS. Tente novamente.");
 }
 
 function movimentacoes(){
