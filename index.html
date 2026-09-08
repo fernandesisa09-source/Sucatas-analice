@@ -39,7 +39,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
  td:last-child,th:last-child{display:none!important}
  .edit-modal{display:none!important}
 }
-</style>
+.quick-history{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:10px 12px;border:1px solid #ddd;border-radius:10px;background:#fafafa}.quick-history span{padding:4px 8px;background:#fff}.quick-history small{color:#777}</style>
 </head>
 <body>
 
@@ -109,6 +109,84 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function msg(id,text,ok=false){$(id).innerHTML=`<div class="msg ${ok?'ok':'err'}">${esc(text)}</div>`}
 function val(id){return $(id)?.value?.trim()||""}
 function today(){return new Date().toISOString().slice(0,10)}
+
+
+function carregarAdiantamentos(){
+ try{return JSON.parse(localStorage.getItem("sucatas_adiantamentos")||"[]");}catch(e){return [];}
+}
+function guardarAdiantamentos(lista){localStorage.setItem("sucatas_adiantamentos",JSON.stringify(lista));}
+function moeda(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
+function salvarAdiantamento(ev){
+ ev.preventDefault();
+ const lista=carregarAdiantamentos();
+ const id=document.getElementById("aid").value||crypto.randomUUID();
+ const atual={id,pessoa:document.getElementById("apessoa").value.trim(),data:document.getElementById("adata").value,
+ valor:Number(document.getElementById("avalor").value),observacoes:document.getElementById("aobs").value.trim(),abatimentos:[]};
+ const old=lista.find(x=>x.id===id);
+ if(old)atual.abatimentos=old.abatimentos||[];
+ const idx=lista.findIndex(x=>x.id===id);
+ if(idx>=0)lista[idx]=atual;else lista.push(atual);
+ guardarAdiantamentos(lista); limparFormAdiantamento(); renderAdiantamentos();
+}
+function limparFormAdiantamento(){
+ ["aid","apessoa","adata","avalor","aobs"].forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});
+}
+function saldoAdiantamento(a){return Math.max(0,Number(a.valor||0)-(a.abatimentos||[]).reduce((s,x)=>s+Number(x.valor||0),0));}
+function editarAdiantamento(id){
+ const a=carregarAdiantamentos().find(x=>x.id===id);if(!a)return;
+ document.getElementById("aid").value=a.id;document.getElementById("apessoa").value=a.pessoa||"";
+ document.getElementById("adata").value=a.data||"";document.getElementById("avalor").value=a.valor||"";
+ document.getElementById("aobs").value=a.observacoes||"";
+ document.getElementById("page-adiantamentos").scrollIntoView({behavior:"smooth"});
+}
+function excluirAdiantamento(id){
+ if(!confirm("Excluir este adiantamento?"))return;
+ guardarAdiantamentos(carregarAdiantamentos().filter(x=>x.id!==id));renderAdiantamentos();
+}
+function abaterAdiantamento(id){
+ const lista=carregarAdiantamentos(),a=lista.find(x=>x.id===id);if(!a)return;
+ const saldo=saldoAdiantamento(a); if(saldo<=0)return alert("Este adiantamento já está quitado.");
+ const valor=prompt("Valor do abatimento nesta entrega:",saldo.toFixed(2).replace(".",","));
+ if(valor===null)return;
+ const n=Number(String(valor).replace(/\./g,"").replace(",","."));
+ if(!n||n<=0||n>saldo)return alert("Informe um valor válido, até o saldo restante.");
+ const data=prompt("Data do abatimento (AAAA-MM-DD):",new Date().toISOString().slice(0,10));
+ if(!data)return;
+ a.abatimentos=a.abatimentos||[];a.abatimentos.push({id:crypto.randomUUID(),valor:n,data});
+ guardarAdiantamentos(lista);renderAdiantamentos();
+}
+function imprimirAdiantamento(id){
+ const a=carregarAdiantamentos().find(x=>x.id===id);if(!a)return alert("Adiantamento não encontrado.");
+ const abat=a.abatimentos||[], total=abat.reduce((s,x)=>s+Number(x.valor||0),0), saldo=Math.max(0,Number(a.valor||0)-total);
+ const w=window.open("","_blank");if(!w)return alert("Permita pop-ups para imprimir.");
+ const escp=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Adiantamento</title><style>
+ body{font-family:Arial;margin:35px;color:#333}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}
+ table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #ddd;padding:8px;text-align:left}
+ .saldo{font-size:20px;margin:20px 0}.assin{margin-top:70px;display:flex;justify-content:space-around;text-align:center}
+ </style></head><body><h1>Ficha de Adiantamento</h1>
+ <p><b>Pessoa:</b> ${escp(a.pessoa)}</p><p><b>Data:</b> ${escp(a.data)}</p><p><b>Valor:</b> ${moeda(a.valor)}</p>
+ <table><tr><th>Data</th><th>Abatimento</th></tr>${abat.map(x=>`<tr><td>${escp(x.data)}</td><td>${moeda(x.valor)}</td></tr>`).join("")||"<tr><td colspan='2'>Nenhum abatimento</td></tr>"}</table>
+ <p class="saldo"><b>Total abatido:</b> ${moeda(total)} &nbsp;&nbsp; <b>Saldo:</b> ${moeda(saldo)} — ${saldo<=0?"QUITADO":"EM ABERTO"}</p>
+ <p><b>Observações:</b> ${escp(a.observacoes||"")}</p><div class="assin"><div>________________________<br>Responsável</div><div>________________________<br>Cliente</div></div>
+ </body></html>`);w.document.close();setTimeout(()=>w.print(),300);
+}
+function renderAdiantamentos(){
+ const el=document.getElementById("listaAdiantamentos");if(!el)return;
+ const lista=carregarAdiantamentos().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+ el.innerHTML=lista.map(a=>{
+  const saldo=saldoAdiantamento(a), total=Number(a.valor||0)-saldo;
+  return `<div class="card" style="margin:10px 0"><b>${esc(a.pessoa)}</b> — ${esc(a.data)}<br>
+  Adiantado: <b>${moeda(a.valor)}</b> | Abatido: <b>${moeda(total)}</b> | Saldo: <b>${moeda(saldo)}</b>
+  <span style="margin-left:8px">${saldo<=0?"🟢 QUITADO":"🟡 EM ABERTO"}</span>
+  <div style="margin-top:8px"><button class="btn secondary" onclick="abaterAdiantamento('${a.id}')">➕ Abater</button>
+  <button class="btn secondary" onclick="editarAdiantamento('${a.id}')">✏️ Editar</button>
+  <button class="btn secondary" onclick="imprimirAdiantamento('${a.id}')">🖨️</button>
+  <button class="btn danger" onclick="excluirAdiantamento('${a.id}')">Excluir</button></div>
+  ${(a.abatimentos||[]).length?`<div style="margin-top:8px"><b>Abatimentos:</b> ${(a.abatimentos||[]).map(x=>`${esc(x.data)} — ${moeda(x.valor)}`).join(" | ")}</div>`:""}
+  </div>`;
+ }).join("")||"<p class='muted'>Nenhum adiantamento cadastrado.</p>";
+}
 
 function imprimirItem(table,id){
  const lista = cache[table] || (table==="ordens_servico" ? (cache.ordens||[]) : []);
@@ -348,6 +426,39 @@ function renderPage(page){
  if(page==="movimentacoes")movimentacoes();
  if(page==="manutencoes")manutencoes();
 }
+
+function chaveHistoricoCacamba(clienteId){return "cacamba_anterior_"+String(clienteId||"");}
+function obterHistoricoCacamba(clienteId){
+ try{return JSON.parse(localStorage.getItem(chaveHistoricoCacamba(clienteId))||"null");}catch(e){return null;}
+}
+function salvarHistoricoCacamba(clienteId,anterior,atual){
+ if(!clienteId)return;
+ localStorage.setItem(chaveHistoricoCacamba(clienteId),JSON.stringify({
+  anterior_id:anterior?.id||null, anterior_numero:anterior?.numero||null,
+  atual_id:atual?.id||null, atual_numero:atual?.numero||null,
+  data:new Date().toISOString()
+ }));
+}
+function atualizarHistoricoCacambas(){
+ const lista=cache.cacambas||[], grupos={};
+ lista.forEach(c=>{if(c.cliente_id)(grupos[c.cliente_id]||=[]).push(c);});
+ Object.keys(grupos).forEach(cid=>{
+  const arr=grupos[cid].slice().sort((a,b)=>String(b.data_colocacao||b.updated_at||b.created_at||"").localeCompare(String(a.data_colocacao||a.updated_at||a.created_at||"")));
+  const atual=arr[0], anterior=arr[1]||null;
+  if(atual&&anterior)salvarHistoricoCacamba(cid,anterior,atual);
+ });
+}
+function renderHistoricoCacambasRapido(){
+ const el=document.getElementById("historicoCacambasRapido"); if(!el)return;
+ atualizarHistoricoCacambas();
+ const clientes=cache.clientes||[], ca=cache.cacambas||[];
+ el.innerHTML=clientes.filter(c=>ca.some(x=>x.cliente_id===c.id)).map(c=>{
+  const arr=ca.filter(x=>x.cliente_id===c.id).sort((a,b)=>String(b.data_colocacao||b.updated_at||b.created_at||"").localeCompare(String(a.data_colocacao||a.updated_at||a.created_at||"")));
+  const atual=arr[0], h=obterHistoricoCacamba(c.id);
+  return `<div class="quick-history"><b>${esc(c.nome)}</b><span>Anterior: <strong>${esc(h?.anterior_numero||"—")}</strong></span><span>Atual: <strong>${esc(atual?.numero||"—")}</strong></span>${h?.data?`<small>Última troca: ${new Date(h.data).toLocaleDateString("pt-BR")}</small>`:""}</div>`;
+ }).join("")||"<p class='muted'>Nenhum cliente com caçamba.</p>";
+}
+
 function dashboard(){
  const c=cache.cacambas;
  const counts={total:c.length,cliente:c.filter(x=>x.status==="No cliente").length,patio:c.filter(x=>x.status==="No pátio").length,man:c.filter(x=>x.status==="Manutenção").length,disp:c.filter(x=>x.status==="Disponível").length};
@@ -442,6 +553,8 @@ function cacambas(){
  <div class="card"><input id="csearch" placeholder="🔎 Pesquisar por número, cliente ou endereço" oninput="tableCac()"><div id="ctable" class="tablewrap"></div></div>`;
  tableCac();
 }
+
+setTimeout(renderHistoricoCacambasRapido,80);
 function tableCac(){
  const q=(val("csearch")||"").toLowerCase();
  const rows=cache.cacambas.filter(x=>{
