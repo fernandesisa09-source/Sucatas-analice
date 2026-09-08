@@ -340,6 +340,18 @@ function options(arr,idField,labelField,blank="Selecione"){
 }
 
 
+
+function dataBR(v){
+  if(!v) return "";
+  const s=String(v);
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d=new Date(s);
+  if(isNaN(d.getTime())) return s;
+  return d.toLocaleDateString("pt-BR");
+}
+function hojeBR(){ return dataBR(new Date().toISOString()); }
+
 const AD_KEY="sucatas_analice_adiantamentos_v1";
 function adList(){try{return JSON.parse(localStorage.getItem(AD_KEY)||"[]")}catch(e){return[]}}
 function adPut(x){localStorage.setItem(AD_KEY,JSON.stringify(x))}
@@ -348,12 +360,16 @@ function adR$(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",cu
 function adEsc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
 function adRender(){
  const el=$("adiantamentos");if(!el)return;
- el.innerHTML=`<h2>💰 Adiantamentos</h2><div class="card"><p class="small">Controle particular dos seus adiantamentos. Estes dados ficam somente neste dispositivo.</p><div class="grid"><div><label>Pessoa *</label><input id="adp"></div><div><label>Data *</label><input id="add" type="date" value="${today()}"></div><div><label>Valor *</label><input id="adv" type="number" min="0.01" step="0.01"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="ado"></textarea></div></div><br><button class="btn primary" onclick="adAdd()">💾 Registrar adiantamento</button></div><div class="card"><h3>📋 Meus adiantamentos</h3><div id="adlist"></div></div>`;
+ el.innerHTML=`<h2>💰 Adiantamentos</h2><div class="card"><p class="small">Controle particular dos seus adiantamentos. Estes dados ficam somente neste dispositivo.</p><div class="grid"><div><label>Pessoa *</label><input id="adp"></div><div><label>Data *</label><input id="add" placeholder="DD/MM/AAAA" value=""></div><div><label>Valor *</label><input id="adv" type="number" min="0.01" step="0.01"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="ado"></textarea></div></div><br><button class="btn primary" onclick="adAdd()">💾 Registrar adiantamento</button></div><div class="card"><h3>📋 Meus adiantamentos</h3><div id="adlist"></div></div>`;
  const list=adList().sort((a,b)=>String(b.data).localeCompare(String(a.data)));
  $("adlist").innerHTML=list.map(a=>{const s=adSaldo(a),abat=Number(a.valor)-s;return `<div class="card"><b>${adEsc(a.pessoa)}</b> — ${adEsc(a.data)}<br>Adiantado: <b>${adR$(a.valor)}</b> | Abatido: <b>${adR$(abat)}</b> | Saldo: <b>${adR$(s)}</b> — ${s<=0?"🟢 QUITADO":"🟡 EM ABERTO"}<br><button class="btn secondary" onclick="adAbater('${a.id}')">➕ Abater</button> <button class="btn secondary" onclick="adPrint('${a.id}')">🖨️</button> <button class="btn danger" onclick="adDel('${a.id}')">Excluir</button>${(a.abatimentos||[]).length?`<div class="small"><b>Abatimentos:</b> ${a.abatimentos.map(x=>adEsc(x.data)+" — "+adR$(x.valor)).join(" | ")}</div>`:""}</div>`}).join("")||"<p class='small'>Nenhum adiantamento cadastrado.</p>";
 }
-function adAdd(){const pessoa=$("adp").value.trim(),data=$("add").value,valor=Number($("adv").value);if(!pessoa||!data||!valor)return alert("Preencha pessoa, data e valor.");const a=adList();a.push({id:crypto.randomUUID(),pessoa,data,valor,observacoes:$("ado").value.trim(),abatimentos:[]});adPut(a);adRender()}
-function adAbater(id){const lista=adList();const a=lista.find(x=>String(x.id)===String(id));if(!a)return;const saldo=adSaldo(a);if(saldo<=0)return alert("Já está quitado.");const v=prompt("Valor do abatimento:",saldo.toFixed(2).replace(".",","));if(v===null)return;const texto=String(v).trim();const n=Number(texto.includes(",")?texto.replace(/\./g,"").replace(",","."):texto);if(!Number.isFinite(n)||n<=0||n>saldo)return alert("Valor inválido. Informe um valor até o saldo restante.");const d=prompt("Data do abatimento (AAAA-MM-DD):",new Date().toISOString().slice(0,10));if(!d)return;a.abatimentos=a.abatimentos||[];a.abatimentos.push({id:crypto.randomUUID(),valor:n,data:d});adPut(lista);adRender();alert("Abatimento salvo com sucesso!")}
+function adAdd(){const pessoa=$("adp").value.trim(),dataBr=$("add").value.trim(),valor=Number($("adv").value);
+  const p=dataBr.split("/");
+  const data=(p.length===3 && p[0].length===2) ? `${p[2]}-${p[1]}-${p[0]}` : dataBr;if(!pessoa||!data||!valor)return alert("Preencha pessoa, data e valor.");const a=adList();a.push({id:crypto.randomUUID(),pessoa,data,valor,observacoes:$("ado").value.trim(),abatimentos:[]});adPut(a);adRender()}
+function adAbater(id){const lista=adList();const a=lista.find(x=>String(x.id)===String(id));if(!a)return;const saldo=adSaldo(a);if(saldo<=0)return alert("Já está quitado.");const v=prompt("Valor do abatimento:",saldo.toFixed(2).replace(".",","));if(v===null)return;const texto=String(v).trim();const n=Number(texto.includes(",")?texto.replace(/\./g,"").replace(",","."):texto);if(!Number.isFinite(n)||n<=0||n>saldo)return alert("Valor inválido. Informe um valor até o saldo restante.");const d=prompt("Data do abatimento (DD/MM/AAAA):",hojeBR());if(!d)return;a.abatimentos=a.abatimentos||[];const partes=d.split("/");
+  const dataISO=partes.length===3 && partes[0].length===2 ? `${partes[2]}-${partes[1]}-${partes[0]}` : d;
+  a.abatimentos.push({id:crypto.randomUUID(),valor:n,data:dataISO});adPut(lista);adRender();alert("Abatimento salvo com sucesso!")}
 function adDel(id){if(confirm("Excluir este adiantamento?")){adPut(adList().filter(x=>x.id!==id));adRender()}}
 function adPrint(id){const a=adList().find(x=>x.id===id);if(!a)return;const s=adSaldo(a),w=window.open("","_blank");if(!w)return alert("Permita pop-ups.");w.document.write("<html><head><meta charset='utf-8'><title>Adiantamento</title><style>body{font-family:Arial;margin:35px}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}</style></head><body><h1>Ficha de Adiantamento</h1><p><b>Pessoa:</b> "+adEsc(a.pessoa)+"</p><p><b>Data:</b> "+adEsc(a.data)+"</p><p><b>Valor:</b> "+adR$(a.valor)+"</p><table><tr><th>Data</th><th>Abatimento</th></tr>"+a.abatimentos.map(x=>"<tr><td>"+adEsc(x.data)+"</td><td>"+adR$(x.valor)+"</td></tr>").join("")+"</table><p><b>Saldo:</b> "+adR$(s)+" — "+(s<=0?"QUITADO":"EM ABERTO")+"</p></body></html>");w.document.close();setTimeout(()=>w.print(),250)}
 
@@ -550,7 +566,7 @@ function movimentacoes(){
  </div><br><button class="btn primary" onclick="addMov()">Registrar movimentação</button></div>
  <div class="card tablewrap" id="movlist"><p class="small">Carregando histórico...</p></div>`;
  load("movimentacoes").then(rows=>{
- $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${new Date(x.data).toLocaleString("pt-BR")}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td><button class="btn" onclick="editRecord('movimentacoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('movimentacoes','${x.id}',movimentacoes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('movimentacoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
+ $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td><button class="btn" onclick="editRecord('movimentacoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('movimentacoes','${x.id}',movimentacoes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('movimentacoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("movlist").innerHTML="<p>"+esc(e.message)+"</p>");
 }
 async 
@@ -595,7 +611,7 @@ async function addMov(){
 function manutencoes(){
  $("manutencoes").innerHTML=`<h2>🔧 Manutenção</h2><div class="card"><h3>Nova manutenção de caçamba</h3><div class="grid"><div><label>Caçamba</label><select id="mcac">${options(cache.cacambas,"id","numero")}</select></div><div><label>Data</label><input id="mdata" type="date" value="${today()}"></div><div><label>Problema *</label><input id="mprob"></div><div><label>Custo</label><input id="mcusto" type="number" step="0.01"></div><div><label>Status</label><select id="mstatus"><option>Aberta</option><option>Em andamento</option><option>Concluída</option></select></div><div><label>Observações</label><input id="mob"></div></div><br><button class="btn primary" onclick="addMan()">Registrar manutenção</button></div><div class="card tablewrap" id="manlist"></div>`;
  load("manutencoes").then(rows=>{
- $("manlist").innerHTML=`<table><tr><th>Data</th><th>Caçamba</th><th>Problema</th><th>Custo</th><th>Status</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.data)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.problema)}</td><td>R$ ${Number(x.custo||0).toFixed(2)}</td><td>${esc(x.status)}</td><td><button class="btn" onclick="editRecord('manutencoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('manutencoes','${x.id}',manutencoes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('manutencoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
+ $("manlist").innerHTML=`<table><tr><th>Data</th><th>Caçamba</th><th>Problema</th><th>Custo</th><th>Status</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(dataBR(x.data))}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.problema)}</td><td>R$ ${Number(x.custo||0).toFixed(2)}</td><td>${esc(x.status)}</td><td><button class="btn" onclick="editRecord('manutencoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('manutencoes','${x.id}',manutencoes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('manutencoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("manlist").innerHTML=esc(e.message));
 }
 async function addMan(){
