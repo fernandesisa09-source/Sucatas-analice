@@ -111,7 +111,8 @@ function val(id){return $(id)?.value?.trim()||""}
 function today(){return new Date().toISOString().slice(0,10)}
 
 function imprimirItem(table,id){
- const row=(cache[table]||[]).find(x=>String(x.id)===String(id));
+ const lista = cache[table] || (table==="ordens_servico" ? (cache.ordens||[]) : []);
+ const row = lista.find(x=>String(x.id)===String(id));
  if(!row)return alert("Item não encontrado.");
  const escp=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
  const find=(arr,id,key)=>((arr||[]).find(x=>x.id===id)||{})[key]||"";
@@ -512,7 +513,7 @@ function ordens(){
  $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2><div class="card"><h3>Nova OS</h3><div class="grid">
  <div><label>Número *</label><input id="on"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
  </div><br><button class="btn primary" onclick="addOS()">Criar ordem</button></div>
- <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id||x.row_id||x.ordem_id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addOS(){
  if(!val("on"))return alert("Informe o número da OS.");
