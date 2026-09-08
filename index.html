@@ -577,7 +577,7 @@ function renderHistoricoCacambas(){
  }).join("")||'<p class="small">Nenhum cliente com caçamba.</p>';
 }
 
-function addMov(){
+async function addMov(){
  if(!val("vc"))return alert("Selecione a caçamba.");
  const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:val("vcl")||null,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")}; 
  const anteriorCliente=row.cliente_id?(cache.cacambas||[]).find(c=>String(c.cliente_id)===String(row.cliente_id)&&String(c.id)!==String(row.cacamba_id)):null;
