@@ -395,6 +395,7 @@ function adRender(){
    Adiantado: <b>${adR$(a.valor)}</b> | Abatido: <b>${adR$(abat)}</b> | Saldo: <b>${adR$(s)}</b> — ${s<=0?"🟢 QUITADO":"🟡 EM ABERTO"}
    ${a.observacoes?`<div class="small" style="margin-top:8px"><b>Observações:</b> ${adEsc(a.observacoes)}</div>`:""}
    <br><button class="btn secondary" onclick="adAbater('${a.id}')">➕ Abater</button>
+   <button class="btn secondary" onclick="adEditar('${a.id}')">✏️ Editar</button>
    <button class="btn secondary" onclick="adPrint('${a.id}')">🖨️</button>
    <button class="btn danger" onclick="adDel('${a.id}')">Excluir</button>
    ${(a.abatimentos||[]).length?`<div class="small"><b>Abatimentos:</b> ${a.abatimentos.map(x=>adDataBR(x.data)+" — "+adR$(x.valor)).join(" | ")}</div>`:""}
@@ -409,6 +410,50 @@ function adAdd(){
  adPut(a);
  adRender();
 }
+function adEditar(id){
+ const lista=adList(),a=lista.find(x=>x.id===id);
+ if(!a)return;
+ const modal=document.createElement("div");
+ modal.className="edit-modal";
+ modal.style.display="flex";
+ modal.id="adEditModal";
+ modal.innerHTML=`<div class="edit-box">
+   <div class="edit-head"><h2>✏️ Editar adiantamento</h2><button class="btn" onclick="this.closest('#adEditModal').remove()">✕</button></div>
+   <div class="grid">
+    <div><label>Pessoa *</label><input id="ade_pessoa" value="${adEsc(a.pessoa)}"></div>
+    <div><label>Data *</label><input id="ade_data" type="date" value="${adEsc(a.data)}"></div>
+    <div><label>Valor *</label><input id="ade_valor" inputmode="decimal" value="${adEsc(adNumeroBR(Number(a.valor)*100))}" oninput="this.value=adNumeroBR(this.value)"></div>
+    <div style="grid-column:1/-1"><label>Observações</label><textarea id="ade_obs" rows="4">${adEsc(a.observacoes||"")}</textarea></div>
+   </div>
+   <div class="edit-actions">
+    <button class="btn secondary" onclick="this.closest('#adEditModal').remove()">Cancelar</button>
+    <button class="btn primary" onclick="adSalvarEdicao('${id}')">💾 Salvar alterações</button>
+   </div>
+ </div>`;
+ document.body.appendChild(modal);
+}
+function adSalvarEdicao(id){
+ const lista=adList(),a=lista.find(x=>x.id===id);
+ if(!a)return;
+ const pessoa=$("ade_pessoa").value.trim();
+ const data=$("ade_data").value;
+ const valor=adParseBR($("ade_valor").value);
+ const observacoes=$("ade_obs").value.trim();
+ if(!pessoa||!data||!valor)return alert("Preencha pessoa, data e valor.");
+ const totalAbatido=(a.abatimentos||[]).reduce((s,x)=>s+Number(x.valor||0),0);
+ if(valor<totalAbatido){
+   return alert("O novo valor não pode ser menor que o total já abatido ("+adR$(totalAbatido)+").");
+ }
+ a.pessoa=pessoa;
+ a.data=data;
+ a.valor=valor;
+ a.observacoes=observacoes;
+ adPut(lista);
+ $("adEditModal")?.remove();
+ adRender();
+ alert("Adiantamento atualizado com sucesso!");
+}
+
 function adAbater(id){
  const lista=adList(),a=lista.find(x=>x.id===id);if(!a)return;
  const saldo=adSaldo(a);if(saldo<=0)return alert("Já está quitado.");
