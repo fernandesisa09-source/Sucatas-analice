@@ -39,7 +39,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
  td:last-child,th:last-child{display:none!important}
  .edit-modal{display:none!important}
 }
-.quick-history{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0;padding:10px 12px;border:1px solid #ddd;border-radius:10px;background:#fafafa}.quick-history span{padding:4px 8px;background:#fff}.quick-history small{color:#777}</style>
+.quick-history{padding:10px 12px;margin:7px 0;border:1px solid #ddd;border-radius:10px;background:#fafafa;display:flex;gap:10px;align-items:center;flex-wrap:wrap}</style>
 </head>
 <body>
 
@@ -79,6 +79,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
  <button data-page="clientes">👥 Clientes</button>
  <button data-page="motoristas">👤 Motoristas</button>
  <button data-page="caminhoes">🚛 Caminhões</button>
+ <button data-page="adiantamentos">💰 Adiantamentos</button>
  <button data-page="ordens">📋 Ordens</button>
  <button data-page="movimentacoes">🔄 Movimentações</button>
  <button data-page="manutencoes">🔧 Manutenção</button>
@@ -90,6 +91,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <section id="clientes" class="page"></section>
 <section id="motoristas" class="page"></section>
 <section id="caminhoes" class="page"></section>
+<section id="adiantamentos" class="page"></section>
 <section id="ordens" class="page"></section>
 <section id="movimentacoes" class="page"></section>
 <section id="manutencoes" class="page"></section>
@@ -109,84 +111,6 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function msg(id,text,ok=false){$(id).innerHTML=`<div class="msg ${ok?'ok':'err'}">${esc(text)}</div>`}
 function val(id){return $(id)?.value?.trim()||""}
 function today(){return new Date().toISOString().slice(0,10)}
-
-
-function carregarAdiantamentos(){
- try{return JSON.parse(localStorage.getItem("sucatas_adiantamentos")||"[]");}catch(e){return [];}
-}
-function guardarAdiantamentos(lista){localStorage.setItem("sucatas_adiantamentos",JSON.stringify(lista));}
-function moeda(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});}
-function salvarAdiantamento(ev){
- ev.preventDefault();
- const lista=carregarAdiantamentos();
- const id=document.getElementById("aid").value||crypto.randomUUID();
- const atual={id,pessoa:document.getElementById("apessoa").value.trim(),data:document.getElementById("adata").value,
- valor:Number(document.getElementById("avalor").value),observacoes:document.getElementById("aobs").value.trim(),abatimentos:[]};
- const old=lista.find(x=>x.id===id);
- if(old)atual.abatimentos=old.abatimentos||[];
- const idx=lista.findIndex(x=>x.id===id);
- if(idx>=0)lista[idx]=atual;else lista.push(atual);
- guardarAdiantamentos(lista); limparFormAdiantamento(); renderAdiantamentos();
-}
-function limparFormAdiantamento(){
- ["aid","apessoa","adata","avalor","aobs"].forEach(id=>{const e=document.getElementById(id);if(e)e.value="";});
-}
-function saldoAdiantamento(a){return Math.max(0,Number(a.valor||0)-(a.abatimentos||[]).reduce((s,x)=>s+Number(x.valor||0),0));}
-function editarAdiantamento(id){
- const a=carregarAdiantamentos().find(x=>x.id===id);if(!a)return;
- document.getElementById("aid").value=a.id;document.getElementById("apessoa").value=a.pessoa||"";
- document.getElementById("adata").value=a.data||"";document.getElementById("avalor").value=a.valor||"";
- document.getElementById("aobs").value=a.observacoes||"";
- document.getElementById("page-adiantamentos").scrollIntoView({behavior:"smooth"});
-}
-function excluirAdiantamento(id){
- if(!confirm("Excluir este adiantamento?"))return;
- guardarAdiantamentos(carregarAdiantamentos().filter(x=>x.id!==id));renderAdiantamentos();
-}
-function abaterAdiantamento(id){
- const lista=carregarAdiantamentos(),a=lista.find(x=>x.id===id);if(!a)return;
- const saldo=saldoAdiantamento(a); if(saldo<=0)return alert("Este adiantamento já está quitado.");
- const valor=prompt("Valor do abatimento nesta entrega:",saldo.toFixed(2).replace(".",","));
- if(valor===null)return;
- const n=Number(String(valor).replace(/\./g,"").replace(",","."));
- if(!n||n<=0||n>saldo)return alert("Informe um valor válido, até o saldo restante.");
- const data=prompt("Data do abatimento (AAAA-MM-DD):",new Date().toISOString().slice(0,10));
- if(!data)return;
- a.abatimentos=a.abatimentos||[];a.abatimentos.push({id:crypto.randomUUID(),valor:n,data});
- guardarAdiantamentos(lista);renderAdiantamentos();
-}
-function imprimirAdiantamento(id){
- const a=carregarAdiantamentos().find(x=>x.id===id);if(!a)return alert("Adiantamento não encontrado.");
- const abat=a.abatimentos||[], total=abat.reduce((s,x)=>s+Number(x.valor||0),0), saldo=Math.max(0,Number(a.valor||0)-total);
- const w=window.open("","_blank");if(!w)return alert("Permita pop-ups para imprimir.");
- const escp=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Adiantamento</title><style>
- body{font-family:Arial;margin:35px;color:#333}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}
- table{width:100%;border-collapse:collapse;margin-top:20px}td,th{border:1px solid #ddd;padding:8px;text-align:left}
- .saldo{font-size:20px;margin:20px 0}.assin{margin-top:70px;display:flex;justify-content:space-around;text-align:center}
- </style></head><body><h1>Ficha de Adiantamento</h1>
- <p><b>Pessoa:</b> ${escp(a.pessoa)}</p><p><b>Data:</b> ${escp(a.data)}</p><p><b>Valor:</b> ${moeda(a.valor)}</p>
- <table><tr><th>Data</th><th>Abatimento</th></tr>${abat.map(x=>`<tr><td>${escp(x.data)}</td><td>${moeda(x.valor)}</td></tr>`).join("")||"<tr><td colspan='2'>Nenhum abatimento</td></tr>"}</table>
- <p class="saldo"><b>Total abatido:</b> ${moeda(total)} &nbsp;&nbsp; <b>Saldo:</b> ${moeda(saldo)} — ${saldo<=0?"QUITADO":"EM ABERTO"}</p>
- <p><b>Observações:</b> ${escp(a.observacoes||"")}</p><div class="assin"><div>________________________<br>Responsável</div><div>________________________<br>Cliente</div></div>
- </body></html>`);w.document.close();setTimeout(()=>w.print(),300);
-}
-function renderAdiantamentos(){
- const el=document.getElementById("listaAdiantamentos");if(!el)return;
- const lista=carregarAdiantamentos().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
- el.innerHTML=lista.map(a=>{
-  const saldo=saldoAdiantamento(a), total=Number(a.valor||0)-saldo;
-  return `<div class="card" style="margin:10px 0"><b>${esc(a.pessoa)}</b> — ${esc(a.data)}<br>
-  Adiantado: <b>${moeda(a.valor)}</b> | Abatido: <b>${moeda(total)}</b> | Saldo: <b>${moeda(saldo)}</b>
-  <span style="margin-left:8px">${saldo<=0?"🟢 QUITADO":"🟡 EM ABERTO"}</span>
-  <div style="margin-top:8px"><button class="btn secondary" onclick="abaterAdiantamento('${a.id}')">➕ Abater</button>
-  <button class="btn secondary" onclick="editarAdiantamento('${a.id}')">✏️ Editar</button>
-  <button class="btn secondary" onclick="imprimirAdiantamento('${a.id}')">🖨️</button>
-  <button class="btn danger" onclick="excluirAdiantamento('${a.id}')">Excluir</button></div>
-  ${(a.abatimentos||[]).length?`<div style="margin-top:8px"><b>Abatimentos:</b> ${(a.abatimentos||[]).map(x=>`${esc(x.data)} — ${moeda(x.valor)}`).join(" | ")}</div>`:""}
-  </div>`;
- }).join("")||"<p class='muted'>Nenhum adiantamento cadastrado.</p>";
-}
 
 function imprimirItem(table,id){
  const lista = cache[table] || (table==="ordens_servico" ? (cache.ordens||[]) : []);
@@ -415,6 +339,24 @@ function options(arr,idField,labelField,blank="Selecione"){
  return `<option value="">${blank}</option>`+sorted.map(x=>`<option value="${x[idField]}">${esc(x[labelField])}</option>`).join("")
 }
 
+
+const AD_KEY="sucatas_analice_adiantamentos_v1";
+function adList(){try{return JSON.parse(localStorage.getItem(AD_KEY)||"[]")}catch(e){return[]}}
+function adPut(x){localStorage.setItem(AD_KEY,JSON.stringify(x))}
+function adSaldo(a){return Math.max(0,Number(a.valor||0)-(a.abatimentos||[]).reduce((s,x)=>s+Number(x.valor||0),0))}
+function adR$(v){return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"})}
+function adEsc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function adRender(){
+ const el=$("adiantamentos");if(!el)return;
+ el.innerHTML=`<h2>💰 Adiantamentos</h2><div class="card"><p class="small">Controle particular dos seus adiantamentos. Estes dados ficam somente neste dispositivo.</p><div class="grid"><div><label>Pessoa *</label><input id="adp"></div><div><label>Data *</label><input id="add" type="date" value="${today()}"></div><div><label>Valor *</label><input id="adv" type="number" min="0.01" step="0.01"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="ado"></textarea></div></div><br><button class="btn primary" onclick="adAdd()">💾 Registrar adiantamento</button></div><div class="card"><h3>📋 Meus adiantamentos</h3><div id="adlist"></div></div>`;
+ const list=adList().sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+ $("adlist").innerHTML=list.map(a=>{const s=adSaldo(a),abat=Number(a.valor)-s;return `<div class="card"><b>${adEsc(a.pessoa)}</b> — ${adEsc(a.data)}<br>Adiantado: <b>${adR$(a.valor)}</b> | Abatido: <b>${adR$(abat)}</b> | Saldo: <b>${adR$(s)}</b> — ${s<=0?"🟢 QUITADO":"🟡 EM ABERTO"}<br><button class="btn secondary" onclick="adAbater('${a.id}')">➕ Abater</button> <button class="btn secondary" onclick="adPrint('${a.id}')">🖨️</button> <button class="btn danger" onclick="adDel('${a.id}')">Excluir</button>${(a.abatimentos||[]).length?`<div class="small"><b>Abatimentos:</b> ${a.abatimentos.map(x=>adEsc(x.data)+" — "+adR$(x.valor)).join(" | ")}</div>`:""}</div>`}).join("")||"<p class='small'>Nenhum adiantamento cadastrado.</p>";
+}
+function adAdd(){const pessoa=$("adp").value.trim(),data=$("add").value,valor=Number($("adv").value);if(!pessoa||!data||!valor)return alert("Preencha pessoa, data e valor.");const a=adList();a.push({id:crypto.randomUUID(),pessoa,data,valor,observacoes:$("ado").value.trim(),abatimentos:[]});adPut(a);adRender()}
+function adAbater(id){const a=adList().find(x=>x.id===id);if(!a)return;const saldo=adSaldo(a);if(saldo<=0)return alert("Já está quitado.");const v=prompt("Valor do abatimento:",saldo.toFixed(2).replace(".",","));if(v===null)return;const n=Number(String(v).replace(/\./g,"").replace(",","."));if(!n||n<=0||n>saldo)return alert("Valor inválido.");const d=prompt("Data do abatimento (AAAA-MM-DD):",new Date().toISOString().slice(0,10));if(!d)return;a.abatimentos.push({id:crypto.randomUUID(),valor:n,data:d});adPut(adList());adRender()}
+function adDel(id){if(confirm("Excluir este adiantamento?")){adPut(adList().filter(x=>x.id!==id));adRender()}}
+function adPrint(id){const a=adList().find(x=>x.id===id);if(!a)return;const s=adSaldo(a),w=window.open("","_blank");if(!w)return alert("Permita pop-ups.");w.document.write("<html><head><meta charset='utf-8'><title>Adiantamento</title><style>body{font-family:Arial;margin:35px}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}</style></head><body><h1>Ficha de Adiantamento</h1><p><b>Pessoa:</b> "+adEsc(a.pessoa)+"</p><p><b>Data:</b> "+adEsc(a.data)+"</p><p><b>Valor:</b> "+adR$(a.valor)+"</p><table><tr><th>Data</th><th>Abatimento</th></tr>"+a.abatimentos.map(x=>"<tr><td>"+adEsc(x.data)+"</td><td>"+adR$(x.valor)+"</td></tr>").join("")+"</table><p><b>Saldo:</b> "+adR$(s)+" — "+(s<=0?"QUITADO":"EM ABERTO")+"</p></body></html>");w.document.close();setTimeout(()=>w.print(),250)}
+
 function renderPage(page){
  if(page==="dashboard")dashboard();
  if(page==="cacambas")cacambas();
@@ -422,43 +364,11 @@ function renderPage(page){
  if(page==="clientes")clientes();
  if(page==="motoristas")motoristas();
  if(page==="caminhoes")caminhoes();
+ if(page==="adiantamentos")adRender();
  if(page==="ordens")ordens();
  if(page==="movimentacoes")movimentacoes();
  if(page==="manutencoes")manutencoes();
 }
-
-function chaveHistoricoCacamba(clienteId){return "cacamba_anterior_"+String(clienteId||"");}
-function obterHistoricoCacamba(clienteId){
- try{return JSON.parse(localStorage.getItem(chaveHistoricoCacamba(clienteId))||"null");}catch(e){return null;}
-}
-function salvarHistoricoCacamba(clienteId,anterior,atual){
- if(!clienteId)return;
- localStorage.setItem(chaveHistoricoCacamba(clienteId),JSON.stringify({
-  anterior_id:anterior?.id||null, anterior_numero:anterior?.numero||null,
-  atual_id:atual?.id||null, atual_numero:atual?.numero||null,
-  data:new Date().toISOString()
- }));
-}
-function atualizarHistoricoCacambas(){
- const lista=cache.cacambas||[], grupos={};
- lista.forEach(c=>{if(c.cliente_id)(grupos[c.cliente_id]||=[]).push(c);});
- Object.keys(grupos).forEach(cid=>{
-  const arr=grupos[cid].slice().sort((a,b)=>String(b.data_colocacao||b.updated_at||b.created_at||"").localeCompare(String(a.data_colocacao||a.updated_at||a.created_at||"")));
-  const atual=arr[0], anterior=arr[1]||null;
-  if(atual&&anterior)salvarHistoricoCacamba(cid,anterior,atual);
- });
-}
-function renderHistoricoCacambasRapido(){
- const el=document.getElementById("historicoCacambasRapido"); if(!el)return;
- atualizarHistoricoCacambas();
- const clientes=cache.clientes||[], ca=cache.cacambas||[];
- el.innerHTML=clientes.filter(c=>ca.some(x=>x.cliente_id===c.id)).map(c=>{
-  const arr=ca.filter(x=>x.cliente_id===c.id).sort((a,b)=>String(b.data_colocacao||b.updated_at||b.created_at||"").localeCompare(String(a.data_colocacao||a.updated_at||a.created_at||"")));
-  const atual=arr[0], h=obterHistoricoCacamba(c.id);
-  return `<div class="quick-history"><b>${esc(c.nome)}</b><span>Anterior: <strong>${esc(h?.anterior_numero||"—")}</strong></span><span>Atual: <strong>${esc(atual?.numero||"—")}</strong></span>${h?.data?`<small>Última troca: ${new Date(h.data).toLocaleDateString("pt-BR")}</small>`:""}</div>`;
- }).join("")||"<p class='muted'>Nenhum cliente com caçamba.</p>";
-}
-
 function dashboard(){
  const c=cache.cacambas;
  const counts={total:c.length,cliente:c.filter(x=>x.status==="No cliente").length,patio:c.filter(x=>x.status==="No pátio").length,man:c.filter(x=>x.status==="Manutenção").length,disp:c.filter(x=>x.status==="Disponível").length};
@@ -554,7 +464,7 @@ function cacambas(){
  tableCac();
 }
 
-setTimeout(renderHistoricoCacambasRapido,80);
+setTimeout(renderHistoricoCacambas,80);
 function tableCac(){
  const q=(val("csearch")||"").toLowerCase();
  const rows=cache.cacambas.filter(x=>{
@@ -592,7 +502,7 @@ function clientes(){
  <div><label>Nome *</label><input id="cln"></div><div><label>Responsável</label><input id="clr"></div><div><label>Telefone</label><input id="clt"></div><div><label>E-mail</label><input id="cle"></div>
  <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
  </div><br><button class="btn primary" onclick="addCliente()">Cadastrar cliente</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Caçambas</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><strong>${cache.cacambas.filter(c=>String(c.cliente_id||"")===String(x.id)).length}</strong></td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('clientes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Caçambas</th><th>Caçamba anterior / atual</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><strong>${cache.cacambas.filter(c=>String(c.cliente_id||"")===String(x.id)).length}</strong></td><td>${historicoCliente(x.id)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('clientes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCliente(){
  if(!val("cln"))return alert("Informe o nome do cliente.");
@@ -624,13 +534,13 @@ function proximoNumeroOS(){
 
 function ordens(){
  $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2><div class="card"><h3>Nova OS</h3><div class="grid">
- <div><label>Número *</label><input id="on"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
+ <div><label>Número *</label><input id="on" readonly placeholder="Gerado automaticamente"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
  </div><br><button class="btn primary" onclick="addOS()">Criar ordem</button></div>
  <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id||x.row_id||x.ordem_id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addOS(){
- if(!val("on"))return alert("Informe o número da OS.");
- await add("ordens_servico",{numero:val("on"),cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:val("ode")||null,data_retirada_prevista:val("odr")||null,status:val("ost"),observacoes:val("oobs")},ordens);
+ if(!val("on"))document.getElementById("on").value=proximoNumeroOS();
+ await add("ordens_servico",{numero:(val("on")||proximoNumeroOS()),cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:val("ode")||null,data_retirada_prevista:val("odr")||null,status:val("ost"),observacoes:val("oobs")},ordens);
 }
 
 function movimentacoes(){
@@ -643,9 +553,34 @@ function movimentacoes(){
  $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${new Date(x.data).toLocaleString("pt-BR")}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td><button class="btn" onclick="editRecord('movimentacoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('movimentacoes','${x.id}',movimentacoes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('movimentacoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("movlist").innerHTML="<p>"+esc(e.message)+"</p>");
 }
-async function addMov(){
+async 
+const HIST_CACAMBA_KEY="sucatas_analice_cacamba_history_v1";
+function histAll(){try{return JSON.parse(localStorage.getItem(HIST_CACAMBA_KEY)||"{}")}catch(e){return {}}}
+function histSave(h){localStorage.setItem(HIST_CACAMBA_KEY,JSON.stringify(h))}
+function registrarHistoricoTroca(clienteId,anterior,atual){
+ if(!clienteId||!atual)return;
+ const h=histAll();
+ h[String(clienteId)]={anterior_id:anterior?.id||null,anterior_numero:anterior?.numero||null,atual_id:atual.id,atual_numero:atual.numero,data:new Date().toISOString()};
+ histSave(h);
+}
+function historicoCliente(clienteId){
+ const h=histAll()[String(clienteId)];
+ if(!h)return '<span class="small">Anterior: — | Atual: —</span>';
+ return '<span class="small">Anterior: <b>'+esc(h.anterior_numero||"—")+'</b> | Atual: <b>'+esc(h.atual_numero||"—")+'</b><br>Última troca: '+new Date(h.data).toLocaleDateString("pt-BR")+'</span>';
+}
+function renderHistoricoCacambas(){
+ const el=$("cacambaHistoricoRapido");if(!el)return;
+ const grupos={};(cache.cacambas||[]).forEach(c=>{if(c.cliente_id)(grupos[c.cliente_id]||=[]).push(c)});
+ el.innerHTML=Object.keys(grupos).map(id=>{
+  const c=(cache.clientes||[]).find(x=>String(x.id)===String(id));
+  return '<div class="quick-history"><b>'+esc(c?.nome||"Cliente")+'</b> '+historicoCliente(id)+'</div>';
+ }).join("")||'<p class="small">Nenhum cliente com caçamba.</p>';
+}
+
+function addMov(){
  if(!val("vc"))return alert("Selecione a caçamba.");
- const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:val("vcl")||null,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")};
+ const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:val("vcl")||null,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")}; 
+ const anteriorCliente=row.cliente_id?(cache.cacambas||[]).find(c=>String(c.cliente_id)===String(row.cliente_id)&&String(c.id)!==String(row.cacamba_id)):null;
  const {data,error}=await sb.from("movimentacoes").insert(row).select().single();
  if(error)return alert(error.message);
  const updates={};
@@ -653,6 +588,7 @@ async function addMov(){
  if(["Retirada","Entrada no pátio"].includes(row.tipo)){updates.status="No pátio";updates.cliente_id=null;updates.endereco_atual=null;updates.caminhao_id=null;updates.motorista_id=null}
  if(row.tipo==="Saída do pátio")updates.status="Disponível";
  await sb.from("cacambas").update(updates).eq("id",row.cacamba_id);
+ if(row.tipo==="Troca" && row.cliente_id) registrarHistoricoTroca(row.cliente_id,anteriorCliente,row);
  await loadAll();movimentacoes();alert("Movimentação registrada!");
 }
 
