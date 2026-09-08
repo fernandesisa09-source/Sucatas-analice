@@ -102,9 +102,11 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <script>
 function osDataBRPrint(v){
   if(!v)return "";
-  const s=String(v);
-  const m=s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
-  if(m)return m[3]+"/"+m[2]+"/"+m[1];
+  const s=String(v).trim();
+  const parte=s.slice(0,10).split("-");
+  if(parte.length===3 && parte[0].length===4 && parte[1].length===2 && parte[2].length===2){
+    return parte[2]+"/"+parte[1]+"/"+parte[0];
+  }
   return s;
 }
 
@@ -129,7 +131,7 @@ function imprimirItem(table,id){
  const fields=[];
  const add=(n,v)=>{if(v!==null&&v!==undefined&&String(v)!=="")fields.push("<p><b>"+escp(n)+":</b> "+escp(v)+"</p>");};
  let title="Registro";
- if(table==="ordens_servico"){title="Ordem de Serviço";add("Número",row.numero);add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caçamba",find(cache.cacambas,row.cacamba_id,"numero"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Placa",find(cache.caminhoes,row.caminhao_id,"placa"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Endereço",row.endereco);add("Material",row.material);add("Data de entrega",osDataBRPrint(osDataBRPrint(row.data_entrega)));add("Retirada prevista",osDataBRPrint(osDataBRPrint(row.data_retirada_prevista)));add("Status",row.status);add("Observações",row.observacoes);}
+ if(table==="ordens_servico"){title="Ordem de Serviço";add("Número",row.numero);add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caçamba",find(cache.cacambas,row.cacamba_id,"numero"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Placa",find(cache.caminhoes,row.caminhao_id,"placa"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Endereço",row.endereco);add("Material",row.material);add("Data de entrega",osDataBRPrint(row.data_entrega));add("Retirada prevista",osDataBRPrint(row.data_retirada_prevista));add("Status",row.status);add("Observações",row.observacoes);}
  else if(table==="cacambas"){title="Ficha da Caçamba";add("Número",row.numero);add("Status",row.status);add("Estado",row.estado||"Não informado");add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Material",row.material);add("Endereço",row.endereco_atual);add("Pátio",row.patio);add("Data de colocação",row.data_colocacao);add("Observações",row.observacoes);}
  else if(table==="clientes"){title="Ficha do Cliente";add("Nome",row.nome);add("Responsável",row.responsavel);add("Telefone",row.telefone);add("E-mail",row.email);add("Endereço",row.endereco);add("Número",row.numero);add("Bairro",row.bairro);add("Cidade",row.cidade);add("UF",row.uf);add("CEP",row.cep);add("Caçambas",(cache.cacambas||[]).filter(c=>c.cliente_id===row.id).length);add("Observações",row.observacoes);}
  else if(table==="motoristas"){title="Ficha do Motorista";add("Nome",row.nome);add("Telefone",row.telefone);add("CNH",row.cnh);add("Status",row.status);add("Observações",row.observacoes);}
