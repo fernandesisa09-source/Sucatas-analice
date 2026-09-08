@@ -100,6 +100,14 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <div id="editModal" class="edit-modal" onclick="if(event.target===this)closeEditModal()"></div>
 
 <script>
+function osDataBRPrint(v){
+  if(!v)return "";
+  const s=String(v);
+  const m=s.match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  if(m)return m[3]+"/"+m[2]+"/"+m[1];
+  return s;
+}
+
 const SUPABASE_URL="https://xctuoxcmulcjuupswztp.supabase.co";
 const SUPABASE_KEY="sb_publishable_IDX4DlhGkaBZHyv5S6pyGQ_zaDQJVZp";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -121,7 +129,7 @@ function imprimirItem(table,id){
  const fields=[];
  const add=(n,v)=>{if(v!==null&&v!==undefined&&String(v)!=="")fields.push("<p><b>"+escp(n)+":</b> "+escp(v)+"</p>");};
  let title="Registro";
- if(table==="ordens_servico"){title="Ordem de Serviço";add("Número",row.numero);add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caçamba",find(cache.cacambas,row.cacamba_id,"numero"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Endereço",row.endereco);add("Material",row.material);add("Data de entrega",row.data_entrega);add("Retirada prevista",row.data_retirada_prevista);add("Status",row.status);add("Observações",row.observacoes);}
+ if(table==="ordens_servico"){title="Ordem de Serviço";add("Número",row.numero);add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caçamba",find(cache.cacambas,row.cacamba_id,"numero"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Placa",find(cache.caminhoes,row.caminhao_id,"placa"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Endereço",row.endereco);add("Material",row.material);add("Data de entrega",osDataBRPrint(osDataBRPrint(row.data_entrega)));add("Retirada prevista",osDataBRPrint(osDataBRPrint(row.data_retirada_prevista)));add("Status",row.status);add("Observações",row.observacoes);}
  else if(table==="cacambas"){title="Ficha da Caçamba";add("Número",row.numero);add("Status",row.status);add("Estado",row.estado||"Não informado");add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Material",row.material);add("Endereço",row.endereco_atual);add("Pátio",row.patio);add("Data de colocação",row.data_colocacao);add("Observações",row.observacoes);}
  else if(table==="clientes"){title="Ficha do Cliente";add("Nome",row.nome);add("Responsável",row.responsavel);add("Telefone",row.telefone);add("E-mail",row.email);add("Endereço",row.endereco);add("Número",row.numero);add("Bairro",row.bairro);add("Cidade",row.cidade);add("UF",row.uf);add("CEP",row.cep);add("Caçambas",(cache.cacambas||[]).filter(c=>c.cliente_id===row.id).length);add("Observações",row.observacoes);}
  else if(table==="motoristas"){title="Ficha do Motorista";add("Nome",row.nome);add("Telefone",row.telefone);add("CNH",row.cnh);add("Status",row.status);add("Observações",row.observacoes);}
@@ -676,12 +684,18 @@ function proximoNumeroOSLocal(){
  return "OS-"+String(maior+1).padStart(4,"0");
 }
 
+function atualizarPlacaOS(){
+ const sel=$("ocm"),placa=$("oplaca");
+ if(!sel||!placa)return;
+ const cam=(cache.caminhoes||[]).find(x=>String(x.id)===String(sel.value));
+ placa.value=cam?.placa||"";
+}
 async function ordens(){
  const numeroNovo=await proximoNumeroOS();
  $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2><div class="card"><h3>Nova OS</h3><div class="grid">
- <div><label>Número *</label><input id="on" readonly value="${esc(numeroNovo)}"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric"></div><div><label>Retirada prevista</label><input id="odr" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
+ <div><label>Número *</label><input id="on" readonly value="${esc(numeroNovo)}"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm" onchange="atualizarPlacaOS()">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Placa</label><input id="oplaca" readonly placeholder="Selecione o caminhão"></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric"></div><div><label>Retirada prevista</label><input id="odr" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
  </div><br><button class="btn primary" onclick="addOS()">Criar ordem</button></div>
- <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(osDataBR(x.data_entrega))}</td><td>${esc(osDataBR(x.data_retirada_prevista))}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id||x.row_id||x.ordem_id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Caminhão</th><th>Placa</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.placa||"—")}</td><td>${esc(osDataBR(x.data_entrega))}</td><td>${esc(osDataBR(x.data_retirada_prevista))}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id||x.row_id||x.ordem_id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addOS(){
  const dados={cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:osDataISO(val("ode"))||null,data_retirada_prevista:osDataISO(val("odr"))||null,status:val("ost"),observacoes:val("oobs")};
