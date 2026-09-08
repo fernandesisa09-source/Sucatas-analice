@@ -487,7 +487,7 @@ function tableCac(){
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
   return [x.numero,x.status,x.estado,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Caçamba anterior / atual</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${x.cliente_id?historicoCliente(x.cliente_id):"<span class='small'>—</span>"}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
@@ -582,7 +582,7 @@ function registrarHistoricoTroca(clienteId,anterior,atual){
 function historicoCliente(clienteId){
  const h=histAll()[String(clienteId)];
  if(!h)return '<span class="small">Anterior: — | Atual: —</span>';
- return '<span class="small">Anterior: <b>'+esc(h.anterior_numero||"—")+'</b> | Atual: <b>'+esc(h.atual_numero||"—")+'</b><br>Última troca: '+new Date(h.data).toLocaleDateString("pt-BR")+'</span>';
+ return '<span class="small">Anterior: <b>'+esc(h.anterior_numero||"—")+'</b> | Atual: <b>'+esc(h.atual_numero||"—")+'</b><br>Última troca: '+dataBR(h.data)+'</span>';
 }
 function renderHistoricoCacambas(){
  const el=$("cacambaHistoricoRapido");if(!el)return;
