@@ -574,15 +574,23 @@ const HIST_CACAMBA_KEY="sucatas_analice_cacamba_history_v1";
 function histAll(){try{return JSON.parse(localStorage.getItem(HIST_CACAMBA_KEY)||"{}")}catch(e){return {}}}
 function histSave(h){localStorage.setItem(HIST_CACAMBA_KEY,JSON.stringify(h))}
 function registrarHistoricoTroca(clienteId,anterior,atual){
- if(!clienteId||!atual)return;
- const h=histAll();
- h[String(clienteId)]={anterior_id:anterior?.id||null,anterior_numero:anterior?.numero||null,atual_id:atual.id,atual_numero:atual.numero,data:new Date().toISOString()};
- histSave(h);
+  if(!clienteId || !atual)return;
+  const h=histAll();
+  h[String(clienteId)]={
+    anterior_id:anterior?.id||null,
+    anterior_numero:anterior?.numero||null,
+    atual_id:atual.id,
+    atual_numero:atual.numero,
+    data:new Date().toISOString()
+  };
+  histSave(h);
 }
 function historicoCliente(clienteId){
- const h=histAll()[String(clienteId)];
- if(!h)return '<span class="small">Anterior: — | Atual: —</span>';
- return '<span class="small">Anterior: <b>'+esc(h.anterior_numero||"—")+'</b> | Atual: <b>'+esc(h.atual_numero||"—")+'</b><br>Última troca: '+dataBR(h.data)+'</span>';
+  const h=histAll()[String(clienteId)];
+  if(!h)return '<span class="small">Anterior: — | Atual: —</span>';
+  return '<span class="small">Anterior: <b>'+esc(h.anterior_numero||"—")+
+    '</b> | Atual: <b>'+esc(h.atual_numero||"—")+
+    '</b><br>Última troca: '+dataBR(h.data)+'</span>';
 }
 function renderHistoricoCacambas(){
  const el=$("cacambaHistoricoRapido");if(!el)return;
