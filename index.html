@@ -724,31 +724,33 @@ function statusOSExibicao(status){
  const mapa={"Agendada":"Agendada","Em rota":"Em andamento","Entregue":"Concluída","Retirada solicitada":"Reagendada","Concluída":"Concluída","Cancelada":"Cancelada"};
  return mapa[status]||status;
 }
-async function ordens(){
- const numeroNovo=await proximoNumeroOS();
- const todas=cache.ordens||[];
+function ordens(){
+ const todas=Array.isArray(cache.ordens)?cache.ordens:[];
  const ativas=todas.filter(x=>String(x.status||"")!=="Concluída");
  const concluidas=todas.filter(x=>String(x.status||"")==="Concluída");
  const hoje=dataHojeISO(), amanha=dataAmanhaISO();
 
+ const nome=(arr,id,key)=>{const r=(arr||[]).find(x=>String(x.id)===String(id));return r?.[key]||""};
  const linha=x=>`<tr>
-  <td><b>${esc(x.numero)}</b></td>
-  <td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td>
-  <td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td>
-  <td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"—")}</td>
-  <td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.placa||"—")}</td>
-  <td>${esc(osDataBR(x.data_entrega))}</td>
-  <td>${esc(osDataBR(x.data_retirada_prevista))}</td>
+  <td><b>${esc(x.numero||"—")}</b></td>
+  <td>${esc(nome(cache.clientes,x.cliente_id,"nome"))}</td>
+  <td>${esc(nome(cache.cacambas,x.cacamba_id,"numero")||"—")}</td>
+  <td>${esc(nome(cache.caminhoes,x.caminhao_id,"identificacao")||"—")}</td>
+  <td>${esc(nome(cache.caminhoes,x.caminhao_id,"placa")||"—")}</td>
+  <td>${esc(osDataBR(x.data_entrega)||"—")}</td>
+  <td>${esc(osDataBR(x.data_retirada_prevista)||"—")}</td>
   <td><b>${esc(statusOSExibicao(x.status||""))}</b></td>
   <td>${esc(x.observacoes||"")}</td>
-  <td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ Editar</button>
+  <td>
+   <button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ Editar</button>
    <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button>
-   <button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id||x.row_id||x.ordem_id}')">🖨️</button></td>
+   <button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id}')">🖨️</button>
+  </td>
  </tr>`;
 
- const tabela=(lista,vazia)=>lista.length
- ? `<div class="tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Caminhão</th><th>Placa</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${lista.map(linha).join("")}</table></div>`
- : `<p class="small">${vazia}</p>`;
+ const tabela=(lista,msgvazio)=>lista.length
+  ? `<div class="tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Caminhão</th><th>Placa</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${lista.map(linha).join("")}</table></div>`
+  : `<p class="small">${msgvazio}</p>`;
 
  const hojeLista=ativas.filter(x=>dataOSNormalizada(x.data_entrega)===hoje);
  const amanhaLista=ativas.filter(x=>dataOSNormalizada(x.data_entrega)===amanha);
@@ -759,13 +761,14 @@ async function ordens(){
 
  $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2>
  <div class="card"><h3>Nova OS</h3><div class="grid">
-  <div><label>Número *</label><input id="on" readonly value="${esc(numeroNovo)}"></div>
+  <div><label>Número *</label><input id="on" readonly value="${esc(proximoNumeroOSLocal())}"></div>
   <div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div>
   <div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div>
   <div><label>Caminhão</label><select id="ocm" onchange="atualizarPlacaOS()">${options(cache.caminhoes,"id","identificacao")}</select></div>
   <div><label>Placa</label><input id="oplaca" readonly placeholder="Selecione o caminhão"></div>
   <div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div>
-  <div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div>
+  <div><label>Endereço</label><input id="oe"></div>
+  <div><label>Material</label><input id="oma"></div>
   <div><label>Entrega</label><input id="ode" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric"></div>
   <div><label>Retirada prevista</label><input id="odr" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric"></div>
   <div><label>Status</label><select id="ost"><option>Agendada</option><option>Em andamento</option><option>Reagendada</option><option>Concluída</option><option>Cancelada</option></select></div>
@@ -774,11 +777,14 @@ async function ordens(){
 
  <div class="card"><h3>📅 Ordens de HOJE <span class="small">(${hojeLista.length})</span></h3>${tabela(hojeLista,"Nenhuma ordem para hoje.")}</div>
  <div class="card"><h3>➡️ Ordens do PRÓXIMO DIA <span class="small">(${amanhaLista.length})</span></h3>${tabela(amanhaLista,"Nenhuma ordem para o próximo dia.")}</div>
- <div class="card"><details><summary style="cursor:pointer;font-weight:700;font-size:18px">📂 Outras ordens em aberto (${outrasLista.length})</summary>
+ <div class="card"><details open><summary style="cursor:pointer;font-weight:700;font-size:18px">📂 Outras ordens em aberto (${outrasLista.length})</summary>
   <div style="margin-top:14px">${tabela(outrasLista,"Nenhuma outra ordem em aberto.")}</div></details></div>
  <div class="card"><details><summary style="cursor:pointer;font-weight:700;font-size:18px">📁 Ordens concluídas (${concluidas.length})</summary>
   <div style="margin-top:14px">${tabela(concluidas,"Nenhuma ordem concluída ainda.")}</div></details></div>`;
  atualizarPlacaOS();
+
+ // Busca o próximo número real no Supabase sem impedir que as ordens sejam exibidas.
+ proximoNumeroOS().then(n=>{if($("on"))$("on").value=n}).catch(()=>{});
 }
 async function addOS(){
  const dados={cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:osDataISO(val("ode"))||null,data_retirada_prevista:osDataISO(val("odr"))||null,status:statusOSParaBanco(val("ost")),observacoes:val("oobs")};
