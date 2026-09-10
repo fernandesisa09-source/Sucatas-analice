@@ -314,6 +314,7 @@ async function saveEditModal(){
    const v=el.value;
    if(["cliente_id","caminhao_id","motorista_id","cacamba_id"].includes(field)) next[field]=v||null;
    else if(field==="custo") next[field]=Number(String(v).replace(",",".")||0);
+    else if(table==="ordens_servico" && field==="status") next[field]=statusOSParaBanco(v);
     else if(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")) next[field]=osDataISO(v)||null;
    else next[field]=v;
  }
@@ -715,7 +716,7 @@ async function ordens(){
   <td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.placa||"—")}</td>
   <td>${esc(osDataBR(x.data_entrega))}</td>
   <td>${esc(osDataBR(x.data_retirada_prevista))}</td>
-  <td><b>${esc(x.status||"")}</b></td>
+  <td><b>${esc(statusOSExibicao(x.status||""))}</b></td>
   <td>${esc(x.observacoes||"")}</td>
   <td>
    <button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ Editar</button>
@@ -764,8 +765,16 @@ async function ordens(){
  </div>`;
  atualizarPlacaOS();
 }
+function statusOSParaBanco(status){
+  const mapa={"Agendada":"Agendada","Em andamento":"Em rota","Reagendada":"Agendada","Concluída":"Concluída","Cancelada":"Cancelada"};
+  return mapa[status]||status;
+}
+function statusOSExibicao(status){
+  const mapa={"Agendada":"Agendada","Em rota":"Em andamento","Entregue":"Concluída","Retirada solicitada":"Reagendada","Concluída":"Concluída","Cancelada":"Cancelada"};
+  return mapa[status]||status;
+}
 async function addOS(){
- const dados={cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:osDataISO(val("ode"))||null,data_retirada_prevista:osDataISO(val("odr"))||null,status:val("ost"),observacoes:val("oobs")};
+ const dados={cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:osDataISO(val("ode"))||null,data_retirada_prevista:osDataISO(val("odr"))||null,status:statusOSParaBanco(val("ost")),observacoes:val("oobs")};
  let numero=await proximoNumeroOS();
  for(let tentativa=0;tentativa<3;tentativa++){
    const {error}=await sb.from("ordens_servico").insert({...dados,numero});
