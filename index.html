@@ -702,6 +702,28 @@ function atualizarPlacaOS(){
  const cam=(cache.caminhoes||[]).find(x=>String(x.id)===String(sel.value));
  placa.value=cam?.placa||"";
 }
+function dataHojeISO(){
+ const d=new Date();
+ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function dataAmanhaISO(){
+ const d=new Date(); d.setDate(d.getDate()+1);
+ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function dataOSNormalizada(v){
+ if(!v)return "";
+ const s=String(v).trim();
+ const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+ return m ? m[3]+"-"+m[2]+"-"+m[1] : s.slice(0,10);
+}
+function statusOSParaBanco(status){
+ const mapa={"Agendada":"Agendada","Em andamento":"Em rota","Reagendada":"Agendada","Concluída":"Concluída","Cancelada":"Cancelada"};
+ return mapa[status]||status;
+}
+function statusOSExibicao(status){
+ const mapa={"Agendada":"Agendada","Em rota":"Em andamento","Entregue":"Concluída","Retirada solicitada":"Reagendada","Concluída":"Concluída","Cancelada":"Cancelada"};
+ return mapa[status]||status;
+}
 async function ordens(){
  const numeroNovo=await proximoNumeroOS();
  const todas=cache.ordens||[];
