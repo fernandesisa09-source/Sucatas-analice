@@ -280,7 +280,7 @@ async function openEditModal(table,id){
  editContext={table,id,cfg,row};
 
  const fields=cfg.fields.map(([field,label,type,choices])=>{
-   const value=row[field]??"";
+   const value=(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")) ? osDataBR(row[field]) : (row[field]??"");
    if(type==="choice") return `<div><label>${esc(label)}</label><select id="edit_${field}">${(choices||[]).map(v=>`<option value="${esc(v)}" ${String(value)===String(v)?"selected":""}>${esc(v||"Não informado")}</option>`).join("")}</select></div>`;
    if(type==="cliente"||type==="caminhao"||type==="motorista"||type==="cacamba"){
      let arr=[],text="";
@@ -292,7 +292,7 @@ async function openEditModal(table,id){
    }
    if(type==="textarea") return `<div class="edit-full"><label>${esc(label)}</label><textarea id="edit_${field}" rows="4">${esc(value)}</textarea></div>`;
     if(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")) return `<div><label>${esc(label)}</label><input id="edit_${field}" type="text" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA" value="${esc(osDataBR(value))}"></div>`;
-   return `<div><label>${esc(label)}</label><input id="edit_${field}" type="${type==="number"?"number":type==="date"?"date":"text"}" value="${esc(value)}" ${type==="number"?'step="0.01"':""}></div>`;
+   return `<div><label>${esc(label)}</label><input id="edit_${field}" type="${(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista"))?"text":type==="number"?"number":type==="date"?"date":"text"}" value="${esc(value)}" ${type==="number"?'step="0.01"':""} ${table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")?'placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="formatarDataBRInput(this)"':""}></div>`;
  }).join("");
 
  $("editModal").innerHTML=`<div class="edit-box">
@@ -477,6 +477,100 @@ async function adRender(){
   <p class="small">Somente adiantamentos com saldo zerado.</p>
   <div id="adQuitados">${quitados.map(cardAd).join("")||"<p class='small'>Nenhum adiantamento quitado.</p>"}</div>
  </div>`;
+}
+
+async function adAbater(id){
+ const a=adCloud.find(x=>String(x.id)===String(id));if(!a)return;
+ const saldo=adSaldo(a);
+ if(saldo<=0)return alert("Este adiantamento já está quitado.");
+
+ const modal=document.createElement("div");
+ modal.className="edit-modal";
+ modal.style.display="flex";
+ modal.id="adAbaterModal";
+
+ const hojeBRLocal=(()=>{
+   const d=new Date();
+   return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+ })();
+
+ modal.innerHTML=`<div class="edit-box">
+   <div class="edit-head">
+     <h2>➕ Abater adiantamento</h2>
+     <button class="btn" onclick="this.closest('#adAbaterModal').remove()">✕</button>
+   </div>
+   <div class="card" style="margin:0 0 14px">
+     <b>${adEsc(a.pessoa)}</b>
+     <div class="small">Saldo atual: <b>${adR$(saldo)}</b></div>
+   </div>
+   <div class="grid">
+     <div>
+       <label>Valor do abatimento *</label>
+       <input id="aba_valor" inputmode="decimal" placeholder="0,00"
+         oninput="this.value=adNumeroBR(this.value)">
+     </div>
+     <div>
+       <label>Data do abatimento *</label>
+       <input id="aba_data" inputmode="numeric" maxlength="10"
+         placeholder="DD/MM/AAAA" value="${hojeBRLocal}"
+         oninput="this.value=adDataBRInput(this.value)">
+     </div>
+     <div style="grid-column:1/-1">
+       <p class="small">Você pode abater o valor total ou apenas uma parte. O saldo será atualizado automaticamente.</p>
+     </div>
+   </div>
+   <div class="edit-actions">
+     <button class="btn secondary" onclick="this.closest('#adAbaterModal').remove()">Cancelar</button>
+     <button class="btn primary" onclick="adSalvarAbatimento('${id}')">💾 Confirmar abatimento</button>
+   </div>
+ </div>`;
+ document.body.appendChild(modal);
+ setTimeout(()=>document.getElementById("aba_valor")?.focus(),100);
+}
+
+function adDataBRInput(v){
+ let s=String(v||"").replace(/\D/g,"").slice(0,8);
+ if(s.length>4)return s.slice(0,2)+"/"+s.slice(2,4)+"/"+s.slice(4);
+ if(s.length>2)return s.slice(0,2)+"/"+s.slice(2);
+ return s;
+}
+
+async function adSalvarAbatimento(id){
+ const a=adCloud.find(x=>String(x.id)===String(id));if(!a)return;
+ const saldo=adSaldo(a);
+ const n=adParseBR(document.getElementById("aba_valor")?.value||"");
+ const d=String(document.getElementById("aba_data")?.value||"").trim();
+
+ if(!Number.isFinite(n)||n<=0||n>saldo){
+   return alert("Informe um valor válido, até o saldo restante de "+adR$(saldo)+".");
+ }
+
+ const partes=d.split("/");
+ if(partes.length!==3||partes[0].length!==2||partes[1].length!==2||partes[2].length!==4){
+   return alert("Informe a data no formato DD/MM/AAAA.");
+ }
+ const dia=Number(partes[0]),mes=Number(partes[1]),ano=Number(partes[2]);
+ const dt=new Date(ano,mes-1,dia);
+ if(dt.getFullYear()!==ano||dt.getMonth()!==mes-1||dt.getDate()!==dia){
+   return alert("A data informada não é válida.");
+ }
+ const iso=ano+"-"+String(mes).padStart(2,"0")+"-"+String(dia).padStart(2,"0");
+
+ const abat=[...(a.abatimentos||[]),{
+   id:crypto.randomUUID(),
+   valor:n,
+   data:iso
+ }];
+
+ const {error}=await sb.from("adiantamentos")
+   .update({abatimentos:abat,updated_at:new Date().toISOString()})
+   .eq("id",a.id);
+
+ if(error)return alert("Não foi possível salvar o abatimento: "+error.message);
+
+ document.getElementById("adAbaterModal")?.remove();
+ await adRender();
+ alert(n>=saldo ? "Adiantamento quitado com sucesso!" : "Abatimento registrado com sucesso!");
 }
 
 function adEditar(id){
@@ -696,6 +790,13 @@ function osDataISO(v){
   const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
 }
+function formatarDataBRInput(el){
+  if(!el)return;
+  let v=String(el.value||"").replace(/\D/g,"").slice(0,8);
+  if(v.length>4)v=v.slice(0,2)+"/"+v.slice(2,4)+"/"+v.slice(4);
+  else if(v.length>2)v=v.slice(0,2)+"/"+v.slice(2);
+  el.value=v;
+}
 async function proximoNumeroOS(){
  const {data,error}=await sb.from("ordens_servico").select("numero");
  if(error) return proximoNumeroOSLocal();
@@ -789,8 +890,8 @@ function ordens(){
   <div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div>
   <div><label>Endereço</label><input id="oe"></div>
   <div><label>Material</label><input id="oma"></div>
-  <div><label>Entrega</label><input id="ode" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric"></div>
-  <div><label>Retirada prevista</label><input id="odr" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric"></div>
+  <div><label>Entrega</label><input id="ode" type="text" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="formatarDataBRInput(this)"></div>
+  <div><label>Retirada prevista</label><input id="odr" type="text" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="formatarDataBRInput(this)"></div>
   <div><label>Status</label><select id="ost"><option>Agendada</option><option>Em andamento</option><option>Reagendada</option><option>Concluída</option><option>Cancelada</option></select></div>
   <div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
  </div><br><button class="btn primary" onclick="addOS()">Criar ordem</button></div>
