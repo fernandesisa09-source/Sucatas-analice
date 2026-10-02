@@ -769,11 +769,54 @@ function pesagemSalvarEdicao(id){const lista=pesagensLoad(),x=lista.find(a=>Stri
 function pesagemLimpar(){pesagemRender()}
 function pesagemExcluir(id){if(!confirm("Excluir esta pesagem?"))return;pesagensSave(pesagensLoad().filter(x=>String(x.id)!==String(id)));pesagemRender()}
 function pesagemImprimir(id){
- const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return;
- const w=window.open("","_blank"); if(!w)return alert("Permita pop-ups para imprimir.");
- w.document.write(`<html><head><meta charset="utf-8"><title>Ticket de Pesagem</title><style>body{font-family:Arial;margin:20px;max-width:700px}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}.box{border:1px solid #ccc;padding:14px;margin:10px 0}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:8px}.total{font-size:22px;font-weight:bold}small{color:#666}@media print{button{display:none}}</style></head><body><h1>Sucatas Analice — Ticket de Pesagem</h1><div class="box"><table><tr><td><b>Data</b></td><td>${dataBR(x.data)}</td></tr><tr><td><b>Cliente / Pessoa</b></td><td>${esc(x.pessoa||"Não informado")}</td></tr><tr><td><b>Material</b></td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td></tr><tr><td><b>Peso de entrada</b></td><td>${brNum(x.entrada)} kg</td></tr><tr><td><b>Peso de saída / tara</b></td><td>${brNum(x.saida)} kg</td></tr><tr><td><b>Peso líquido</b></td><td><b>${brNum(x.liquido)} kg</b></td></tr><tr><td><b>Preço por kg</b></td><td>R$ ${brNum(x.preco)}</td></tr><tr><td><b>Total</b></td><td class="total">R$ ${brNum(x.total)}</td></tr></table></div>${x.observacoes?`<div class="box"><b>Observações:</b><br>${esc(x.observacoes)}</div>`:""}<small>Sucatas Analice</small><script>setTimeout(()=>window.print(),250)<\/script></body></html>`);w.document.close();
-}
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return alert("Pesagem não encontrada.");
 
+ const br=(v)=>typeof brNum==="function"?brNum(v):Number(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+ const data=typeof dataBR==="function"?dataBR(x.data||""):String(x.data||"").slice(0,10);
+ const status=pesagemStatusTexto(x.status);
+ const bloco=`
+  <div class="ticket">
+   <div class="cabecalho">SU CATAS ANALICE</div>
+   <div class="titulo">COMPROVANTE DE PESAGEM</div>
+   <div class="linha"><b>Data:</b> ${data}</div>
+   <div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div>
+   <div class="linha"><b>Produto:</b> ${esc((x.codigo?x.codigo+" — ":"")+(x.material||"—"))}</div>
+   <div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div>
+   <div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div>
+   <div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>
+   <div class="linha"><b>Preço/kg:</b> R$ ${br(x.preco)}</div>
+   <div class="linha destaque"><b>TOTAL:</b> R$ ${br(x.total)}</div>
+   <div class="linha"><b>Status:</b> ${status}</div>
+   ${x.observacoes?`<div class="linha"><b>Obs.:</b> ${esc(x.observacoes)}</div>`:""}
+   <div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div>
+  </div>`;
+
+ const w=window.open("","_blank","width=800,height=900");
+ if(!w)return alert("Permita a abertura da janela de impressão.");
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title>
+ <style>
+ @page{size:A4 portrait;margin:8mm}
+ *{box-sizing:border-box}
+ body{font-family:Arial,sans-serif;margin:0;color:#111}
+ .ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}
+ .ticket+.ticket{border-top:2px dashed #555;margin-top:0}
+ .cabecalho{text-align:center;font-size:22px;font-weight:800;letter-spacing:1px}
+ .titulo{text-align:center;font-size:15px;font-weight:700;margin:4px 0 10px}
+ .linha{font-size:12px;margin:5px 0}
+ .cliente-destaque{font-size:20px;font-weight:900;text-align:center;border:2px solid #111;padding:7px 5px;margin:7px 0 10px;text-transform:uppercase}
+ .destaque{font-size:14px;font-weight:700}
+ .assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between;gap:15mm}
+ .assinaturas span{width:45%;border-top:1px solid #111;text-align:center;padding-top:3px;font-size:10px}
+ .corte{text-align:center;height:8mm;line-height:8mm;font-size:9px;border-top:1px dashed #777;border-bottom:1px dashed #777}
+ @media print{.ticket{break-inside:avoid}.corte{break-inside:avoid}}
+ </style></head><body>
+ ${bloco}
+ <div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>
+ ${bloco}
+ <script>window.onload=()=>{window.print();}</script></body></html>`);
+ w.document.close();
+}
 
 function pesagemWhatsApp(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id));
