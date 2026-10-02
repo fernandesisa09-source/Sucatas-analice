@@ -45,40 +45,6 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 .pesagem-status-aberto{background:#fee2e2;color:#991b1b;border:1px solid #ef4444;padding:5px 9px;border-radius:999px;font-weight:700}
 
 .icon-btn{min-width:38px!important;width:38px!important;height:36px!important;padding:6px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:18px!important;line-height:1!important}
-
-.pesagem-add-modal{position:fixed;inset:0;background:rgba(15,23,42,.68);z-index:99999;display:flex;align-items:stretch;justify-content:center;padding:0}.pesagem-add-box{background:#fff;width:100%;height:100%;overflow:auto;padding:28px;box-sizing:border-box}.pesagem-add-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:1px solid #e5e7eb;padding-bottom:16px;margin-bottom:22px}.pesagem-add-head h2{margin:0 0 5px}.pesagem-add-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:18px;border-top:1px solid #e5e7eb}@media(max-width:700px){.pesagem-add-box{padding:18px}.pesagem-add-actions{position:sticky;bottom:0;background:#fff}}
-<style>
-.btn-excluir-discreto{padding:3px 6px!important;font-size:12px!important;min-width:0!important;border:0!important;background:transparent!important;color:#9b8fa3!important;opacity:.7!important;box-shadow:none!important;border-radius:8px!important}.btn-excluir-discreto:hover{opacity:1!important;background:#f5f1f7!important;color:#8a718f!important}
-/* Pesagem — visual sofisticado, alinhado e com ícones roxos */
-.pesagem-tabela{table-layout:fixed!important;width:100%!important;border-collapse:separate!important;border-spacing:0!important;overflow:hidden!important;border:1px solid #e8e3ef!important;border-radius:10px!important;background:#fff!important}
-.pesagem-tabela th{padding:13px 14px!important;font-size:12px!important;letter-spacing:.03em!important;text-transform:uppercase!important;vertical-align:middle!important;white-space:nowrap!important;background:#f8f6fb!important;color:#596176!important;border-bottom:1px solid #e8e3ef!important}
-.pesagem-tabela td{padding:10px 14px!important;vertical-align:middle!important;border-bottom:1px solid #eeeaf3!important;background:#fff!important}
-.pesagem-tabela th:nth-child(1),.pesagem-tabela td:nth-child(1){width:135px!important}
-.pesagem-tabela th:nth-child(2),.pesagem-tabela td:nth-child(2){width:170px!important}
-.pesagem-tabela th:nth-child(3),.pesagem-tabela td:nth-child(3){width:auto!important}
-.pesagem-tabela th:nth-child(4),.pesagem-tabela td:nth-child(4){width:150px!important;text-align:right!important}
-.pesagem-tabela th:nth-child(5),.pesagem-tabela td:nth-child(5){width:190px!important}
-.pesagem-cliente-head td{padding:0!important;border-bottom:1px solid #ddd6ec!important;background:#eef1fb!important}
-.pesagem-cliente-bar{min-height:42px;padding:8px 14px;display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(90deg,#eef1fb 0%,#f4f1fa 100%)}
-.pesagem-cliente-nome{display:flex;align-items:center;gap:10px;color:#20283a;font-size:16px}
-.pesagem-user-dot{color:#55358a;font-size:16px;line-height:1}
-.pesagem-cliente-resumo{display:flex;align-items:center;gap:28px;color:#526078;font-size:14px;white-space:nowrap}
-.pesagem-cliente-resumo strong{color:#20283a;font-size:15px;min-width:115px;text-align:right}
-.pesagem-chevron{color:#55358a;font-size:21px;font-weight:800;line-height:1}
-.pesagem-item-row:hover td{background:#fcfbfe!important}
-.pesagem-date{display:inline-block;min-width:92px;color:#4d5668;font-variant-numeric:tabular-nums;white-space:nowrap}
-.pesagem-material-nome{font-weight:600;color:#454b59;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pesagem-peso-cell{font-variant-numeric:tabular-nums;text-align:right!important;white-space:nowrap;color:#20283a}
-.pesagem-peso-cell strong{font-weight:700}
-.pesagem-acoes{display:flex;align-items:center;justify-content:flex-start;gap:7px;white-space:nowrap}
-.pesagem-acao{width:32px!important;height:32px!important;min-width:32px!important;padding:0!important;border:1px solid #e1dced!important;border-radius:8px!important;background:#faf9fc!important;color:#55358a!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;line-height:1!important;box-shadow:0 1px 3px rgba(64,42,96,.08)!important;opacity:1!important;transition:all .15s ease!important}
-.pesagem-acao svg{width:17px!important;height:17px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.9!important;stroke-linecap:round!important;stroke-linejoin:round!important}
-.pesagem-acao:hover{background:#f0ebf8!important;border-color:#cbbddd!important;color:#4b2f7a!important;transform:translateY(-1px);box-shadow:0 3px 8px rgba(64,42,96,.13)!important}
-.pesagem-acao.excluir{color:#b46c78!important;border-color:#eadfe2!important;background:#fcf9fa!important}
-.pesagem-acao.excluir:hover{color:#a34d5c!important;border-color:#dec7cc!important;background:#f9f1f3!important}
-.pesagem-acoes-col{width:190px!important}
-@media(max-width:900px){.pesagem-tabela{min-width:800px!important}.pesagem-cliente-resumo{gap:18px}.pesagem-tabela th:nth-child(5),.pesagem-tabela td:nth-child(5){width:175px!important}}
-</style>
 </style>
 </head>
 <body>
@@ -363,6 +329,20 @@ async function saveEditModal(){
    else next[field]=v;
  }
  if(table==="cacambas" && !next.numero)return alert("O número da caçamba é obrigatório.");
+ if(table==="cacambas"){
+   const livre=(next.status==="Disponível"||next.status==="No pátio");
+   if(next.status==="No cliente" && !next.cliente_id)return alert("Para colocar a caçamba 'No cliente', selecione o cliente.");
+   if(livre){
+     next.cliente_id=null;
+     next.caminhao_id=null;
+     next.motorista_id=null;
+     next.endereco_atual=null;
+     next.data_colocacao=null;
+     next.material=null;
+     if(next.status==="Disponível") next.patio=null;
+   }
+   if(next.status==="No cliente" && !next.data_colocacao) next.data_colocacao=today();
+ }
  if(table==="clientes" && !next.nome)return alert("O nome do cliente é obrigatório.");
  if(table==="motoristas" && !next.nome)return alert("O nome do motorista é obrigatório.");
  if(table==="caminhoes" && !next.identificacao)return alert("A identificação do caminhão é obrigatória.");
@@ -731,184 +711,46 @@ function adPrint(id){
 
 const PESAGEM_KEY="sucatas_analice_pesagens_v1";
 const PRODUTO_KEY="sucatas_analice_produtos_v1";
-let pesagemCloud=[];
-let produtoCloud=[];
-let pesagemCloudReady=false;
-let produtoCloudReady=false;
-let pesagemRealtimeReady=false;
-
-function produtosLoad(){
-  return produtoCloudReady ? produtoCloud : (()=>{try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}})();
+function produtosLoad(){try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}}
+function produtosSave(v){localStorage.setItem(PRODUTO_KEY,JSON.stringify(v))}
+function produtoSelecionado(){const id=$("pprod")?.value; return produtosLoad().find(x=>String(x.id)===String(id))||null}
+function produtoSelecionar(){const x=produtoSelecionado(); if(x){if($("pcod"))$("pcod").value=x.codigo||"";if($("pmat"))$("pmat").value=x.nome||"";if($("pp"))$("pp").value=brNum(x.preco);pesagemCalcular()}}
+function produtoNovo(){
+ const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="produtoModal";
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Adicionar produto</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div><label>Código do produto *</label><input id="pr_codigo" placeholder="Ex.: 01"></div><div><label>Produto / Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div><div><label>Preço por kg (R$) *</label><input id="pr_preco" inputmode="decimal" placeholder="0,00"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar produto</button></div></div>`;document.body.appendChild(modal);
 }
-function produtosSave(v){produtoCloud=v||[];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud))}
-function pesagensLoad(){
-  return pesagemCloudReady ? pesagemCloud : (()=>{try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}})();
-}
-function pesagensSave(v){pesagemCloud=v||[];pesagemCloudReady=true;localStorage.setItem(PESAGEM_KEY,JSON.stringify(pesagemCloud))}
+function produtoSalvar(){const codigo=$("pr_codigo")?.value.trim(),nome=$("pr_nome")?.value.trim(),preco=pesoNum($("pr_preco")?.value);if(!codigo||!nome||preco<=0)return alert("Preencha código, produto e preço.");const lista=produtosLoad();if(lista.some(x=>String(x.codigo).toLowerCase()===codigo.toLowerCase()))return alert("Já existe um produto com esse código.");lista.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),codigo,nome,preco});produtosSave(lista);$("produtoModal")?.remove();pesagemRender();alert("Produto cadastrado com sucesso!")}
+function produtoEditar(id){const lista=produtosLoad(),x=lista.find(a=>String(a.id)===String(id));if(!x)return;const codigo=prompt("Código do produto:",x.codigo||"");if(codigo===null)return;const nome=prompt("Produto / Material:",x.nome||"");if(nome===null)return;const precoS=prompt("Preço por kg (R$):",brNum(x.preco));if(precoS===null)return;const preco=pesoNum(precoS);if(!codigo.trim()||!nome.trim()||preco<=0)return alert("Dados inválidos.");x.codigo=codigo.trim();x.nome=nome.trim();x.preco=preco;produtosSave(lista);pesagemRender()}
+function produtoExcluir(id){if(!confirm("Excluir este produto?"))return;produtosSave(produtosLoad().filter(x=>String(x.id)!==String(id)));pesagemRender()}
+function pesagensLoad(){try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}}
+function pesagensSave(v){localStorage.setItem(PESAGEM_KEY,JSON.stringify(v))}
 function pesoNum(v){const s=String(v??"").trim().replace(/\./g,"").replace(",","."); const n=parseFloat(s); return Number.isFinite(n)?n:0}
 function moedaNum(v){return pesoNum(v)}
-function parseBR(v){return pesoNum(v)}
 function brNum(n,d=2){return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})}
-function produtoSelecionado(){const id=$("pprod")?.value; return produtosLoad().find(x=>String(x.id)===String(id))||null}
-function produtoSelecionar(){const x=produtoSelecionado(); if(x){if($("pmat"))$("pmat").value=x.nome||"";pesagemCalcular()}}
 function pesagemCalcular(){
- const entrada=pesoNum($("pe")?.value), saida=pesoNum($("ps")?.value);
- const liquido=Math.max(0,entrada-saida);
+ const entrada=pesoNum($("pe" )?.value), saida=pesoNum($("ps")?.value), preco=moedaNum($("pp")?.value);
+ const liquido=Math.max(0,entrada-saida), total=liquido*preco;
  if($("pliq"))$("pliq").value=brNum(liquido);
- return {entrada,saida,liquido};
+ if($("ptotal"))$("ptotal").value=brNum(total);
+ return {entrada,saida,preco,liquido,total};
 }
-
-async function produtosCloudLoad(){
- const local=(()=>{try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}})();
- const {data,error}=await sb.from("produtos_pesagem").select("*").order("nome",{ascending:true});
- if(error){
-   produtoCloud=local;produtoCloudReady=true;
-   console.error("produtos_pesagem",error);
-   return produtoCloud;
- }
- if(local.length){
-   const idsCloud=new Set((data||[]).map(x=>String(x.id)));
-   const novos=local.map(x=>({
-     id:/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(x.id||""))?x.id:(crypto.randomUUID?crypto.randomUUID():undefined),
-     codigo:null,
-     nome:String(x.nome||"").trim(),
-     preco:Number(x.preco||0)
-   })).filter(x=>x.nome&&Number(x.preco)>0&&!idsCloud.has(String(x.id)));
-   let migOk=true;
-   if(novos.length){
-     const ins=await sb.from("produtos_pesagem").upsert(novos,{onConflict:"id"});
-     if(ins.error){migOk=false;console.error("migração produtos_pesagem",ins.error);}
-   }
-   if(migOk)localStorage.removeItem(PRODUTO_KEY);
- }
- const fresh=await sb.from("produtos_pesagem").select("*").order("nome",{ascending:true});
- produtoCloud=fresh.error?(data||[]):(fresh.data||[]);
- produtoCloudReady=true;
- return produtoCloud;
-}
-
-async function pesagensCloudLoad(){
- const local=(()=>{try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}})();
- const localFechadas=(()=>{try{return new Set(JSON.parse(localStorage.getItem(PESAGEM_FECH_KEY)||"[]").flatMap(f=>(f.pesagem_ids||[]).map(String)))}catch(e){return new Set()}})();
- const {data,error}=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
- if(error){
-   pesagemCloud=local;pesagemCloudReady=true;
-   console.error("pesagens",error);
-   return pesagemCloud;
- }
- if(local.length){
-   const idsCloud=new Set((data||[]).map(x=>String(x.id)));
-   const rows=local.map(x=>({
-     id:/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(x.id||""))?x.id:(crypto.randomUUID?crypto.randomUUID():undefined),
-     data:String(x.data||today()),
-     pessoa:String(x.pessoa||"").trim()||"Cliente não informado",
-     codigo:String(x.codigo||"").trim(),
-     material:String(x.material||"").trim(),
-     entrada:Number(x.entrada||0),
-     saida:Number(x.saida||0),
-     liquido:Number(x.liquido||Math.max(0,Number(x.entrada||0)-Number(x.saida||0))),
-     observacoes:String(x.observacoes||"").trim(),
-     fechada:localFechadas.has(String(x.id))
-   })).filter(x=>x.pessoa&&x.material&&Number(x.entrada)>0&&!idsCloud.has(String(x.id)));
-   let migOk=true;
-   if(rows.length){
-     const ins=await sb.from("pesagens").upsert(rows,{onConflict:"id"});
-     if(ins.error){migOk=false;console.error("migração pesagens",ins.error);}
-   }
-   if(migOk){
-     localStorage.removeItem(PESAGEM_KEY);
-     localStorage.removeItem(PESAGEM_FECH_KEY);
-   }
- }
- const fresh=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
- pesagemCloud=fresh.error?(data||[]):(fresh.data||[]);
- pesagemCloudReady=true;
- return pesagemCloud;
-}
-
-function iniciarPesagemRealtime(){
- if(pesagemRealtimeReady)return;
- pesagemRealtimeReady=true;
- sb.channel("pesagem-compartilhada")
-   .on("postgres_changes",{event:"*",schema:"public",table:"pesagens"},()=>{pesagensCloudLoad().then(()=>pesagemRender())})
-   .on("postgres_changes",{event:"*",schema:"public",table:"produtos_pesagem"},()=>{produtosCloudLoad().then(()=>pesagemRender())})
-   .subscribe();
-}
-
-async function produtoNovo(){
- const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="produtoModal";
- modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Adicionar produto</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div><label>Produto / Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div><div><label>Preço por kg (R$) *</label><input id="pr_preco" inputmode="decimal" placeholder="0,00"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar produto</button></div></div>`;document.body.appendChild(modal);
-}
-async function produtoSalvar(){
- const nome=$("pr_nome")?.value.trim(),preco=pesoNum($("pr_preco")?.value);
- if(!nome||preco<=0)return alert("Preencha produto e preço.");
- if(produtosLoad().some(x=>String(x.nome||"").trim().toLowerCase()===nome.toLowerCase()))return alert("Esse produto já está cadastrado.");
- const {data,error}=await sb.from("produtos_pesagem").insert({nome,preco}).select().single();
- if(error)return alert("Não foi possível salvar o produto: "+error.message);
- produtoCloud=[data,...produtoCloud];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud));
- $("produtoModal")?.remove();await pesagemRender();alert("Produto cadastrado com sucesso!");
-}
-async function produtoEditar(id){
- const x=produtosLoad().find(a=>String(a.id)===String(id));if(!x)return;
- const nome=prompt("Produto / Material:",x.nome||"");if(nome===null)return;
- const precoS=prompt("Preço por kg (R$):",brNum(x.preco));if(precoS===null)return;
- const preco=pesoNum(precoS);if(!nome.trim()||preco<=0)return alert("Dados inválidos.");
- const {data,error}=await sb.from("produtos_pesagem").update({nome:nome.trim(),preco,updated_at:new Date().toISOString()}).eq("id",id).select().single();
- if(error)return alert("Não foi possível atualizar o produto: "+error.message);
- produtoCloud=produtoCloud.map(a=>String(a.id)===String(id)?data:a);produtoCloudReady=true;await pesagemRender();
-}
-
-async function produtoExcluir(id){
- if(!confirm("Excluir este produto?"))return;
- const {error}=await sb.from("produtos_pesagem").delete().eq("id",id);
- if(error)return alert("Não foi possível excluir o produto: "+error.message);
- produtoCloud=produtoCloud.filter(x=>String(x.id)!==String(id));produtoCloudReady=true;await pesagemRender();
-}
-
-async function pesagemRender(){
- await pesagensCloudLoad();
- await produtosCloudLoad();
- iniciarPesagemRealtime();
+function pesagemRender(){
  const el=$("pesagem"); if(!el)return;
  const lista=pesagensLoad();
- const abertas=lista.filter(x=>!x.fechada);
- const arquivadas=lista.filter(x=>!!x.fechada);
- const agrupar=(arr)=>{
-   const grupos={};
-   arr.forEach(x=>{const nome=pesagemClienteNome(x);const k=nome.toLowerCase();if(!grupos[k])grupos[k]={nome,items:[]};grupos[k].items.push(x)});
-   return Object.values(grupos).sort((a,b)=>a.nome.localeCompare(b.nome));
- };
- const clientes=agrupar(abertas);
- const clientesArquivados=agrupar(arquivadas);
- const pesagemSvg={
-  edit:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3Z"/><path d="m13.5 6.5 4 4"/></svg>`,
-  print:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v6H6z"/></svg>`,
-  whatsapp:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5A10 10 0 0 0 3.8 15.6L2.5 21.5l6-1.3A10 10 0 1 0 20.5 3.5Z"/><path d="M8.2 7.5c.3-.7.6-.7 1-.7h.6c.2 0 .4.1.5.4l.9 2.1c.1.2.1.4 0 .6l-.7 1c-.1.2-.1.4 0 .6.5.9 1.2 1.6 2.1 2.1.2.1.4.1.6 0l1-.7c.2-.1.4-.1.6 0l2.1.9c.3.1.4.3.4.5v.6c0 .4 0 .7-.7 1-1 .4-2.2.2-3.9-.5-1.6-.7-3.1-1.9-4.2-3.2-1.1-1.4-1.7-2.8-1.3-3.7Z"/></svg>`,
-  trash:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg>`,
-  check:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`
- };
- const acao=(icon,title,on,extra="")=>`<button class="pesagem-acao ${extra}" title="${title}" aria-label="${title}" onclick="${on}">${pesagemSvg[icon]}</button>`;
- const linhas=(g,arquivada=false)=>{
-   const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
-   const nomeArg=JSON.stringify(g.nome);
-   const nomeCod=JSON.stringify(encodeURIComponent(g.nome));
-   const idsArg=JSON.stringify(g.items.map(x=>String(x.id)));
-   const resumo=`${g.items.length} ${g.items.length===1?'pesagem':'pesagens'} · ${brNum(total)} kg`;
-   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar todas as pesagens deste cliente no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${!arquivada?`<button class="pesagem-acao pesagem-add-material" title="Acrescentar material para esta pessoa" aria-label="Acrescentar material para esta pessoa" onclick="pesagemAbrirAdicionarCliente(${nomeArg})">＋</button>`:''}${!arquivada?acao('check','Concluir todas as pesagens deste cliente',`pesagemFecharModal(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
-   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><span class="pesagem-material-nome">${esc(x.material||"—")}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}</div></td></tr>`).join("");
-   return `<tr class="pesagem-cliente-head"><td colspan="6"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Data</th><th>Material</th><th>Entrada</th><th>Saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
- };
- el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
+ el.innerHTML=`<h2>⚖️ Pesagem e Impressão</h2>
  <div class="card" style="border-left:5px solid #55358a">
   <h3 style="margin-top:0">📝 Nova pesagem</h3>
   <div class="grid">
    <div><label>Data</label><input id="pdata" type="date" value="${today()}"></div>
    <div><label>Cliente / Pessoa</label><input id="ppessoa" placeholder="Nome da pessoa"></div>
-   <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<option value="${x.id}">${esc(x.nome)} — R$ ${brNum(x.preco)}</option>`).join("")}</select><button class="btn secondary" onclick="produtoNovo()">➕ Adicionar produto</button></div></div>
+   <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(x=>`<option value="${x.id}">${esc(x.codigo)} — ${esc(x.nome)} — R$ ${brNum(x.preco)}</option>`).join("")}</select><button class="btn secondary" onclick="produtoNovo()">➕ Adicionar produto</button></div></div>
+   <div><label>Código do material</label><input id="pcod" placeholder="Ex.: 01"></div>
    <div><label>Material</label><input id="pmat" placeholder="Ex.: Papelão"></div>
    <div><label>Peso de entrada (kg)</label><input id="pe" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
    <div><label>Peso de saída / tara (kg)</label><input id="ps" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
    <div><label>Peso líquido (kg)</label><input id="pliq" readonly placeholder="0,00"></div>
+   <div><label>Preço por kg (R$)</label><input id="pp" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
+   <div><label>Total (R$)</label><input id="ptotal" readonly placeholder="0,00"></div>
    <div style="grid-column:1/-1"><label>Observações</label><textarea id="pobs" rows="2" placeholder="Observações da pesagem..."></textarea></div>
   </div>
   <br><button class="btn primary" onclick="pesagemSalvar()">💾 Registrar pesagem</button>
@@ -917,225 +759,178 @@ async function pesagemRender(){
  <div class="card">
   <h3 style="margin-top:0">♻️ Produtos / Materiais</h3>
   <button class="btn primary" onclick="produtoNovo()">➕ Adicionar produto</button>
-  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Produto / Material</th><th>Preço/kg</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
+  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Código</th><th>Produto</th><th>Preço/kg</th><th class="no-print">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(x=>`<tr><td><b>${esc(x.codigo)}</b></td><td>${esc(x.nome)}</td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️ ✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
  </div>
  <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${clientes.length?`<div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
- </div>
- <div class="card">
-  <h3 style="margin-top:0">📁 Pesagens concluídas / arquivadas</h3>
-  <p class="small">As pesagens concluídas ficam aqui e não aparecem na lista principal.</p>
-  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join("")}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
+  ${lista.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th><th>R$/kg</th><th>Total</th><th class="no-print">Ações</th></tr></thead><tbody>${lista.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.pessoa||"")}</td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td><td>${brNum(x.entrada)}</td><td>${brNum(x.saida)}</td><td><b>${brNum(x.liquido)}</b></td><td>${brNum(x.preco)}</td><td><b>R$ ${brNum(x.total)}</b></td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${x.id}')">✏️ ✏️</button> <button class="btn secondary icon-btn" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimir('${x.id}')">🖨️</button> <button class="btn secondary icon-btn" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsApp('${x.id}')">📲</button> <button class="btn secondary icon-btn" title="Acrescentar material" aria-label="Acrescentar material" onclick="pesagemAcrescentarMaterial('${x.id}')">➕</button> <button class="btn danger" onclick="pesagemExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
  </div>`;
 }
-
-async function pesagemSalvar(){
- const entrada=parseBR($("pe")?.value||"0"), saida=parseBR($("ps")?.value||"0");
- const pessoa=String($("ppessoa")?.value||"").trim();
- const material=String($("pmat")?.value||"").trim();
- const data=String($("pdata")?.value||today());
- const liquido=Math.max(0,entrada-saida);
- if(!pessoa)return alert("Informe o nome da pessoa.");
+function pesagemSalvar(){
+ const c=pesagemCalcular();
+ const pessoa=String($("ppessoa")?.value||"").trim(), material=String($("pmat")?.value||"").trim(), codigo=String($("pcod")?.value||"").trim(), data=String($("pdata")?.value||today());
  if(!material)return alert("Informe o material.");
- if(entrada<=0)return alert("Informe o peso de entrada.");
- if(saida<0)return alert("Informe um peso de saída válido.");
- if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
- const row={data,pessoa,material,entrada,saida,liquido,observacoes:String($("pobs")?.value||"").trim()};
- const {data:saved,error}=await sb.from("pesagens").insert(row).select().single();
- if(error)return alert("Não foi possível registrar a pesagem: "+error.message);
- pesagemCloud=[saved,...pesagemCloud];pesagemCloudReady=true;
- await pesagemRender(); alert("Pesagem registrada com sucesso!");
+ if(c.entrada<=0)return alert("Informe o peso de entrada.");
+ if(c.liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
+ if(c.preco<=0)return alert("Informe o preço por kg.");
+ const row={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),data,pessoa,codigo,material,entrada:c.entrada,saida:c.saida,liquido:c.liquido,preco:c.preco,total:c.total,observacoes:String($("pobs")?.value||"").trim()};
+ const lista=pesagensLoad(); lista.unshift(row); pesagensSave(lista); pesagemRender(); alert("Pesagem registrada com sucesso!");
 }
-
 function pesagemEditar(id){
- const lista=pesagensLoad(),x=lista.find(a=>String(a.id)===String(id)); if(!x)return;
- const modal=document.createElement("div"); modal.className="edit-modal"; modal.style.display="flex"; modal.id="pesagemEditModal";
- modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>✏️ Editar pesagem</h2><button class="btn" onclick="this.closest('#pesagemEditModal').remove()">✕</button></div>
- <div class="grid">
- <div><label>Data</label><input id="pe_data" type="date" value="${esc(x.data||today())}"></div>
- <div><label>Cliente / Pessoa</label><input id="pe_pessoa" value="${esc(x.pessoa||"")}"></div>
-
- <div><label>Material</label><input id="pe_material" value="${esc(x.material||"")}"></div>
- <div><label>Peso de entrada (kg)</label><input id="pe_entrada" inputmode="decimal" value="${brNum(x.entrada)}"></div>
- <div><label>Peso de saída / tara (kg)</label><input id="pe_saida" inputmode="decimal" value="${brNum(x.saida)}"></div>
- <div><label>Peso líquido (kg)</label><input id="pe_liquido" readonly value="${brNum(x.liquido)}"></div>
- <div style="grid-column:1/-1"><label>Observações</label><textarea id="pe_obs" rows="2">${esc(x.observacoes||"")}</textarea></div>
- </div><br>
- <button class="btn primary" onclick="pesagemSalvarEdicao('${x.id}')">💾 Salvar alterações</button></div>`;
- document.body.appendChild(modal);
- const calc=()=>{const a=parseBR($("pe_entrada").value||"0"),b=parseBR($("pe_saida").value||"0");$("pe_liquido").value=brNum(Math.max(0,a-b));};
- $("pe_entrada").oninput=calc;$("pe_saida").oninput=calc;
+ const lista=pesagensLoad(),x=lista.find(a=>String(a.id)===String(id));if(!x)return;
+ const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="pesagemEditModal";
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>✏️ Editar pesagem</h2><button class="btn" onclick="this.closest('#pesagemEditModal').remove()">✕</button></div><div class="grid"><div><label>Data</label><input id="pe_data" type="date" value="${esc(x.data||today())}"></div><div><label>Cliente / Pessoa</label><input id="pe_pessoa" value="${esc(x.pessoa||"")}"></div><div><label>Código</label><input id="pe_codigo" value="${esc(x.codigo||"")}"></div><div><label>Material</label><input id="pe_material" value="${esc(x.material||"")}"></div><div><label>Peso entrada</label><input id="pe_entrada" inputmode="decimal" value="${brNum(x.entrada)}"></div><div><label>Tara / saída</label><input id="pe_saida" inputmode="decimal" value="${brNum(x.saida)}"></div><div><label>Preço/kg</label><input id="pe_preco" inputmode="decimal" value="${brNum(x.preco)}"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="pe_obs" rows="3">${esc(x.observacoes||"")}</textarea></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#pesagemEditModal').remove()">Cancelar</button><button class="btn primary" onclick="pesagemSalvarEdicao('${id}')">💾 Salvar alterações</button></div></div>`;document.body.appendChild(modal);
 }
-async function pesagemSalvarEdicao(id){
- const x=pesagensLoad().find(a=>String(a.id)===String(id));if(!x)return;
- const entrada=parseBR($("pe_entrada").value||"0"),saida=parseBR($("pe_saida").value||"0"),liquido=Math.max(0,entrada-saida);
- if(entrada<=0||saida<0||liquido<=0)return alert("Confira os pesos.");
- const novo={data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim(),updated_at:new Date().toISOString()};
- if(!novo.pessoa||!novo.material)return alert("Informe pessoa e material.");
- const {data,error}=await sb.from("pesagens").update(novo).eq("id",id).select().single();
- if(error)return alert("Não foi possível atualizar a pesagem: "+error.message);
- pesagemCloud=pesagemCloud.map(a=>String(a.id)===String(id)?data:a);pesagemCloudReady=true;
- $("pesagemEditModal")?.remove();await pesagemRender();alert("Pesagem atualizada.");
-}
-
-async function pesagemExcluir(id){
- if(!confirm("Excluir esta pesagem?"))return;
- const {error}=await sb.from("pesagens").delete().eq("id",id);
- if(error)return alert("Não foi possível excluir a pesagem: "+error.message);
- pesagemCloud=pesagemCloud.filter(x=>String(x.id)!==String(id));pesagemCloudReady=true;await pesagemRender();
-}
-
-async function pesagemExcluirCliente(nome,ids,arquivada=false){
- const lista=pesagensLoad().filter(x=>ids.map(String).includes(String(x.id)));
- const qtd=lista.length;
- if(!qtd)return alert("Não há pesagens para excluir.");
- const tipo=arquivada?"arquivadas":"abertas";
- if(!confirm(`Excluir TODAS as ${qtd} pesagens ${tipo} de ${nome}?\n\nEssa ação não poderá ser desfeita.`))return;
- const {error}=await sb.from("pesagens").delete().in("id",ids);
- if(error)return alert("Não foi possível excluir as pesagens: "+error.message);
- const set=new Set(ids.map(String));
- pesagemCloud=pesagemCloud.filter(x=>!set.has(String(x.id)));pesagemCloudReady=true;
- await pesagemRender();
- alert(`${qtd} pesagem(ns) de ${nome} excluída(s) com sucesso.`);
-}
-
+function pesagemSalvarEdicao(id){const lista=pesagensLoad(),x=lista.find(a=>String(a.id)===String(id));if(!x)return;const entrada=pesoNum($("pe_entrada")?.value),saida=pesoNum($("pe_saida")?.value),preco=pesoNum($("pe_preco")?.value),liquido=Math.max(0,entrada-saida),total=liquido*preco;if(entrada<=0||liquido<=0||preco<=0)return alert("Confira os pesos e o preço.");x.data=$("pe_data")?.value||today();x.pessoa=$("pe_pessoa")?.value.trim()||"";x.codigo=$("pe_codigo")?.value.trim()||"";x.material=$("pe_material")?.value.trim()||"";x.entrada=entrada;x.saida=saida;x.liquido=liquido;x.preco=preco;x.total=total;x.observacoes=$("pe_obs")?.value.trim()||"";pesagensSave(lista);$("pesagemEditModal")?.remove();pesagemRender();alert("Pesagem atualizada com sucesso!")}
+function pesagemLimpar(){pesagemRender()}
+function pesagemExcluir(id){if(!confirm("Excluir esta pesagem?"))return;pesagensSave(pesagensLoad().filter(x=>String(x.id)!==String(id)));pesagemRender()}
 function pesagemImprimir(id){
- const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
- const br=v=>brNum(v); const data=dataBR(x.data||"");
- const bloco=`<div class="ticket"><div class="cabecalho">SUCATAS ANALICE</div><div class="titulo">COMPROVANTE DE PESAGEM</div><div class="linha"><b>Data:</b> ${data}</div><div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div><div class="linha"><b>Material:</b> ${esc(x.material||"—")}</div><div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div><div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div><div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>${x.observacoes?`<div class="linha"><b>Obs.:</b> ${esc(x.observacoes)}</div>`:""}<div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
- const w=window.open("","_blank","width=800,height=900"); if(!w)return alert("Permita a abertura da janela de impressão.");
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title><style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}.cabecalho{text-align:center;font-size:22px;font-weight:800;white-space:nowrap}.titulo{text-align:center;font-size:15px;font-weight:700;margin:4px 0 10px}.linha{font-size:12px;margin:5px 0}.cliente-destaque{font-size:20px;font-weight:900;text-align:center;border:2px solid #111;padding:7px 5px;margin:7px 0 10px;text-transform:uppercase}.destaque{font-size:14px;font-weight:700}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between;gap:15mm}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;padding-top:3px;font-size:10px}.corte{text-align:center;height:8mm;line-height:8mm;font-size:9px;border-top:1px dashed #777;border-bottom:1px dashed #777}@media print{.ticket{break-inside:avoid}.corte{break-inside:avoid}}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
-}
-function pesagemItensCliente(nome, arquivada=false){
- const alvo=String(nome||"").trim().toLowerCase();
- return pesagensLoad().filter(x=>pesagemClienteNome(x).toLowerCase()===alvo && !!x.fechada===!!arquivada);
-}
-function pesagemImprimirCliente(nomeCod, arquivada=false){
- const nome=decodeURIComponent(nomeCod||""); const items=pesagemItensCliente(nome,arquivada); if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
- const rows=items.map(x=>`<tr><td>${esc(x.material||"")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join("");
- const w=window.open("","_blank","width=900,height=800"); if(!w)return alert("Permita a abertura da janela.");
- const bloco=`<div class="ticket"><h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div><table><thead><tr><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table><div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>@page{size:A4 portrait;margin:8mm}body{font-family:Arial;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}h2{text-align:center;margin:0 0 10px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin-bottom:14px;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:7px;font-size:11px}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;font-size:10px;padding-top:3px}.corte{text-align:center;height:8mm;line-height:8mm;border-top:1px dashed #777;border-bottom:1px dashed #777;font-size:9px}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return alert("Pesagem não encontrada.");
+
+ const br=(v)=>typeof brNum==="function"?brNum(v):Number(v||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+ const data=typeof dataBR==="function"?dataBR(x.data||""):String(x.data||"").slice(0,10);
+ const status=pesagemStatusTexto(x.status);
+ const bloco=`
+  <div class="ticket">
+   <div class="cabecalho">SUCATAS ANALICE</div>
+   <div class="titulo">COMPROVANTE DE PESAGEM</div>
+   <div class="linha"><b>Data:</b> ${data}</div>
+   <div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div>
+   <div class="linha"><b>Produto:</b> ${esc((x.codigo?x.codigo+" — ":"")+(x.material||"—"))}</div>
+   <div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div>
+   <div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div>
+   <div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>
+   <div class="linha"><b>Preço/kg:</b> R$ ${br(x.preco)}</div>
+   <div class="linha destaque"><b>TOTAL:</b> R$ ${br(x.total)}</div>
+   <div class="linha"><b>Status:</b> ${status}</div>
+   ${x.observacoes?`<div class="linha"><b>Obs.:</b> ${esc(x.observacoes)}</div>`:""}
+   <div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div>
+  </div>`;
+
+ const w=window.open("","_blank","width=800,height=900");
+ if(!w)return alert("Permita a abertura da janela de impressão.");
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title>
+ <style>
+ @page{size:A4 portrait;margin:8mm}
+ *{box-sizing:border-box}
+ body{font-family:Arial,sans-serif;margin:0;color:#111}
+ .ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}
+ .ticket+.ticket{border-top:2px dashed #555;margin-top:0}
+ .cabecalho{text-align:center;font-size:22px;font-weight:800;letter-spacing:0;white-space:nowrap}
+ .titulo{text-align:center;font-size:15px;font-weight:700;margin:4px 0 10px}
+ .linha{font-size:12px;margin:5px 0}
+ .cliente-destaque{font-size:20px;font-weight:900;text-align:center;border:2px solid #111;padding:7px 5px;margin:7px 0 10px;text-transform:uppercase}
+ .destaque{font-size:14px;font-weight:700}
+ .assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between;gap:15mm}
+ .assinaturas span{width:45%;border-top:1px solid #111;text-align:center;padding-top:3px;font-size:10px}
+ .corte{text-align:center;height:8mm;line-height:8mm;font-size:9px;border-top:1px dashed #777;border-bottom:1px dashed #777}
+ @media print{.ticket{break-inside:avoid}.corte{break-inside:avoid}}
+ </style></head><body>
+ ${bloco}
+ <div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>
+ ${bloco}
+ <script>window.onload=()=>{window.print();}<\/script></body></html>`);
+ w.document.close();
 }
 
 function pesagemWhatsApp(id){
- const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
- const msg=[x.pessoa||"",`${x.material||""} — ${brNum(x.liquido)} kg`].filter(Boolean).join("\n");
- try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
- window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
-}
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return alert("Pesagem não encontrada.");
 
-
-function pesagemAbrirAdicionar(id){
- const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
- const pessoa=String(x.pessoa||"").trim(); if(!pessoa)return alert("Esta pesagem não tem cliente/pessoa informado.");
- const modal=document.createElement("div"); modal.className="pesagem-add-modal"; modal.id="pesagemAddModal";
- modal.innerHTML=`<div class="pesagem-add-box">
-   <div class="pesagem-add-head"><div><h2>➕ Adicionar nova pesagem</h2><div class="small">Cliente / Pessoa: <b>${esc(pessoa)}</b></div></div><button class="btn" onclick="document.getElementById('pesagemAddModal')?.remove()">✕</button></div>
-   <div class="grid">
-    <div><label>Data</label><input id="pam_data" type="date" value="${today()}"></div>
-    <div><label>Cliente / Pessoa</label><input id="pam_pessoa" value="${esc(pessoa)}" readonly></div>
-    <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pam_prod" onchange="pesagemAdicionarSelecionarProduto()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select></div></div>
-    <div><label>Material</label><input id="pam_material" value="${esc(x.material||"")}" placeholder="Ex.: Papelão"></div>
-    <div><label>Peso de entrada (kg)</label><input id="pam_entrada" inputmode="decimal" placeholder="0,00" oninput="pesagemAdicionarCalcular()"></div>
-    <div><label>Peso de saída / tara (kg)</label><input id="pam_saida" inputmode="decimal" placeholder="0,00" oninput="pesagemAdicionarCalcular()"></div>
-    <div><label>Peso líquido (kg)</label><input id="pam_liquido" readonly placeholder="0,00"></div>
-    <div style="grid-column:1/-1"><label>Observações</label><textarea id="pam_obs" rows="3" placeholder="Observações da nova pesagem..."></textarea></div>
-   </div>
-   <div class="pesagem-add-actions"><button class="btn secondary" onclick="document.getElementById('pesagemAddModal')?.remove()">Cancelar</button><button class="btn primary" onclick="pesagemSalvarAdicional('${x.id}')">💾 Registrar pesagem</button></div>
- </div>`;
- document.body.appendChild(modal);
-}
-function pesagemAdicionarSelecionarProduto(){const p=produtosLoad().find(x=>String(x.id)===String($("pam_prod")?.value));if(p){$("pam_material").value=p.nome||""}}
-function pesagemAdicionarCalcular(){const e=parseBR($("pam_entrada")?.value||"0"),s=parseBR($("pam_saida")?.value||"0");if($("pam_liquido"))$("pam_liquido").value=brNum(Math.max(0,e-s));}
-async function pesagemSalvarAdicional(origId){
- const origem=pesagensLoad().find(a=>String(a.id)===String(origId));if(!origem)return;
- const entrada=parseBR($("pam_entrada")?.value||"0"),saida=parseBR($("pam_saida")?.value||"0"),liquido=Math.max(0,entrada-saida);
- const pessoa=String($("pam_pessoa")?.value||origem.pessoa||"").trim(),material=String($("pam_material")?.value||"").trim();
- if(!material)return alert("Informe o material."); if(entrada<=0)return alert("Informe o peso de entrada."); if(saida<0)return alert("Informe um peso de saída válido."); if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
- const novo={data:String($("pam_data")?.value||today()),pessoa,material,entrada,saida,liquido,observacoes:String($("pam_obs")?.value||"").trim()};
- const {data,error}=await sb.from("pesagens").insert(novo).select().single();
- if(error)return alert("Não foi possível registrar a nova pesagem: "+error.message);
- pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;document.getElementById("pesagemAddModal")?.remove();await pesagemRender();alert("Nova pesagem registrada para "+pessoa+".");
-}
-
-function pesagemAbrirAdicionarCliente(nome){
- const abertas=(pesagensLoad()||[]).filter(x=>!x.fechada && String(pesagemClienteNome(x)).trim().toLowerCase()===String(nome).trim().toLowerCase());
- if(!abertas.length)return alert("Não encontrei pesagens abertas para esta pessoa.");
- const id=abertas[0]?.id;
- if(id)pesagemAbrirAdicionar(id);
-}
-
-function pesagemAcrescentarMaterial(id){pesagemAbrirAdicionar(id)}
-
-
-function pesagemFechamentosLoad(){return pesagemCloud.filter(x=>x.fechada)}
-function pesagemFechamentosSave(v){}
-function pesagemFechadasSet(){return new Set(pesagemCloud.filter(x=>x.fechada).map(x=>String(x.id)))}
-
-function pesagemClienteNome(x){return String(x?.pessoa||"").trim()||"Cliente não informado"}
-function pesagemClienteAberta(x){
- const fech=pesagemFechadasSet();
- return !fech.has(String(x.id));
-}
-function pesagemAgruparCliente(nome){
- return pesagensLoad().filter(x=>pesagemClienteAberta(x)&&pesagemClienteNome(x).toLowerCase()===String(nome).trim().toLowerCase());
-}
-function pesagemListaClientesAbertos(){
- const mapa={};
- pesagensLoad().filter(pesagemClienteAberta).forEach(x=>{
-   const n=pesagemClienteNome(x);
-   mapa[n.toLowerCase()]={nome:n,items:(mapa[n.toLowerCase()]?.items||[]).concat(x)};
- });
- return Object.values(mapa).sort((a,b)=>a.nome.localeCompare(b.nome));
-}
-function pesagemFecharCliente(){
- const clientes=pesagemListaClientesAbertos();
- if(!clientes.length)return alert("Não há pesagens abertas para fechar.");
- const nomes=clientes.map((c,i)=>`${i+1} — ${c.nome} (${c.items.length} material(is))`).join("\n");
- const escolha=prompt("Escolha o cliente para fechar a pesagem:\n\n"+nomes+"\n\nDigite o número:");
- if(escolha===null)return;
- const c=clientes[Number(escolha)-1];
- if(!c)return alert("Cliente inválido.");
- pesagemFecharModal(c.nome);
-}
-function pesagemFecharModal(nome){
- const items=pesagemAgruparCliente(nome);
- if(!items.length)return alert("Não há pesagens abertas para este cliente.");
- const htmlRows=items.map(x=>`<tr><td>${esc(x.material||"")}</td><td>${typeof brNum==="function"?brNum(x.entrada):x.entrada} kg</td><td>${typeof brNum==="function"?brNum(x.saida):x.saida} kg</td><td>${typeof brNum==="function"?brNum(x.liquido):x.liquido} kg</td></tr>`).join("");
- const w=window.open("","fechamento","width=900,height=700");
- if(!w)return alert("Permita a abertura da janela.");
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Fechamento</title><style>
- body{font-family:Arial;padding:20px;color:#111}h2{text-align:center;margin:5px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin:12px 0;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:7px;font-size:12px}th{background:#eee}.totais{margin-top:14px;font-size:16px;font-weight:800}.acoes{text-align:center;margin-top:20px}button{padding:10px 16px;margin:5px;border-radius:8px;border:0} .pago{background:#d1fae5;color:#065f46}.pagamento{background:#fef3c7;color:#92400e}.aberto{background:#fee2e2;color:#991b1b}</style></head><body>
- <h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div>
- <table><thead><tr><th>Material</th><th>Peso de entrada</th><th>Peso de saída</th><th>Peso líquido</th></tr></thead><tbody>${htmlRows}</tbody></table>
- 
- <div class="acoes"><button onclick="opener.pesagemFecharDefinitivo(${JSON.stringify(nome)},${JSON.stringify(items.map(x=>String(x.id)))});window.close()">💾 Fechar</button><button onclick="window.print()">🖨️ Imprimir</button></div>
- </body></html>`); w.document.close();
-}
-async function pesagemFecharDefinitivo(nome,ids){
- const {error}=await sb.from("pesagens").update({fechada:true,updated_at:new Date().toISOString()}).in("id",ids);
- if(error)return alert("Não foi possível fechar a pesagem: "+error.message);
- pesagemCloud=pesagemCloud.map(x=>ids.map(String).includes(String(x.id))?{...x,fechada:true}:x);pesagemCloudReady=true;
- await pesagemRender();alert("Pesagem do cliente fechada com sucesso.");
-}
-
-function pesagemWhatsAppCliente(nome, arquivada=false){
- const items=pesagemItensCliente(nome,arquivada);
- if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
- const linhas=[
-   "SUCATAS ANALICE",
-   "Pesagens de: "+nome,
+ const msg=[
+   "Olá! Segue o registro da pesagem:",
    "",
-   ...items.map((x,i)=>{
-     const data=dataBR(x.data||"");
-     return `${i+1}. ${data} — ${x.material||"Material não informado"}\n   Entrada: ${brNum(x.entrada)} kg | Saída: ${brNum(x.saida)} kg | Líquido: ${brNum(x.liquido)} kg`;
-   })
- ];
- const msg=linhas.join("\n");
- try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
+   "⚖️ PESAGEM — SUCATAS ANALICE",
+   "📅 Data: "+(typeof dataBR==="function"?dataBR(x.data||""):String(x.data||"").slice(0,10)),
+   "👤 Pessoa: "+(x.pessoa||"Não informado"),
+   "♻️ Material: "+((x.codigo?x.codigo+" — ":"")+(x.material||"—")),
+   "⚖️ Peso de entrada: "+(typeof brNum==="function"?brNum(x.entrada):x.entrada)+" kg",
+   "⚖️ Peso de saída / tara: "+(typeof brNum==="function"?brNum(x.saida):x.saida)+" kg",
+   "📦 Peso líquido: "+(typeof brNum==="function"?brNum(x.liquido):x.liquido)+" kg",
+   "💰 Preço por kg: R$ "+(typeof brNum==="function"?brNum(x.preco):x.preco),
+   "💵 Total: R$ "+(typeof brNum==="function"?brNum(x.total):x.total),
+   x.status ? "💳 Status: "+pesagemStatusTexto(x.status) : "",
+   x.observacoes ? "📝 Observações: "+x.observacoes : ""
+ ].filter(Boolean).join("\n");
+
+ // Abre o WhatsApp sem escolher número. O usuário escolhe o contato diretamente no WhatsApp.
+ // O texto fica copiado para facilitar o envio.
+ try{
+   if(navigator.clipboard && navigator.clipboard.writeText){
+     navigator.clipboard.writeText(msg).catch(()=>{});
+   }
+ }catch(e){}
+
  window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+}
+
+function pesagemStatusClasse(status){
+ const s=String(status||"Aberto").toLowerCase();
+ if(s==="pago") return "pesagem-status-pago";
+ if(s==="pagamento" || s==="em pagamento") return "pesagem-status-pagamento";
+ return "pesagem-status-aberto";
+}
+function pesagemStatusTexto(status){
+ const s=String(status||"Aberto").toLowerCase();
+ if(s==="pago") return "PAGO";
+ if(s==="pagamento" || s==="em pagamento") return "PAGAMENTO";
+ return "ABERTO";
+}
+function pesagemAcrescentarMaterial(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return alert("Pesagem não encontrada.");
+ const pessoa=String(x.pessoa||"").trim();
+ if(!pessoa)return alert("Esta pesagem não tem cliente/pessoa informado.");
+
+ const entrada=prompt("Peso de entrada do material adicional (kg):");
+ if(entrada===null)return;
+ const saida=prompt("Peso de saída / tara (kg):","0");
+ if(saida===null)return;
+ const material=prompt("Material:",x.material||"");
+ if(material===null)return;
+ const codigo=prompt("Código do produto:",x.codigo||"");
+ if(codigo===null)return;
+ const preco=prompt("Preço por kg:",String(x.preco??""));
+ if(preco===null)return;
+
+ const parsePeso = typeof brParse==="function" ? brParse : (v=>parseFloat(String(v).replace(/\./g,"").replace(",", ".")));
+ const e=parsePeso(entrada), s=parsePeso(saida), p=parsePeso(preco);
+ const liquido=Math.max(0,e-s), total=liquido*p;
+ if(!Number.isFinite(e)||!Number.isFinite(s)||!Number.isFinite(p)||liquido<0||p<0)
+   return alert("Confira os pesos e o preço.");
+
+ const novo={
+   ...x,
+   id:crypto.randomUUID(),
+   data:new Date().toISOString(),
+   entrada:e,saida:s,liquido,total,pessoa,
+   material,codigo,preco:p,
+   status:"Aberto",
+   observacoes:(x.observacoes?x.observacoes+" | ":"")+"Material acrescentado ao mesmo cliente."
+ };
+ pesagensSave([novo,...pesagensLoad()]);
+ if(typeof pesagensRender==="function") pesagensRender();
+ alert("Material acrescentado para "+pessoa+".");
+}
+function pesagemAlterarStatus(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return alert("Pesagem não encontrada.");
+
+ const atual=x.status||"Aberto";
+ const escolha=prompt("Escolha o status:\n\n🟢 PAGO\n🟡 PAGAMENTO\n🔴 ABERTO\n\nDigite o nome do status:",atual);
+ if(escolha===null)return;
+
+ const normal=String(escolha).trim().toLowerCase();
+ let status="";
+ if(normal==="pago" || normal==="🟢 pago") status="Pago";
+ else if(normal==="pagamento" || normal==="🟡 pagamento") status="Pagamento";
+ else if(normal==="aberto" || normal==="🔴 aberto") status="Aberto";
+ else return alert("Status inválido. Escolha: Pago, Pagamento ou Aberto.");
+
+ const lista=pesagensLoad().map(a=>String(a.id)===String(id)?{...a,status}:a);
+ pesagensSave(lista);
+ if(typeof pesagensRender==="function")pesagensRender();
 }
 
 function renderPage(page){
@@ -1257,7 +1052,23 @@ function tableCac(){
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
- await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),estado:val("cestado")||null,observacoes:val("cobs")},cacambas);
+ const status=val("cs");
+ const cliente=val("cc")||null;
+ if(status==="No cliente" && !cliente)return alert("Para colocar a caçamba 'No cliente', selecione o cliente.");
+ const livre=(status==="Disponível"||status==="No pátio");
+ await add("cacambas",{
+   numero:val("cn"),
+   status,
+   cliente_id:livre?null:cliente,
+   caminhao_id:livre?null:(val("ct")||null),
+   motorista_id:livre?null:(val("cm")||null),
+   material:livre?null:val("cma"),
+   endereco_atual:livre?null:val("ce"),
+   patio:status==="No pátio"?(val("cp")||null):null,
+   data_colocacao:livre?null:today(),
+   estado:val("cestado")||null,
+   observacoes:val("cobs")
+ },cacambas);
 }
 
 function estadoCacambas(){
