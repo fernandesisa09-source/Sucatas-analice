@@ -712,6 +712,7 @@ function pesagensLoad(){try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)|
 function pesagensSave(v){localStorage.setItem(PESAGEM_KEY,JSON.stringify(v))}
 function pesoNum(v){const s=String(v??"").trim().replace(/\./g,"").replace(",","."); const n=parseFloat(s); return Number.isFinite(n)?n:0}
 function moedaNum(v){return pesoNum(v)}
+function parseBR(v){return pesoNum(v)}
 function brNum(n,d=2){return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})}
 function pesagemCalcular(){
  const entrada=pesoNum($("pe" )?.value), saida=pesoNum($("ps")?.value), preco=moedaNum($("pp")?.value);
