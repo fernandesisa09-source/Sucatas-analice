@@ -6,27 +6,47 @@
 <title>Sucatas Analice — Controle de Caçambas</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-*{box-sizing:border-box}
-body{font-family:Arial,sans-serif;margin:0;background:#f5f3f8;color:#4b4f52}
+*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f5f3f8;color:#4b4f52}
 header{background:linear-gradient(135deg,#55358a 0%,#4b2f7a 55%,#0a9a4a 100%);color:#fff;padding:18px;display:flex;align-items:center;gap:14px;box-shadow:0 3px 12px #55358a33}
 header img{width:64px;height:64px;object-fit:cover;border-radius:14px;background:#fff;padding:3px}
 h1{margin:0;font-size:25px}.sub{font-size:16px;margin-top:4px;color:#f0edf7}
 nav{display:flex;gap:7px;overflow:auto;background:#fff;padding:10px;position:sticky;top:0;z-index:5;box-shadow:0 1px 8px #55358a18}
 nav button,.btn{border:0;border-radius:10px;padding:12px 15px;font-weight:700;font-size:15px;background:#eeeaf4;color:#4b4f52;white-space:nowrap}
-nav button:hover,.btn:hover{filter:brightness(.97)}
-nav button.active,.primary{background:#55358a;color:#fff}
-.primary:hover{background:#472c76}
-.danger{background:#c83b3b!important;color:#fff}.secondary{background:#e9e5ef}
+nav button.active,.primary{background:#55358a;color:#fff}.danger{background:#c83b3b!important;color:#fff}.secondary{background:#e9e5ef}
 main{padding:22px;max-width:1200px;margin:auto}.page{display:none}.page.active{display:block}
 .card{background:#fff;border-radius:16px;padding:18px;margin:12px 0;box-shadow:0 2px 12px #0000000b}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px}.stat{font-size:18px}.stat b{display:block;font-size:38px;margin-top:8px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}label{display:block;font-weight:700;margin-bottom:5px}
-input,select,textarea{width:100%;padding:11px;border:1px solid #d6d0df;border-radius:9px;font-size:15px;background:#fff}
-table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;border-bottom:1px solid #e4dfea;text-align:left}th{background:#eeeaf4}
-.tablewrap{overflow:auto}.actions{display:flex;gap:7px;flex-wrap:wrap}.small{color:#68656b;font-size:14px}.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#f5f3f8}
-.login .card{width:100%;max-width:420px}.msg{padding:10px;border-radius:9px;margin:10px 0}.ok{background:#e5f6ea;color:#087a3b}.err{background:#fdeaea;color:#9b1c1c}
-.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#eeeaf4;font-size:13px;font-weight:700}
+input,select,textarea{width:100%;padding:11px;border:1px solid #ccd4dc;border-radius:9px;font-size:15px;background:#fff}
+table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;border-bottom:1px solid #e5e9ed;text-align:left}th{background:#f1f5f8}
+.tablewrap{overflow:auto}.actions{display:flex;gap:7px;flex-wrap:wrap}.small{color:#66717b;font-size:14px}.login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#eef3f7}
+.login .card{width:100%;max-width:420px}.msg{padding:10px;border-radius:9px;margin:10px 0}.ok{background:#e5f6ea;color:#176b2c}.err{background:#fdeaea;color:#9b1c1c}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#e7eef5;font-size:13px;font-weight:700}
 @media(max-width:600px){main{padding:12px}header{padding:14px}header img{width:56px;height:56px}h1{font-size:22px}.stats{grid-template-columns:1fr 1fr}}
+
+.edit-modal{display:none;position:fixed;inset:0;background:#0008;z-index:50;align-items:center;justify-content:center;padding:18px}
+.edit-box{background:#fff;width:min(900px,100%);max-height:92vh;overflow:auto;border-radius:18px;padding:20px;box-shadow:0 12px 40px #0005}
+.edit-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}.edit-head h2{margin:0;color:#55358a}
+.edit-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;position:sticky;bottom:0;background:#fff;padding-top:12px}
+.edit-full{grid-column:1/-1}
+@media print{
+ body{background:#fff!important}
+ header,nav,.no-print,.btn,form,input,select,textarea{display:none!important}
+ main{padding:0!important;max-width:none!important}
+ .page{display:none!important}.page.active{display:block!important}
+ .card{box-shadow:none!important;border:1px solid #ddd!important}
+ table{min-width:0!important;font-size:11px}
+ td:last-child,th:last-child{display:none!important}
+ .edit-modal{display:none!important}
+}
+.quick-history{padding:10px 12px;margin:7px 0;border:1px solid #ddd;border-radius:10px;background:#fafafa;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pesagem-status-pago{background:#d1fae5;color:#065f46;border:1px solid #10b981;padding:5px 9px;border-radius:999px;font-weight:700}
+.pesagem-status-pagamento{background:#fef3c7;color:#92400e;border:1px solid #f59e0b;padding:5px 9px;border-radius:999px;font-weight:700}
+.pesagem-status-aberto{background:#fee2e2;color:#991b1b;border:1px solid #ef4444;padding:5px 9px;border-radius:999px;font-weight:700}
+
+.icon-btn{min-width:38px!important;width:38px!important;height:36px!important;padding:6px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:18px!important;line-height:1!important}
+
+.pesagem-add-modal{position:fixed;inset:0;background:rgba(15,23,42,.68);z-index:99999;display:flex;align-items:stretch;justify-content:center;padding:0}.pesagem-add-box{background:#fff;width:100%;height:100%;overflow:auto;padding:28px;box-sizing:border-box}.pesagem-add-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:1px solid #e5e7eb;padding-bottom:16px;margin-bottom:22px}.pesagem-add-head h2{margin:0 0 5px}.pesagem-add-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:18px;border-top:1px solid #e5e7eb}@media(max-width:700px){.pesagem-add-box{padding:18px}.pesagem-add-actions{position:sticky;bottom:0;background:#fff}}
 </style>
 </head>
 <body>
@@ -58,14 +78,17 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <header>
   <img id="logo">
   <div><h1>Sucatas Analice</h1><div class="sub">Controle de Caçambas</div></div>
-  <div style="margin-left:auto;text-align:right"><div id="userName"></div><button class="btn secondary" onclick="logout()">Sair</button></div>
+  <div style="margin-left:auto;text-align:right"><div id="userName"></div><button class="btn secondary no-print" onclick="imprimirAtual()">🖨️ Imprimir</button> <button class="btn secondary no-print" onclick="logout()">Sair</button></div>
 </header>
 <nav>
  <button data-page="dashboard" class="active">📊 Painel</button>
  <button data-page="cacambas">🗑️ Caçambas</button>
+ <button data-page="estado">📌 Estado</button>
  <button data-page="clientes">👥 Clientes</button>
  <button data-page="motoristas">👤 Motoristas</button>
  <button data-page="caminhoes">🚛 Caminhões</button>
+ <button data-page="adiantamentos">💰 Adiantamentos</button>
+ <button data-page="pesagem">⚖️ Pesagem</button>
  <button data-page="ordens">📋 Ordens</button>
  <button data-page="movimentacoes">🔄 Movimentações</button>
  <button data-page="manutencoes">🔧 Manutenção</button>
@@ -73,16 +96,30 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <main>
 <section id="dashboard" class="page active"></section>
 <section id="cacambas" class="page"></section>
+<section id="estado" class="page"></section>
 <section id="clientes" class="page"></section>
 <section id="motoristas" class="page"></section>
 <section id="caminhoes" class="page"></section>
+<section id="adiantamentos" class="page"></section>
+<section id="pesagem" class="page"></section>
 <section id="ordens" class="page"></section>
 <section id="movimentacoes" class="page"></section>
 <section id="manutencoes" class="page"></section>
 </main>
 </div>
+<div id="editModal" class="edit-modal" onclick="if(event.target===this)closeEditModal()"></div>
 
 <script>
+function osDataBRPrint(v){
+  if(!v)return "";
+  const s=String(v).trim();
+  const parte=s.slice(0,10).split("-");
+  if(parte.length===3 && parte[0].length===4 && parte[1].length===2 && parte[2].length===2){
+    return parte[2]+"/"+parte[1]+"/"+parte[0];
+  }
+  return s;
+}
+
 const SUPABASE_URL="https://xctuoxcmulcjuupswztp.supabase.co";
 const SUPABASE_KEY="sb_publishable_IDX4DlhGkaBZHyv5S6pyGQ_zaDQJVZp";
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
@@ -94,6 +131,31 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function msg(id,text,ok=false){$(id).innerHTML=`<div class="msg ${ok?'ok':'err'}">${esc(text)}</div>`}
 function val(id){return $(id)?.value?.trim()||""}
 function today(){return new Date().toISOString().slice(0,10)}
+
+function imprimirItem(table,id){
+ const lista = cache[table] || (table==="ordens_servico" ? (cache.ordens||[]) : []);
+ const row = lista.find(x=>String(x.id)===String(id));
+ if(!row)return alert("Item não encontrado.");
+ const escp=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+ const find=(arr,id,key)=>((arr||[]).find(x=>x.id===id)||{})[key]||"";
+ const fields=[];
+ const add=(n,v)=>{if(v!==null&&v!==undefined&&String(v)!=="")fields.push("<p><b>"+escp(n)+":</b> "+escp(v)+"</p>");};
+ let title="Registro";
+ if(table==="ordens_servico"){title="Ordem de Serviço";add("Número",row.numero);add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caçamba",find(cache.cacambas,row.cacamba_id,"numero"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Placa",find(cache.caminhoes,row.caminhao_id,"placa"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Endereço",row.endereco);add("Material",row.material);add("Data de entrega",osDataBRPrint(row.data_entrega));add("Retirada prevista",osDataBRPrint(row.data_retirada_prevista));add("Status",row.status);add("Observações",row.observacoes);}
+ else if(table==="cacambas"){title="Ficha da Caçamba";add("Número",row.numero);add("Status",row.status);add("Estado",row.estado||"Não informado");add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Material",row.material);add("Endereço",row.endereco_atual);add("Pátio",row.patio);add("Data de colocação",row.data_colocacao);add("Observações",row.observacoes);}
+ else if(table==="clientes"){title="Ficha do Cliente";add("Nome",row.nome);add("Responsável",row.responsavel);add("Telefone",row.telefone);add("E-mail",row.email);add("Endereço",row.endereco);add("Número",row.numero);add("Bairro",row.bairro);add("Cidade",row.cidade);add("UF",row.uf);add("CEP",row.cep);add("Caçambas",(cache.cacambas||[]).filter(c=>c.cliente_id===row.id).length);add("Observações",row.observacoes);}
+ else if(table==="motoristas"){title="Ficha do Motorista";add("Nome",row.nome);add("Telefone",row.telefone);add("CNH",row.cnh);add("Status",row.status);add("Observações",row.observacoes);}
+ else if(table==="caminhoes"){title="Ficha do Caminhão";add("Identificação",row.identificacao);add("Placa",row.placa);add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Status",row.status);add("Observações",row.observacoes);}
+ else if(table==="movimentacoes"){title="Movimentação";add("Tipo",row.tipo);add("Data",row.data);add("Caçamba",find(cache.cacambas,row.cacamba_id,"numero"));add("Cliente",find(cache.clientes,row.cliente_id,"nome"));add("Caminhão",find(cache.caminhoes,row.caminhao_id,"identificacao"));add("Motorista",find(cache.motoristas,row.motorista_id,"nome"));add("Endereço",row.endereco);add("Material",row.material);add("Observações",row.observacoes);}
+ else if(table==="manutencoes"){title="Manutenção";add("Caçamba",find(cache.cacambas,row.cacamba_id,"numero"));add("Data",row.data);add("Problema",row.problema);add("Custo",row.custo);add("Status",row.status);add("Observações",row.observacoes);}
+ else return;
+ const w=window.open("","_blank");
+ if(!w)return alert("Permita pop-ups para imprimir.");
+ w.document.write("<!doctype html><html><head><meta charset='utf-8'><title>"+escp(title)+"</title><style>body{font-family:Arial;margin:35px;color:#333}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}p{padding:8px 0;border-bottom:1px solid #ddd}small{color:#777}</style></head><body><h1>"+escp(title)+"</h1>"+fields.join("")+"<small>Sucatas Analice</small></body></html>");
+ w.document.close(); w.focus(); setTimeout(()=>w.print(),300);
+}
+
+function imprimirAtual(){window.print();}
 function show(page){
  document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
@@ -103,11 +165,17 @@ function show(page){
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.page));
 
 async function login(){
- const email=val("email"), password=$("password").value;
- if(!email||!password)return msg("loginMsg","Informe e-mail e senha.");
- const {error}=await sb.auth.signInWithPassword({email,password});
- if(error)return msg("loginMsg",error.message);
- await startApp();
+ try{
+  const email=val("email"), password=$("password").value;
+  if(!email||!password)return msg("loginMsg","Informe e-mail e senha.");
+  msg("loginMsg","Entrando...",false);
+  const {error}=await sb.auth.signInWithPassword({email,password});
+  if(error)return msg("loginMsg",error.message);
+  await startApp();
+ }catch(e){
+  console.error(e);
+  msg("loginMsg","Não foi possível entrar. Verifique sua conexão e tente novamente.");
+ }
 }
 async function forgotPassword(){
  const email=val("email");
@@ -175,88 +243,117 @@ async function loadAll(){
 }
 async function add(table,row,after){const {error}=await sb.from(table).insert(row);if(error)alert(error.message);else{await loadAll();after?.()}}
 
-function findByLabel(arr, value, labelField){
- const v=String(value||"").trim().toLowerCase();
- if(!v)return null;
- return arr.find(x=>String(x[labelField]||"").trim().toLowerCase()===v)||null;
-}
-function askField(label,current,type="text",choices=[]){
- let suffix=choices.length ? `\n\nOpções: ${choices.join(" | ")}` : "";
- return prompt(`${label}${suffix}`, current==null?"":String(current));
-}
-async function editRecord(table,id){
+let editContext=null;
+
+function editRecord(table,id){ openEditModal(table,id); }
+
+async function openEditModal(table,id){
  const maps={
-  cacambas:{
-   title:"Editar caçamba",
-   fields:[
-    ["numero","Número","text"],["status","Status","text",["Disponível","No pátio","No cliente","Manutenção"]],
-    ["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
-    ["material","Material","text"],["endereco_atual","Endereço atual","text"],["patio","Pátio","text",["Analice","Estrada das Rosas"]],
-    ["observacoes","Observações","text"]
-   ]
-  },
-  clientes:{
-   title:"Editar cliente",
-   fields:[["nome","Nome","text"],["responsavel","Responsável","text"],["telefone","Telefone","text"],["email","E-mail","text"],
-    ["endereco","Endereço","text"],["numero","Número","text"],["bairro","Bairro","text"],["cidade","Cidade","text"],["uf","UF","text"],["cep","CEP","text"],["observacoes","Observações","text"]]
-  },
-  motoristas:{
-   title:"Editar motorista",
-   fields:[["nome","Nome","text"],["telefone","Telefone","text"],["cnh","CNH","text"],["status","Status","text",["Ativo","Inativo"]],["observacoes","Observações","text"]]
-  },
-  caminhoes:{
-   title:"Editar caminhão",
-   fields:[["identificacao","Identificação","text"],["placa","Placa","text"],["motorista_id","Motorista","motorista"],
-    ["status","Status","text",["Disponível","Em operação","Manutenção","Inativo"]],["observacoes","Observações","text"]]
-  },
-  ordens_servico:{
-   title:"Editar ordem de serviço",
-   fields:[["numero","Número da OS","text"],["cliente_id","Cliente","cliente"],["cacamba_id","Caçamba","cacamba"],
-    ["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],["endereco","Endereço","text"],["material","Material","text"],
-    ["data_entrega","Data de entrega","text"],["data_retirada_prevista","Retirada prevista","text"],
-    ["status","Status","text",["Agendada","Em rota","Entregue","Retirada solicitada","Concluída","Cancelada"]],["observacoes","Observações","text"]]
-  },
-  movimentacoes:{
-   title:"Editar movimentação",
-   fields:[["tipo","Tipo","text",["Entrega","Retirada","Troca","Transferência","Entrada no pátio","Saída do pátio"]],
-    ["cacamba_id","Caçamba","cacamba"],["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
-    ["endereco","Endereço","text"],["material","Material","text"],["observacoes","Observações","text"]]
-  },
-  manutencoes:{
-   title:"Editar manutenção",
-   fields:[["cacamba_id","Caçamba","cacamba"],["data","Data","text"],["problema","Problema","text"],["custo","Custo","text"],
-    ["status","Status","text",["Aberta","Em andamento","Concluída"]],["observacoes","Observações","text"]]
-  }
+  cacambas:{title:"Editar caçamba",fields:[
+   ["numero","Número","text"],["status","Status","choice",["Disponível","No pátio","No cliente","Manutenção"]],
+   ["estado","Estado da caçamba","choice",["","Nova","Boa","Com avarias","Danificada","Em manutenção","Inutilizada"]],
+   ["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
+   ["material","Material","text"],["endereco_atual","Endereço atual","text"],["patio","Pátio","choice",["","Analice","Estrada das Rosas"]],
+   ["observacoes","Observações","textarea"]
+  ]},
+  clientes:{title:"Editar cliente",fields:[
+   ["nome","Nome","text"],["responsavel","Responsável","text"],["telefone","Telefone","text"],["email","E-mail","text"],
+   ["endereco","Endereço","text"],["numero","Número","text"],["bairro","Bairro","text"],["cidade","Cidade","text"],["uf","UF","text"],["cep","CEP","text"],["observacoes","Observações","textarea"]
+  ]},
+  motoristas:{title:"Editar motorista",fields:[
+   ["nome","Nome","text"],["telefone","Telefone","text"],["cnh","CNH","text"],["status","Status","choice",["Ativo","Inativo"]],["observacoes","Observações","textarea"]
+  ]},
+  caminhoes:{title:"Editar caminhão",fields:[
+   ["identificacao","Identificação","text"],["placa","Placa","text"],["motorista_id","Motorista","motorista"],
+   ["status","Status","choice",["Disponível","Em operação","Manutenção","Inativo"]],["observacoes","Observações","textarea"]
+  ]},
+  ordens_servico:{title:"Editar ordem de serviço",fields:[
+   ["numero","Número da OS","text"],["cliente_id","Cliente","cliente"],["cacamba_id","Caçamba","cacamba"],
+   ["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],["endereco","Endereço","text"],["material","Material","text"],
+   ["data_entrega","Data de entrega","date"],["data_retirada_prevista","Retirada prevista","date"],
+   ["status","Status","choice",["Agendada","Em andamento","Reagendada","Concluída","Cancelada"]],["observacoes","Observações","textarea"]
+  ]},
+  movimentacoes:{title:"Editar movimentação",fields:[
+   ["tipo","Tipo","choice",["Entrega","Retirada","Troca","Transferência","Entrada no pátio","Saída do pátio"]],
+   ["cacamba_id","Caçamba","cacamba"],["cliente_id","Cliente","cliente"],["caminhao_id","Caminhão","caminhao"],["motorista_id","Motorista","motorista"],
+   ["endereco","Endereço","text"],["material","Material","text"],["observacoes","Observações","textarea"]
+  ]},
+  manutencoes:{title:"Editar manutenção",fields:[
+   ["cacamba_id","Caçamba","cacamba"],["data","Data","date"],["problema","Problema","text"],["custo","Custo","number"],
+   ["status","Status","choice",["Aberta","Em andamento","Concluída"]],["observacoes","Observações","textarea"]
+  ]}
  };
  const cfg=maps[table]; if(!cfg)return alert("Edição não disponível para esta aba.");
- const source=(table==="movimentacoes"||table==="manutencoes") ? await load(table) : (cache[table]||[]);
+ let source=cache[table] || (table==="ordens_servico" ? (cache.ordens||[]) : []);
+ if(table==="movimentacoes"||table==="manutencoes") source=await load(table);
  const row=source.find(x=>x.id===id); if(!row)return alert("Registro não encontrado.");
+ editContext={table,id,cfg,row};
+
+ const fields=cfg.fields.map(([field,label,type,choices])=>{
+   const value=(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")) ? osDataBR(row[field]) : (row[field]??"");
+   if(type==="choice") return `<div><label>${esc(label)}</label><select id="edit_${field}">${(choices||[]).map(v=>`<option value="${esc(v)}" ${String(value)===String(v)?"selected":""}>${esc(v||"Não informado")}</option>`).join("")}</select></div>`;
+   if(type==="cliente"||type==="caminhao"||type==="motorista"||type==="cacamba"){
+     let arr=[],text="";
+     if(type==="cliente"){arr=cache.clientes||[];text="nome";}
+     if(type==="caminhao"){arr=cache.caminhoes||[];text="identificacao";}
+     if(type==="motorista"){arr=cache.motoristas||[];text="nome";}
+     if(type==="cacamba"){arr=cache.cacambas||[];text="numero";}
+     return `<div><label>${esc(label)}</label><select id="edit_${field}"><option value="">Selecione</option>${arr.map(o=>`<option value="${esc(o.id)}" ${o.id===value?"selected":""}>${esc(o[text])}</option>`).join("")}</select></div>`;
+   }
+   if(type==="textarea") return `<div class="edit-full"><label>${esc(label)}</label><textarea id="edit_${field}" rows="4">${esc(value)}</textarea></div>`;
+    if(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")) return `<div><label>${esc(label)}</label><input id="edit_${field}" type="text" inputmode="numeric" maxlength="10" placeholder="DD/MM/AAAA" value="${esc(osDataBR(value))}"></div>`;
+   return `<div><label>${esc(label)}</label><input id="edit_${field}" type="${(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista"))?"text":type==="number"?"number":type==="date"?"date":"text"}" value="${esc(value)}" ${type==="number"?'step="0.01"':""} ${table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")?'placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="formatarDataBRInput(this)"':""}></div>`;
+ }).join("");
+
+ $("editModal").innerHTML=`<div class="edit-box">
+   <div class="edit-head"><h2>✏️ ${esc(cfg.title)}</h2><button class="btn" onclick="closeEditModal()">✕</button></div>
+   <div class="grid">${fields}</div>
+   <div class="edit-actions"><button class="btn secondary" onclick="closeEditModal()">Cancelar</button><button class="btn primary" onclick="saveEditModal()">💾 Salvar alterações</button></div>
+ </div>`;
+ $("editModal").style.display="flex";
+}
+
+function closeEditModal(){ $("editModal").style.display="none"; editContext=null; }
+
+async function saveEditModal(){
+ if(!editContext)return;
+ const {table,id}=editContext;
+ const oldRow=(cache[table]||[]).find(x=>String(x.id)===String(id));
+ const oldClienteId=oldRow?.cliente_id||null;
  const next={};
- for(const [field,label,type,choices] of cfg.fields){
-   let current=row[field]??"";
-   if(type==="cliente") current=cache.clientes.find(x=>x.id===row[field])?.nome||"";
-   if(type==="caminhao") current=cache.caminhoes.find(x=>x.id===row[field])?.identificacao||"";
-   if(type==="motorista") current=cache.motoristas.find(x=>x.id===row[field])?.nome||"";
-   if(type==="cacamba") current=cache.cacambas.find(x=>x.id===row[field])?.numero||"";
-   const answer=askField(label,current,type,choices);
-   if(answer===null)return;
-   if(type==="cliente"){const f=findByLabel(cache.clientes,answer,"nome"); next[field]=f?.id||null;}
-   else if(type==="caminhao"){const f=findByLabel(cache.caminhoes,answer,"identificacao"); next[field]=f?.id||null;}
-   else if(type==="motorista"){const f=findByLabel(cache.motoristas,answer,"nome"); next[field]=f?.id||null;}
-   else if(type==="cacamba"){const f=findByLabel(cache.cacambas,answer,"numero"); next[field]=f?.id||null;}
-   else if(field==="custo"){next[field]=Number(answer.replace(",",".")||0);}
-   else next[field]=answer;
+ for(const [field] of editContext.cfg.fields){
+   const el=$("edit_"+field); if(!el)continue;
+   const v=el.value;
+   if(["cliente_id","caminhao_id","motorista_id","cacamba_id"].includes(field)) next[field]=v||null;
+   else if(field==="custo") next[field]=Number(String(v).replace(",","." )||0);
+   else if(table==="ordens_servico" && field==="status") next[field]=statusOSParaBanco(v);
+   else if(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")) next[field]=osDataISO(v)||null;
+   else next[field]=v;
  }
- if(table==="manutencoes" && next.custo!=null && !Number.isFinite(next.custo)) return alert("Custo inválido.");
  if(table==="cacambas" && !next.numero)return alert("O número da caçamba é obrigatório.");
  if(table==="clientes" && !next.nome)return alert("O nome do cliente é obrigatório.");
  if(table==="motoristas" && !next.nome)return alert("O nome do motorista é obrigatório.");
  if(table==="caminhoes" && !next.identificacao)return alert("A identificação do caminhão é obrigatória.");
  if(table==="ordens_servico" && !next.numero)return alert("O número da OS é obrigatório.");
- const {error}=await sb.from(table).update(next).eq("id",id);
- if(error){alert(error.message);return;}
+ if(table==="manutencoes" && (!Number.isFinite(next.custo)||next.custo<0))return alert("Custo inválido.");
+
+ let anteriorParaHistorico=null;
+ if(table==="cacambas" && next.cliente_id){
+   anteriorParaHistorico=(cache.cacambas||[]).find(c=>
+     String(c.cliente_id)===String(next.cliente_id) &&
+     String(c.id)!==String(id)
+   )||null;
+ }
+
+ const {data:updated,error}=await sb.from(table).update(next).eq("id",id).select().single();
+ if(error)return alert(error.message);
+
+ if(table==="cacambas" && next.cliente_id && String(oldClienteId)!==String(next.cliente_id)){
+   registrarHistoricoTroca(next.cliente_id,anteriorParaHistorico,updated||{...oldRow,...next,id});
+ }
+
+ closeEditModal();
  await loadAll();
- if(document.getElementById("dashboard")?.classList.contains("active")) dashboard();
  if(table==="cacambas")cacambas();
  else if(table==="clientes")clientes();
  else if(table==="motoristas")motoristas();
@@ -264,6 +361,7 @@ async function editRecord(table,id){
  else if(table==="ordens_servico")ordens();
  else if(table==="movimentacoes")movimentacoes();
  else if(table==="manutencoes")manutencoes();
+ else if(table==="estado")estadoCacambas();
  alert("Registro atualizado com sucesso!");
 }
 
@@ -279,12 +377,688 @@ function options(arr,idField,labelField,blank="Selecione"){
  return `<option value="">${blank}</option>`+sorted.map(x=>`<option value="${x[idField]}">${esc(x[labelField])}</option>`).join("")
 }
 
+
+
+function dataBR(v){
+  if(!v) return "";
+  const s=String(v);
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d=new Date(s);
+  if(isNaN(d.getTime())) return s;
+  return d.toLocaleDateString("pt-BR");
+}
+function hojeBR(){ return dataBR(new Date().toISOString()); }
+
+const AD_KEY="sucatas_analice_adiantamentos_v1";
+let adCloud=[];
+
+function adSaldo(a){
+ return Math.max(0,Number(a.valor||0)-(a.abatimentos||[]).reduce((s,x)=>s+Number(x.valor||0),0));
+}
+function adR$(v){
+ return Number(v||0).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+}
+function adEsc(v){
+ return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+function adNumeroBR(v){
+ let s=String(v??"").replace(/\D/g,"");
+ if(!s)return "";
+ s=(Number(s)/100).toFixed(2);
+ return s.replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+}
+function adParseBR(v){
+ const s=String(v??"").trim();
+ if(!s)return 0;
+ return Number(s.replace(/\./g,"").replace(",","."));
+}
+function adDataBR(v){
+ if(!v)return "";
+ const s=String(v);
+ const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+ if(m)return `${m[3]}/${m[2]}/${m[1]}`;
+ return s;
+}
+function adLocal(){
+ try{return JSON.parse(localStorage.getItem(AD_KEY)||"[]")}catch(e){return[]}
+}
+async function adLoad(){
+ const {data,error}=await sb.from("adiantamentos").select("*").order("data",{ascending:false});
+ if(error)throw error;
+ adCloud=data||[];
+
+ // Sincroniza registros antigos que ainda estejam somente neste aparelho.
+ // Junta os registros locais com os que já existem na nuvem.
+ const antigos=adLocal();
+ if(antigos.length){
+   const rows=antigos.map(a=>({
+     id:a.id||crypto.randomUUID(),
+     pessoa:a.pessoa,
+     data:a.data,
+     valor:Number(a.valor||0),
+     observacoes:a.observacoes||"",
+     abatimentos:a.abatimentos||[]
+   }));
+   const idsNuvem=new Set(adCloud.map(x=>String(x.id)));
+   const novosLocais=rows.filter(x=>!idsNuvem.has(String(x.id)));
+   if(novosLocais.length){
+     const ins=await sb.from("adiantamentos").upsert(novosLocais,{onConflict:"id"});
+     if(ins.error)throw ins.error;
+     adCloud=[...adCloud,...novosLocais];
+   }
+   localStorage.removeItem(AD_KEY);
+ }
+ return adCloud.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+}
+async function adAdd(){
+ const pessoa=String(document.getElementById("adp")?.value||"").trim();
+ const data=String(document.getElementById("add")?.value||"").trim();
+ const valor=adParseBR(document.getElementById("adv")?.value||"");
+ const observacoes=String(document.getElementById("ado")?.value||"").trim();
+ if(!pessoa)return alert("Informe o nome da pessoa.");
+ if(!data)return alert("Informe a data do adiantamento.");
+ if(!Number.isFinite(valor)||valor<=0)return alert("Informe um valor válido para o adiantamento.");
+ try{
+   const row={pessoa,data,valor,observacoes,abatimentos:[]};
+   const {data:novo,error}=await sb.from("adiantamentos").insert(row).select("*").single();
+   if(error)throw error;
+   if(novo){ adCloud=[novo,...(adCloud||[])]; }
+   await adRender();
+   alert("Adiantamento registrado com sucesso!");
+ }catch(e){
+   alert("Não foi possível registrar o adiantamento: "+(e.message||e));
+ }
+}
+
+async function adComplementarExistente(){
+ const pessoa=String(document.getElementById("adp")?.value||"").trim();
+ if(!pessoa)return alert("Digite o nome da pessoa primeiro.");
+ const encontrados=(adCloud||[]).filter(a=>
+   String(a.pessoa||"").trim().toLowerCase()===pessoa.toLowerCase() && adSaldo(a)>0
+ );
+ if(!encontrados.length)return alert("Não encontrei adiantamento em aberto para esta pessoa.");
+
+ const a=encontrados[0];
+ const saldo=adSaldo(a);
+ const valorStr=prompt("Adiantamento atual: "+adR$(a.valor)+"\nSaldo atual: "+adR$(saldo)+"\n\nDigite o NOVO valor a acrescentar:");
+ if(valorStr===null)return;
+ const valor=adParseBR(valorStr);
+ if(!Number.isFinite(valor)||valor<=0)return alert("Informe um valor válido.");
+
+ const novo=Number(a.valor||0)+valor;
+ const dataHoje=new Date().toISOString().slice(0,10);
+ const complemento="Complemento de "+adR$(valor)+" em "+adDataBR(dataHoje);
+ const observacoes=a.observacoes ? a.observacoes+" | "+complemento : complemento;
+
+ const {error}=await sb.from("adiantamentos").update({
+   valor:novo,
+   observacoes,
+   updated_at:new Date().toISOString()
+ }).eq("id",a.id);
+
+ if(error)return alert("Não foi possível acrescentar o valor: "+error.message);
+
+ await adRender();
+ alert("Valor acrescentado com sucesso!\nNovo total do adiantamento: "+adR$(novo));
+}
+
+async function adRender(){
+ const el=$("adiantamentos");if(!el)return;
+ try{await adLoad()}catch(e){
+   el.innerHTML=`<h2>💰 Adiantamentos</h2>
+ <div class="card" style="border-left:5px solid #0a9a4a;background:#f6fff9">
+  <b>☁️ Adiantamentos sincronizados na nuvem</b>
+  <p class="small" style="margin:6px 0">Os adiantamentos ficam salvos na conta e podem ser vistos em todos os aparelhos onde você entrar com a mesma conta.</p>
+  <button class="btn secondary no-print" onclick="adRender()">🔄 Atualizar adiantamentos</button>
+ </div><div class="card"><b>Não foi possível carregar os adiantamentos.</b><p class="small">${adEsc(e.message||"Verifique sua conexão e tente novamente.")}</p></div>`;
+   return;
+ }
+ const listaResumo=adCloud;
+ const totalAdiantado=listaResumo.reduce((s,a)=>s+Number(a.valor||0),0);
+ const totalAbatido=listaResumo.reduce((s,a)=>s+(a.abatimentos||[]).reduce((t,x)=>t+Number(x.valor||0),0),0);
+ const totalReceber=Math.max(0,totalAdiantado-totalAbatido);
+ const lista=[...adCloud].sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+ const abertos=lista.filter(a=>adSaldo(a)>0);
+ const quitados=lista.filter(a=>adSaldo(a)<=0);
+ const cardAd=a=>{
+   const s=adSaldo(a),abat=Number(a.valor)-s;
+   return `<div class="card" style="margin:0 0 12px 0;border-left:5px solid ${s<=0?'#0a9a4a':'#e0a000'}">
+   <b>${adEsc(a.pessoa)}</b> — ${adDataBR(a.data)}<br>
+   Adiantado: <b>${adR$(a.valor)}</b> | Abatido: <b>${adR$(abat)}</b> | Saldo: <b>${adR$(s)}</b>
+   ${a.observacoes?`<div class="small" style="margin-top:8px"><b>Observações:</b> ${adEsc(a.observacoes)}</div>`:""}
+   <br>${s>0?`<button class="btn secondary" onclick="adAbater('${a.id}')">➕ Abater</button>`:""}
+   <button class="btn secondary" onclick="adEditar('${a.id}')">✏️ ✏️</button>
+   <button class="btn secondary" onclick="adPrint('${a.id}')">🖨️</button>
+   <button class="btn danger" onclick="adDel('${a.id}')">🗑️</button>
+   ${(a.abatimentos||[]).length?`<div class="small" style="margin-top:8px"><b>Abatimentos:</b> ${a.abatimentos.map(x=>adDataBR(x.data)+" — "+adR$(x.valor)).join(" | ")}</div>`:""}
+   </div>`;
+ };
+
+ el.innerHTML=`<h2>💰 Adiantamentos</h2>
+ <div class="grid" style="margin-bottom:16px">
+  <div class="card" style="margin:0"><h3 style="margin-top:0">💰 Total adiantado</h3><div style="font-size:24px;font-weight:700">${adR$(totalAdiantado)}</div></div>
+  <div class="card" style="margin:0"><h3 style="margin-top:0">➖ Total abatido</h3><div style="font-size:24px;font-weight:700">${adR$(totalAbatido)}</div></div>
+  <div class="card" style="margin:0"><h3 style="margin-top:0">📥 Total a receber</h3><div style="font-size:24px;font-weight:700">${adR$(totalReceber)}</div></div>
+ </div>
+ <div class="card"><p class="small">Controle particular dos seus adiantamentos. Agora eles ficam salvos na nuvem e aparecem em qualquer aparelho usando a mesma conta.</p>
+ <div class="grid">
+  <div><label>Pessoa *</label><input id="adp"></div>
+  <div><label>Data *</label><input id="add" type="date" value="${today()}"></div>
+  <div><label>Valor *</label><input id="adv" inputmode="decimal" placeholder="0,00" oninput="this.value=adNumeroBR(this.value)"></div>
+  <div style="grid-column:1/-1"><label>Observações</label><textarea id="ado" rows="3" placeholder="Ex.: motivo do adiantamento, combinado com a pessoa, forma de desconto..."></textarea></div>
+ </div><br><button class="btn primary" onclick="adAdd()">💾 Registrar adiantamento</button>
+ <button class="btn secondary" onclick="adComplementarExistente()">➕ Acrescentar valor a adiantamento existente</button></div>
+
+ <div class="card" style="border:2px solid #e0a000;background:#fffdf5">
+  <h3 style="margin-top:0">🟡 Adiantamentos em aberto <span class="small">(${abertos.length})</span></h3>
+  <p class="small">Somente adiantamentos que ainda possuem saldo a receber.</p>
+  <div id="adAbertos">${abertos.map(cardAd).join("")||"<p class='small'>Nenhum adiantamento em aberto.</p>"}</div>
+ </div>
+
+ <div class="card" style="border:2px solid #0a9a4a;background:#f6fff9">
+  <h3 style="margin-top:0">🟢 Adiantamentos quitados <span class="small">(${quitados.length})</span></h3>
+  <p class="small">Somente adiantamentos com saldo zerado.</p>
+  <div id="adQuitados">${quitados.map(cardAd).join("")||"<p class='small'>Nenhum adiantamento quitado.</p>"}</div>
+ </div>`;
+}
+
+async function adAbater(id){
+ const a=adCloud.find(x=>String(x.id)===String(id));if(!a)return;
+ const saldo=adSaldo(a);
+ if(saldo<=0)return alert("Este adiantamento já está quitado.");
+
+ const modal=document.createElement("div");
+ modal.className="edit-modal";
+ modal.style.display="flex";
+ modal.id="adAbaterModal";
+
+ const hojeBRLocal=(()=>{
+   const d=new Date();
+   return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+ })();
+
+ modal.innerHTML=`<div class="edit-box">
+   <div class="edit-head">
+     <h2>➕ Abater adiantamento</h2>
+     <button class="btn" onclick="this.closest('#adAbaterModal').remove()">✕</button>
+   </div>
+   <div class="card" style="margin:0 0 14px">
+     <b>${adEsc(a.pessoa)}</b>
+     <div class="small">Saldo atual: <b>${adR$(saldo)}</b></div>
+   </div>
+   <div class="grid">
+     <div>
+       <label>Valor do abatimento *</label>
+       <input id="aba_valor" inputmode="decimal" placeholder="0,00"
+         oninput="this.value=adNumeroBR(this.value)">
+     </div>
+     <div>
+       <label>Data do abatimento *</label>
+       <input id="aba_data" inputmode="numeric" maxlength="10"
+         placeholder="DD/MM/AAAA" value="${hojeBRLocal}"
+         oninput="this.value=adDataBRInput(this.value)">
+     </div>
+     <div style="grid-column:1/-1">
+       <p class="small">Você pode abater o valor total ou apenas uma parte. O saldo será atualizado automaticamente.</p>
+     </div>
+   </div>
+   <div class="edit-actions">
+     <button class="btn secondary" onclick="this.closest('#adAbaterModal').remove()">Cancelar</button>
+     <button class="btn primary" onclick="adSalvarAbatimento('${id}')">💾 Confirmar abatimento</button>
+   </div>
+ </div>`;
+ document.body.appendChild(modal);
+ setTimeout(()=>document.getElementById("aba_valor")?.focus(),100);
+}
+
+function adDataBRInput(v){
+ let s=String(v||"").replace(/\D/g,"").slice(0,8);
+ if(s.length>4)return s.slice(0,2)+"/"+s.slice(2,4)+"/"+s.slice(4);
+ if(s.length>2)return s.slice(0,2)+"/"+s.slice(2);
+ return s;
+}
+
+async function adSalvarAbatimento(id){
+ const a=adCloud.find(x=>String(x.id)===String(id));if(!a)return;
+ const saldo=adSaldo(a);
+ const n=adParseBR(document.getElementById("aba_valor")?.value||"");
+ const d=String(document.getElementById("aba_data")?.value||"").trim();
+
+ if(!Number.isFinite(n)||n<=0||n>saldo){
+   return alert("Informe um valor válido, até o saldo restante de "+adR$(saldo)+".");
+ }
+
+ const partes=d.split("/");
+ if(partes.length!==3||partes[0].length!==2||partes[1].length!==2||partes[2].length!==4){
+   return alert("Informe a data no formato DD/MM/AAAA.");
+ }
+ const dia=Number(partes[0]),mes=Number(partes[1]),ano=Number(partes[2]);
+ const dt=new Date(ano,mes-1,dia);
+ if(dt.getFullYear()!==ano||dt.getMonth()!==mes-1||dt.getDate()!==dia){
+   return alert("A data informada não é válida.");
+ }
+ const iso=ano+"-"+String(mes).padStart(2,"0")+"-"+String(dia).padStart(2,"0");
+
+ const abat=[...(a.abatimentos||[]),{
+   id:crypto.randomUUID(),
+   valor:n,
+   data:iso
+ }];
+
+ const {error}=await sb.from("adiantamentos")
+   .update({abatimentos:abat,updated_at:new Date().toISOString()})
+   .eq("id",a.id);
+
+ if(error)return alert("Não foi possível salvar o abatimento: "+error.message);
+
+ document.getElementById("adAbaterModal")?.remove();
+ await adRender();
+ alert(n>=saldo ? "Adiantamento quitado com sucesso!" : "Abatimento registrado com sucesso!");
+}
+
+function adEditar(id){
+ const a=adCloud.find(x=>String(x.id)===String(id));if(!a)return;
+ const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="adEditModal";
+ modal.innerHTML=`<div class="edit-box">
+  <div class="edit-head"><h2>✏️ Editar adiantamento</h2><button class="btn" onclick="this.closest('#adEditModal').remove()">✕</button></div>
+  <div class="grid">
+   <div><label>Pessoa *</label><input id="ade_pessoa" value="${adEsc(a.pessoa)}"></div>
+   <div><label>Data *</label><input id="ade_data" type="date" value="${adEsc(a.data)}"></div>
+   <div><label>Valor *</label><input id="ade_valor" inputmode="decimal" value="${adEsc(adNumeroBR(Number(a.valor)*100))}" oninput="this.value=adNumeroBR(this.value)"></div>
+   <div style="grid-column:1/-1"><label>Observações</label><textarea id="ade_obs" rows="4">${adEsc(a.observacoes||"")}</textarea></div>
+  </div>
+  <div class="edit-actions"><button class="btn secondary" onclick="this.closest('#adEditModal').remove()">Cancelar</button>
+  <button class="btn primary" onclick="adSalvarEdicao('${id}')">💾 Salvar alterações</button></div>
+ </div>`;
+ document.body.appendChild(modal);
+}
+async function adSalvarEdicao(id){
+ const a=adCloud.find(x=>String(x.id)===String(id));if(!a)return;
+ const pessoa=$("ade_pessoa").value.trim(),data=$("ade_data").value,valor=adParseBR($("ade_valor").value),observacoes=$("ade_obs").value.trim();
+ if(!pessoa||!data||!valor)return alert("Preencha pessoa, data e valor.");
+ const totalAbatido=(a.abatimentos||[]).reduce((s,x)=>s+Number(x.valor||0),0);
+ if(valor<totalAbatido)return alert("O novo valor não pode ser menor que o total já abatido ("+adR$(totalAbatido)+").");
+ const {error}=await sb.from("adiantamentos").update({pessoa,data,valor,observacoes,updated_at:new Date().toISOString()}).eq("id",a.id);
+ if(error)return alert(error.message);
+ $("adEditModal")?.remove();await adRender();alert("Adiantamento atualizado com sucesso!");
+}
+async function adDel(id){
+ if(!confirm("Excluir este adiantamento?"))return;
+ const {error}=await sb.from("adiantamentos").delete().eq("id",id);
+ if(error)return alert(error.message);
+ await adRender();
+}
+function adPrint(id){
+ const a=adCloud.find(x=>String(x.id)===String(id));if(!a)return;
+ const s=adSaldo(a),w=window.open("","_blank");if(!w)return alert("Permita pop-ups.");
+ const obs=a.observacoes?`<p><b>Observações:</b> ${adEsc(a.observacoes)}</p>`:"";
+ w.document.write("<html><head><meta charset='utf-8'><title>Adiantamento</title><style>body{font-family:Arial;margin:35px}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px}</style></head><body><h1>Ficha de Adiantamento</h1><p><b>Pessoa:</b> "+adEsc(a.pessoa)+"</p><p><b>Data:</b> "+adDataBR(a.data)+"</p><p><b>Valor:</b> "+adR$(a.valor)+"</p>"+obs+"<table><tr><th>Data</th><th>Abatimento</th></tr>"+(a.abatimentos||[]).map(x=>"<tr><td>"+adDataBR(x.data)+"</td><td>"+adR$(x.valor)+"</td></tr>").join("")+"</table><p><b>Saldo:</b> "+adR$(s)+" — "+(s<=0?"QUITADO":"EM ABERTO")+"</p></body></html>");
+ w.document.close();setTimeout(()=>w.print(),250);
+}
+
+const PESAGEM_KEY="sucatas_analice_pesagens_v1";
+const PRODUTO_KEY="sucatas_analice_produtos_v1";
+let pesagemCloud=[];
+let produtoCloud=[];
+let pesagemCloudReady=false;
+let produtoCloudReady=false;
+let pesagemRealtimeReady=false;
+
+function produtosLoad(){
+  return produtoCloudReady ? produtoCloud : (()=>{try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}})();
+}
+function produtosSave(v){produtoCloud=v||[];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud))}
+function pesagensLoad(){
+  return pesagemCloudReady ? pesagemCloud : (()=>{try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}})();
+}
+function pesagensSave(v){pesagemCloud=v||[];pesagemCloudReady=true;localStorage.setItem(PESAGEM_KEY,JSON.stringify(pesagemCloud))}
+function pesoNum(v){const s=String(v??"").trim().replace(/\./g,"").replace(",","."); const n=parseFloat(s); return Number.isFinite(n)?n:0}
+function moedaNum(v){return pesoNum(v)}
+function parseBR(v){return pesoNum(v)}
+function brNum(n,d=2){return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})}
+function produtoSelecionado(){const id=$("pprod")?.value; return produtosLoad().find(x=>String(x.id)===String(id))||null}
+function produtoSelecionar(){const x=produtoSelecionado(); if(x){if($("pmat"))$("pmat").value=x.nome||"";pesagemCalcular()}}
+function pesagemCalcular(){
+ const entrada=pesoNum($("pe")?.value), saida=pesoNum($("ps")?.value);
+ const liquido=Math.max(0,entrada-saida);
+ if($("pliq"))$("pliq").value=brNum(liquido);
+ return {entrada,saida,liquido};
+}
+
+async function produtosCloudLoad(){
+ const local=(()=>{try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}})();
+ const {data,error}=await sb.from("produtos_pesagem").select("*").order("codigo",{ascending:true});
+ if(error){
+   produtoCloud=local;produtoCloudReady=true;
+   console.error("produtos_pesagem",error);
+   return produtoCloud;
+ }
+ if(local.length){
+   const idsCloud=new Set((data||[]).map(x=>String(x.id)));
+   const novos=local.map(x=>({
+     id:/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(x.id||""))?x.id:(crypto.randomUUID?crypto.randomUUID():undefined),
+     codigo:String(x.codigo||"").trim(),
+     nome:String(x.nome||"").trim(),
+     preco:Number(x.preco||0)
+   })).filter(x=>x.codigo&&x.nome&&Number(x.preco)>0&&!idsCloud.has(String(x.id)));
+   let migOk=true;
+   if(novos.length){
+     const ins=await sb.from("produtos_pesagem").upsert(novos,{onConflict:"id"});
+     if(ins.error){migOk=false;console.error("migração produtos_pesagem",ins.error);}
+   }
+   if(migOk)localStorage.removeItem(PRODUTO_KEY);
+ }
+ const fresh=await sb.from("produtos_pesagem").select("*").order("codigo",{ascending:true});
+ produtoCloud=fresh.error?(data||[]):(fresh.data||[]);
+ produtoCloudReady=true;
+ return produtoCloud;
+}
+
+async function pesagensCloudLoad(){
+ const local=(()=>{try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}})();
+ const localFechadas=(()=>{try{return new Set(JSON.parse(localStorage.getItem(PESAGEM_FECH_KEY)||"[]").flatMap(f=>(f.pesagem_ids||[]).map(String)))}catch(e){return new Set()}})();
+ const {data,error}=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+ if(error){
+   pesagemCloud=local;pesagemCloudReady=true;
+   console.error("pesagens",error);
+   return pesagemCloud;
+ }
+ if(local.length){
+   const idsCloud=new Set((data||[]).map(x=>String(x.id)));
+   const rows=local.map(x=>({
+     id:/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(x.id||""))?x.id:(crypto.randomUUID?crypto.randomUUID():undefined),
+     data:String(x.data||today()),
+     pessoa:String(x.pessoa||"").trim()||"Cliente não informado",
+     codigo:String(x.codigo||"").trim(),
+     material:String(x.material||"").trim(),
+     entrada:Number(x.entrada||0),
+     saida:Number(x.saida||0),
+     liquido:Number(x.liquido||Math.max(0,Number(x.entrada||0)-Number(x.saida||0))),
+     observacoes:String(x.observacoes||"").trim(),
+     fechada:localFechadas.has(String(x.id))
+   })).filter(x=>x.pessoa&&x.material&&Number(x.entrada)>0&&!idsCloud.has(String(x.id)));
+   let migOk=true;
+   if(rows.length){
+     const ins=await sb.from("pesagens").upsert(rows,{onConflict:"id"});
+     if(ins.error){migOk=false;console.error("migração pesagens",ins.error);}
+   }
+   if(migOk){
+     localStorage.removeItem(PESAGEM_KEY);
+     localStorage.removeItem(PESAGEM_FECH_KEY);
+   }
+ }
+ const fresh=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+ pesagemCloud=fresh.error?(data||[]):(fresh.data||[]);
+ pesagemCloudReady=true;
+ return pesagemCloud;
+}
+
+function iniciarPesagemRealtime(){
+ if(pesagemRealtimeReady)return;
+ pesagemRealtimeReady=true;
+ sb.channel("pesagem-compartilhada")
+   .on("postgres_changes",{event:"*",schema:"public",table:"pesagens"},()=>{pesagensCloudLoad().then(()=>pesagemRender())})
+   .on("postgres_changes",{event:"*",schema:"public",table:"produtos_pesagem"},()=>{produtosCloudLoad().then(()=>pesagemRender())})
+   .subscribe();
+}
+
+async function produtoNovo(){
+ const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="produtoModal";
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Adicionar produto</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div><label>Código do produto *</label><input id="pr_codigo" placeholder="Ex.: 01"></div><div><label>Produto / Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div><div><label>Preço por kg (R$) *</label><input id="pr_preco" inputmode="decimal" placeholder="0,00"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar produto</button></div></div>`;document.body.appendChild(modal);
+}
+async function produtoSalvar(){
+ const codigo=$("pr_codigo")?.value.trim(),nome=$("pr_nome")?.value.trim(),preco=pesoNum($("pr_preco")?.value);
+ if(!codigo||!nome||preco<=0)return alert("Preencha código, produto e preço.");
+ if(produtosLoad().some(x=>String(x.codigo).toLowerCase()===codigo.toLowerCase()))return alert("Já existe um produto com esse código.");
+ const {data,error}=await sb.from("produtos_pesagem").insert({codigo,nome,preco}).select().single();
+ if(error)return alert("Não foi possível salvar o produto: "+error.message);
+ produtoCloud=[data,...produtoCloud];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud));
+ $("produtoModal")?.remove();await pesagemRender();alert("Produto cadastrado com sucesso!");
+}
+async function produtoEditar(id){
+ const x=produtosLoad().find(a=>String(a.id)===String(id));if(!x)return;
+ const codigo=prompt("Código do produto:",x.codigo||"");if(codigo===null)return;
+ const nome=prompt("Produto / Material:",x.nome||"");if(nome===null)return;
+ const precoS=prompt("Preço por kg (R$):",brNum(x.preco));if(precoS===null)return;
+ const preco=pesoNum(precoS);if(!codigo.trim()||!nome.trim()||preco<=0)return alert("Dados inválidos.");
+ const {data,error}=await sb.from("produtos_pesagem").update({codigo:codigo.trim(),nome:nome.trim(),preco,updated_at:new Date().toISOString()}).eq("id",id).select().single();
+ if(error)return alert("Não foi possível atualizar o produto: "+error.message);
+ produtoCloud=produtoCloud.map(a=>String(a.id)===String(id)?data:a);produtoCloudReady=true;await pesagemRender();
+}
+async function produtoExcluir(id){
+ if(!confirm("Excluir este produto?"))return;
+ const {error}=await sb.from("produtos_pesagem").delete().eq("id",id);
+ if(error)return alert("Não foi possível excluir o produto: "+error.message);
+ produtoCloud=produtoCloud.filter(x=>String(x.id)!==String(id));produtoCloudReady=true;await pesagemRender();
+}
+
+async function pesagemRender(){
+ await pesagensCloudLoad();
+ await produtosCloudLoad();
+ iniciarPesagemRealtime();
+ const el=$("pesagem"); if(!el)return;
+ const lista=pesagensLoad();
+ const fechadas=pesagemFechadasSet();
+ const abertos=lista.filter(x=>!fechadas.has(String(x.id)));
+ const grupos={};
+ abertos.forEach(x=>{const nome=pesagemClienteNome(x);const k=nome.toLowerCase();if(!grupos[k])grupos[k]={nome,items:[]};grupos[k].items.push(x)});
+ const clientes=Object.values(grupos).sort((a,b)=>a.nome.localeCompare(b.nome));
+ el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
+ <div class="card" style="border-left:5px solid #55358a">
+  <h3 style="margin-top:0">📝 Nova pesagem</h3>
+  <div class="grid">
+   <div><label>Data</label><input id="pdata" type="date" value="${today()}"></div>
+   <div><label>Cliente / Pessoa</label><input id="ppessoa" placeholder="Nome da pessoa"></div>
+   <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(x=>`<option value="${x.id}">${esc(x.codigo)} — ${esc(x.nome)} — R$ ${brNum(x.preco)}</option>`).join("")}</select><button class="btn secondary" onclick="produtoNovo()">➕ Adicionar produto</button></div></div>
+    <div><label>Material</label><input id="pmat" placeholder="Ex.: Papelão"></div>
+   <div><label>Peso de entrada (kg)</label><input id="pe" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
+   <div><label>Peso de saída / tara (kg)</label><input id="ps" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
+   <div><label>Peso líquido (kg)</label><input id="pliq" readonly placeholder="0,00"></div>
+   <div style="grid-column:1/-1"><label>Observações</label><textarea id="pobs" rows="2" placeholder="Observações da pesagem..."></textarea></div>
+  </div>
+  <br><button class="btn primary" onclick="pesagemSalvar()">💾 Registrar pesagem</button>
+  <button class="btn secondary" onclick="pesagemLimpar()">🧹 Limpar</button>
+ </div>
+ <div class="card">
+  <h3 style="margin-top:0">♻️ Produtos / Materiais</h3>
+  <button class="btn primary" onclick="produtoNovo()">➕ Adicionar produto</button>
+  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Código</th><th>Produto</th><th>Preço/kg</th><th class="no-print">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(x=>`<tr><td><b>${esc(x.codigo)}</b></td><td>${esc(x.nome)}</td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️ ✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
+ </div>
+ <div class="card">
+  <h3 style="margin-top:0">📋 Pesagens registradas</h3>
+  ${clientes.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Materiais / pesos líquidos</th><th class="no-print">Ações</th></tr></thead><tbody>${clientes.map(g=>{
+    const datas=g.items.map(x=>dataBR(x.data)).join("<br>");
+    const mats=g.items.map(x=>`${esc(x.material||"—")} <b>— ${brNum(x.liquido)} kg</b>`).join("<br>");
+    const first=g.items[0];
+    return `<tr><td>${datas}</td><td><b>${esc(g.nome)}</b></td><td>${mats}</td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${first.id}')">✏️</button> <button class="btn secondary icon-btn" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimirCliente('${encodeURIComponent(g.nome)}')">🖨️</button> <button class="btn secondary icon-btn" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsAppCliente('${esc(g.nome).replace(/'/g,"\\'")}')">📲</button> <button class="btn secondary icon-btn" title="Adicionar material" aria-label="Adicionar material" onclick="pesagemAbrirAdicionar('${first.id}')">➕</button> <button class="btn secondary icon-btn" title="Fechar cliente" aria-label="Fechar cliente" onclick="pesagemFecharModal('${esc(g.nome).replace(/'/g,"\\'")}')">🧾</button></td></tr>`;
+  }).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
+ </div>`;
+}
+
+async function pesagemSalvar(){
+ const entrada=parseBR($("pe")?.value||"0"), saida=parseBR($("ps")?.value||"0");
+ const pessoa=String($("ppessoa")?.value||"").trim();
+ const material=String($("pmat")?.value||"").trim();
+ const data=String($("pdata")?.value||today());
+ const liquido=Math.max(0,entrada-saida);
+ if(!pessoa)return alert("Informe o nome da pessoa.");
+ if(!material)return alert("Informe o material.");
+ if(entrada<=0)return alert("Informe o peso de entrada.");
+ if(saida<0)return alert("Informe um peso de saída válido.");
+ if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
+ const row={data,pessoa,material,entrada,saida,liquido,observacoes:String($("pobs")?.value||"").trim()};
+ const {data:saved,error}=await sb.from("pesagens").insert(row).select().single();
+ if(error)return alert("Não foi possível registrar a pesagem: "+error.message);
+ pesagemCloud=[saved,...pesagemCloud];pesagemCloudReady=true;
+ await pesagemRender(); alert("Pesagem registrada com sucesso!");
+}
+
+function pesagemEditar(id){
+ const lista=pesagensLoad(),x=lista.find(a=>String(a.id)===String(id)); if(!x)return;
+ const modal=document.createElement("div"); modal.className="edit-modal"; modal.style.display="flex"; modal.id="pesagemEditModal";
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>✏️ Editar pesagem</h2><button class="btn" onclick="this.closest('#pesagemEditModal').remove()">✕</button></div>
+ <div class="grid">
+ <div><label>Data</label><input id="pe_data" type="date" value="${esc(x.data||today())}"></div>
+ <div><label>Cliente / Pessoa</label><input id="pe_pessoa" value="${esc(x.pessoa||"")}"></div>
+
+ <div><label>Material</label><input id="pe_material" value="${esc(x.material||"")}"></div>
+ <div><label>Peso de entrada (kg)</label><input id="pe_entrada" inputmode="decimal" value="${brNum(x.entrada)}"></div>
+ <div><label>Peso de saída / tara (kg)</label><input id="pe_saida" inputmode="decimal" value="${brNum(x.saida)}"></div>
+ <div><label>Peso líquido (kg)</label><input id="pe_liquido" readonly value="${brNum(x.liquido)}"></div>
+ <div style="grid-column:1/-1"><label>Observações</label><textarea id="pe_obs" rows="2">${esc(x.observacoes||"")}</textarea></div>
+ </div><br>
+ <button class="btn primary" onclick="pesagemSalvarEdicao('${x.id}')">💾 Salvar alterações</button></div>`;
+ document.body.appendChild(modal);
+ const calc=()=>{const a=parseBR($("pe_entrada").value||"0"),b=parseBR($("pe_saida").value||"0");$("pe_liquido").value=brNum(Math.max(0,a-b));};
+ $("pe_entrada").oninput=calc;$("pe_saida").oninput=calc;
+}
+async function pesagemSalvarEdicao(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));if(!x)return;
+ const entrada=parseBR($("pe_entrada").value||"0"),saida=parseBR($("pe_saida").value||"0"),liquido=Math.max(0,entrada-saida);
+ if(entrada<=0||saida<0||liquido<=0)return alert("Confira os pesos.");
+ const novo={data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim(),updated_at:new Date().toISOString()};
+ if(!novo.pessoa||!novo.material)return alert("Informe pessoa e material.");
+ const {data,error}=await sb.from("pesagens").update(novo).eq("id",id).select().single();
+ if(error)return alert("Não foi possível atualizar a pesagem: "+error.message);
+ pesagemCloud=pesagemCloud.map(a=>String(a.id)===String(id)?data:a);pesagemCloudReady=true;
+ $("pesagemEditModal")?.remove();await pesagemRender();alert("Pesagem atualizada.");
+}
+
+async function pesagemExcluir(id){
+ if(!confirm("Excluir esta pesagem?"))return;
+ const {error}=await sb.from("pesagens").delete().eq("id",id);
+ if(error)return alert("Não foi possível excluir a pesagem: "+error.message);
+ pesagemCloud=pesagemCloud.filter(x=>String(x.id)!==String(id));pesagemCloudReady=true;await pesagemRender();
+}
+
+function pesagemImprimir(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
+ const br=v=>brNum(v); const data=dataBR(x.data||"");
+ const bloco=`<div class="ticket"><div class="cabecalho">SUCATAS ANALICE</div><div class="titulo">COMPROVANTE DE PESAGEM</div><div class="linha"><b>Data:</b> ${data}</div><div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div><div class="linha"><b>Material:</b> ${esc(x.material||"—")}</div><div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div><div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div><div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>${x.observacoes?`<div class="linha"><b>Obs.:</b> ${esc(x.observacoes)}</div>`:""}<div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
+ const w=window.open("","_blank","width=800,height=900"); if(!w)return alert("Permita a abertura da janela de impressão.");
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title><style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}.cabecalho{text-align:center;font-size:22px;font-weight:800;white-space:nowrap}.titulo{text-align:center;font-size:15px;font-weight:700;margin:4px 0 10px}.linha{font-size:12px;margin:5px 0}.cliente-destaque{font-size:20px;font-weight:900;text-align:center;border:2px solid #111;padding:7px 5px;margin:7px 0 10px;text-transform:uppercase}.destaque{font-size:14px;font-weight:700}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between;gap:15mm}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;padding-top:3px;font-size:10px}.corte{text-align:center;height:8mm;line-height:8mm;font-size:9px;border-top:1px dashed #777;border-bottom:1px dashed #777}@media print{.ticket{break-inside:avoid}.corte{break-inside:avoid}}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
+}
+function pesagemImprimirCliente(nomeCod){
+ const nome=decodeURIComponent(nomeCod||""); const items=pesagemAgruparCliente(nome); if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+ const rows=items.map(x=>`<tr><td>${esc(x.material||"")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join("");
+ const w=window.open("","_blank","width=900,height=800"); if(!w)return alert("Permita a abertura da janela.");
+ const bloco=`<div class="ticket"><h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div><table><thead><tr><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table><div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>@page{size:A4 portrait;margin:8mm}body{font-family:Arial;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}h2{text-align:center;margin:0 0 10px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin-bottom:14px;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:7px;font-size:11px}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;font-size:10px;padding-top:3px}.corte{text-align:center;height:8mm;line-height:8mm;border-top:1px dashed #777;border-bottom:1px dashed #777;font-size:9px}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+}
+
+function pesagemWhatsApp(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
+ const msg=[x.pessoa||"",`${x.material||""} — ${brNum(x.liquido)} kg`].filter(Boolean).join("\n");
+ try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
+ window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+}
+
+
+function pesagemAbrirAdicionar(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
+ const pessoa=String(x.pessoa||"").trim(); if(!pessoa)return alert("Esta pesagem não tem cliente/pessoa informado.");
+ const modal=document.createElement("div"); modal.className="pesagem-add-modal"; modal.id="pesagemAddModal";
+ modal.innerHTML=`<div class="pesagem-add-box">
+   <div class="pesagem-add-head"><div><h2>➕ Adicionar nova pesagem</h2><div class="small">Cliente / Pessoa: <b>${esc(pessoa)}</b></div></div><button class="btn" onclick="document.getElementById('pesagemAddModal')?.remove()">✕</button></div>
+   <div class="grid">
+    <div><label>Data</label><input id="pam_data" type="date" value="${today()}"></div>
+    <div><label>Cliente / Pessoa</label><input id="pam_pessoa" value="${esc(pessoa)}" readonly></div>
+    <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pam_prod" onchange="pesagemAdicionarSelecionarProduto()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select></div></div>
+    <div><label>Material</label><input id="pam_material" value="${esc(x.material||"")}" placeholder="Ex.: Papelão"></div>
+    <div><label>Peso de entrada (kg)</label><input id="pam_entrada" inputmode="decimal" placeholder="0,00" oninput="pesagemAdicionarCalcular()"></div>
+    <div><label>Peso de saída / tara (kg)</label><input id="pam_saida" inputmode="decimal" placeholder="0,00" oninput="pesagemAdicionarCalcular()"></div>
+    <div><label>Peso líquido (kg)</label><input id="pam_liquido" readonly placeholder="0,00"></div>
+    <div style="grid-column:1/-1"><label>Observações</label><textarea id="pam_obs" rows="3" placeholder="Observações da nova pesagem..."></textarea></div>
+   </div>
+   <div class="pesagem-add-actions"><button class="btn secondary" onclick="document.getElementById('pesagemAddModal')?.remove()">Cancelar</button><button class="btn primary" onclick="pesagemSalvarAdicional('${x.id}')">💾 Registrar pesagem</button></div>
+ </div>`;
+ document.body.appendChild(modal);
+}
+function pesagemAdicionarSelecionarProduto(){const p=produtosLoad().find(x=>String(x.id)===String($("pam_prod")?.value));if(p){$("pam_material").value=p.nome||""}}
+function pesagemAdicionarCalcular(){const e=parseBR($("pam_entrada")?.value||"0"),s=parseBR($("pam_saida")?.value||"0");if($("pam_liquido"))$("pam_liquido").value=brNum(Math.max(0,e-s));}
+async function pesagemSalvarAdicional(origId){
+ const origem=pesagensLoad().find(a=>String(a.id)===String(origId));if(!origem)return;
+ const entrada=parseBR($("pam_entrada")?.value||"0"),saida=parseBR($("pam_saida")?.value||"0"),liquido=Math.max(0,entrada-saida);
+ const pessoa=String($("pam_pessoa")?.value||origem.pessoa||"").trim(),material=String($("pam_material")?.value||"").trim();
+ if(!material)return alert("Informe o material."); if(entrada<=0)return alert("Informe o peso de entrada."); if(saida<0)return alert("Informe um peso de saída válido."); if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
+ const novo={data:String($("pam_data")?.value||today()),pessoa,material,entrada,saida,liquido,observacoes:String($("pam_obs")?.value||"").trim()};
+ const {data,error}=await sb.from("pesagens").insert(novo).select().single();
+ if(error)return alert("Não foi possível registrar a nova pesagem: "+error.message);
+ pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;document.getElementById("pesagemAddModal")?.remove();await pesagemRender();alert("Nova pesagem registrada para "+pessoa+".");
+}
+
+function pesagemAcrescentarMaterial(id){pesagemAbrirAdicionar(id)}
+
+
+function pesagemFechamentosLoad(){return pesagemCloud.filter(x=>x.fechada)}
+function pesagemFechamentosSave(v){}
+function pesagemFechadasSet(){return new Set(pesagemCloud.filter(x=>x.fechada).map(x=>String(x.id)))}
+
+function pesagemClienteNome(x){return String(x?.pessoa||"").trim()||"Cliente não informado"}
+function pesagemClienteAberta(x){
+ const fech=pesagemFechadasSet();
+ return !fech.has(String(x.id));
+}
+function pesagemAgruparCliente(nome){
+ return pesagensLoad().filter(x=>pesagemClienteAberta(x)&&pesagemClienteNome(x).toLowerCase()===String(nome).trim().toLowerCase());
+}
+function pesagemListaClientesAbertos(){
+ const mapa={};
+ pesagensLoad().filter(pesagemClienteAberta).forEach(x=>{
+   const n=pesagemClienteNome(x);
+   mapa[n.toLowerCase()]={nome:n,items:(mapa[n.toLowerCase()]?.items||[]).concat(x)};
+ });
+ return Object.values(mapa).sort((a,b)=>a.nome.localeCompare(b.nome));
+}
+function pesagemFecharCliente(){
+ const clientes=pesagemListaClientesAbertos();
+ if(!clientes.length)return alert("Não há pesagens abertas para fechar.");
+ const nomes=clientes.map((c,i)=>`${i+1} — ${c.nome} (${c.items.length} material(is))`).join("\n");
+ const escolha=prompt("Escolha o cliente para fechar a pesagem:\n\n"+nomes+"\n\nDigite o número:");
+ if(escolha===null)return;
+ const c=clientes[Number(escolha)-1];
+ if(!c)return alert("Cliente inválido.");
+ pesagemFecharModal(c.nome);
+}
+function pesagemFecharModal(nome){
+ const items=pesagemAgruparCliente(nome);
+ if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+ const htmlRows=items.map(x=>`<tr><td>${esc(x.material||"")}</td><td>${typeof brNum==="function"?brNum(x.entrada):x.entrada} kg</td><td>${typeof brNum==="function"?brNum(x.saida):x.saida} kg</td><td>${typeof brNum==="function"?brNum(x.liquido):x.liquido} kg</td></tr>`).join("");
+ const w=window.open("","fechamento","width=900,height=700");
+ if(!w)return alert("Permita a abertura da janela.");
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Fechamento</title><style>
+ body{font-family:Arial;padding:20px;color:#111}h2{text-align:center;margin:5px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin:12px 0;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:7px;font-size:12px}th{background:#eee}.totais{margin-top:14px;font-size:16px;font-weight:800}.acoes{text-align:center;margin-top:20px}button{padding:10px 16px;margin:5px;border-radius:8px;border:0} .pago{background:#d1fae5;color:#065f46}.pagamento{background:#fef3c7;color:#92400e}.aberto{background:#fee2e2;color:#991b1b}</style></head><body>
+ <h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div>
+ <table><thead><tr><th>Material</th><th>Peso de entrada</th><th>Peso de saída</th><th>Peso líquido</th></tr></thead><tbody>${htmlRows}</tbody></table>
+ 
+ <div class="acoes"><button onclick="opener.pesagemFecharDefinitivo(${JSON.stringify(nome)},${JSON.stringify(items.map(x=>String(x.id)))});window.close()">💾 Fechar</button><button onclick="window.print()">🖨️ Imprimir</button></div>
+ </body></html>`); w.document.close();
+}
+async function pesagemFecharDefinitivo(nome,ids){
+ const {error}=await sb.from("pesagens").update({fechada:true,updated_at:new Date().toISOString()}).in("id",ids);
+ if(error)return alert("Não foi possível fechar a pesagem: "+error.message);
+ pesagemCloud=pesagemCloud.map(x=>ids.map(String).includes(String(x.id))?{...x,fechada:true}:x);pesagemCloudReady=true;
+ await pesagemRender();alert("Pesagem do cliente fechada com sucesso.");
+}
+
+function pesagemWhatsAppCliente(nome){
+ const items=pesagemAgruparCliente(nome);
+ if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+ const msg=[nome,...items.map(x=>`${x.material||""} — ${brNum(x.liquido)} kg`)].join("\n");
+ try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
+ window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+}
+
 function renderPage(page){
  if(page==="dashboard")dashboard();
  if(page==="cacambas")cacambas();
+ if(page==="estado")estadoCacambas();
  if(page==="clientes")clientes();
  if(page==="motoristas")motoristas();
  if(page==="caminhoes")caminhoes();
+ if(page==="adiantamentos")adRender();
+ if(page==="pesagem")pesagemRender();
  if(page==="ordens")ordens();
  if(page==="movimentacoes")movimentacoes();
  if(page==="manutencoes")manutencoes();
@@ -350,7 +1124,7 @@ function showPatio(patio){
  const list=(cache.cacambas||[]).filter(x=>x.status==="No pátio" && String(x.patio||"").trim().toLowerCase()===String(patio).trim().toLowerCase());
  const el=$("patioList");
  if(!el)return;
- el.innerHTML=`<div style="padding:14px;background:linear-gradient(135deg,#f3eef9,#eef8f2);border-radius:12px">
+ el.innerHTML=`<div style="padding:14px;background:#f6f8fb;border-radius:12px">
    <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap">
      <h3 style="margin:0">🏭 Pátio ${esc(patio)}</h3>
      <button type="button" class="btn secondary" onclick="document.getElementById('patioList').innerHTML=''">Fechar</button>
@@ -373,6 +1147,7 @@ function cacambas(){
  <div class="card"><h3>Nova caçamba</h3><div class="grid">
  <div><label>Número *</label><input id="cn"></div>
  <div><label>Status</label><select id="cs"><option>Disponível</option><option>No pátio</option><option>No cliente</option><option>Manutenção</option></select></div>
+ <div><label>Estado da caçamba</label><select id="cestado"><option value="">Não informado</option><option>Nova</option><option>Boa</option><option>Com avarias</option><option>Danificada</option><option>Em manutenção</option><option>Inutilizada</option></select></div>
  <div><label>Cliente</label><select id="cc">${options(cache.clientes,"id","nome")}</select></div>
  <div><label>Caminhão</label><select id="ct">${options(cache.caminhoes,"id","identificacao")}</select></div>
  <div><label>Motorista</label><select id="cm">${options(cache.motoristas,"id","nome")}</select></div>
@@ -382,17 +1157,38 @@ function cacambas(){
  <div class="card"><input id="csearch" placeholder="🔎 Pesquisar por número, cliente ou endereço" oninput="tableCac()"><div id="ctable" class="tablewrap"></div></div>`;
  tableCac();
 }
+
+setTimeout(renderHistoricoCacambas,80);
 function tableCac(){
  const q=(val("csearch")||"").toLowerCase();
  const rows=cache.cacambas.filter(x=>{
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
-  return [x.numero,x.status,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
+  return [x.numero,x.status,x.estado,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Cliente</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Caçamba anterior / atual</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${x.cliente_id?historicoCliente(x.cliente_id):"<span class='small'>—</span>"}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">🗑️</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
- await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),patio:val("cp"),observacoes:val("cobs")},cacambas);
+ await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),estado:val("cestado")||null,observacoes:val("cobs")},cacambas);
+}
+
+function estadoCacambas(){
+ const estados=["Nova","Boa","Com avarias","Danificada","Em manutenção","Inutilizada","Não informado"];
+ const counts={};
+ estados.forEach(e=>counts[e]=0);
+ (cache.cacambas||[]).forEach(c=>{
+   const e=c.estado||"Não informado";
+   counts[e]=(counts[e]||0)+1;
+ });
+ const cards=estados.map(e=>`<div class="card stat"><span>${esc(e)}</span><b>${counts[e]||0}</b></div>`).join("");
+ const rows=[...cache.cacambas].sort((a,b)=>(Number(a.numero)||0)-(Number(b.numero)||0)).map(c=>{
+   const cl=cache.clientes.find(x=>x.id===c.cliente_id)?.nome||"";
+   return `<tr><td>${esc(c.numero)}</td><td>${esc(c.estado||"Não informado")}</td><td>${esc(c.status||"")}</td><td>${esc(cl)}</td><td>${esc(c.patio||"")}</td><td><button class="btn" onclick="editRecord('cacambas','${c.id}')">✏️</button></td></tr>`;
+ }).join("");
+ $("estado").innerHTML=`<h2>📌 Estado das Caçambas</h2>
+ <p class="small">Aqui você consegue acompanhar a conservação de cada caçamba.</p>
+ <div class="stats">${cards}</div>
+ <div class="card tablewrap"><table><tr><th>Nº</th><th>Estado</th><th>Status</th><th>Cliente</th><th>Pátio</th><th>Ação</th></tr>${rows}</table></div>`;
 }
 
 function clientes(){
@@ -400,7 +1196,7 @@ function clientes(){
  <div><label>Nome *</label><input id="cln"></div><div><label>Responsável</label><input id="clr"></div><div><label>Telefone</label><input id="clt"></div><div><label>E-mail</label><input id="cle"></div>
  <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
  </div><br><button class="btn primary" onclick="addCliente()">Cadastrar cliente</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Caçambas</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>{const qtd=(cache.cacambas||[]).filter(c=>c.cliente_id===x.id).length;return `<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><strong>${qtd}</strong></td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button></td></tr>`}).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Caçambas</th><th>Caçamba anterior / atual</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><strong>${cache.cacambas.filter(c=>String(c.cliente_id||"")===String(x.id)).length}</strong></td><td>${historicoCliente(x.id)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('clientes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCliente(){
  if(!val("cln"))return alert("Informe o nome do cliente.");
@@ -409,25 +1205,198 @@ async function addCliente(){
 
 function motoristas(){
  $("motoristas").innerHTML=`<h2>👤 Motoristas</h2><div class="card"><h3>Novo motorista</h3><div class="grid"><div><label>Nome *</label><input id="mn"></div><div><label>Telefone</label><input id="mtel"></div><div><label>CNH</label><input id="mcnh"></div><div><label>Status</label><select id="mst"><option>Ativo</option><option>Inativo</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="mobs" rows="3" placeholder="Ex.: disponibilidade, restrições, informações da CNH..."></textarea></div></div><br><button class="btn primary" onclick="addMotorista()">Cadastrar motorista</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Telefone</th><th>CNH</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.motoristas.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cnh)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('motoristas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('motoristas','${x.id}',motoristas)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Telefone</th><th>CNH</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.motoristas.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cnh)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('motoristas','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('motoristas','${x.id}',motoristas)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('motoristas','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addMotorista(){if(!val("mn"))return alert("Informe o nome.");await add("motoristas",{nome:val("mn"),telefone:val("mtel"),cnh:val("mcnh"),status:val("mst"),observacoes:val("mobs")},motoristas)}
 
 function caminhoes(){
  $("caminhoes").innerHTML=`<h2>🚛 Caminhões</h2><div class="card"><h3>Novo caminhão</h3><div class="grid"><div><label>Identificação *</label><input id="ti" placeholder="Caminhão 01"></div><div><label>Placa</label><input id="tp"></div><div><label>Motorista</label><select id="tm">${options(cache.motoristas,"id","nome")}</select></div><div><label>Status</label><select id="ts"><option>Disponível</option><option>Em operação</option><option>Manutenção</option><option>Inativo</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="tobs" rows="3" placeholder="Ex.: quilometragem, documentação, pneus, informações do veículo..."></textarea></div></div><br><button class="btn primary" onclick="addCaminhao()">Cadastrar caminhão</button></div>
- <div class="card tablewrap"><table><tr><th>Identificação</th><th>Placa</th><th>Motorista</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.caminhoes.map(x=>`<tr><td>${esc(x.identificacao)}</td><td>${esc(x.placa)}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('caminhoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('caminhoes','${x.id}',caminhoes)">Excluir</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Identificação</th><th>Placa</th><th>Motorista</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.caminhoes.map(x=>`<tr><td>${esc(x.identificacao)}</td><td>${esc(x.placa)}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('caminhoes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('caminhoes','${x.id}',caminhoes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('caminhoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCaminhao(){if(!val("ti"))return alert("Informe a identificação.");await add("caminhoes",{identificacao:val("ti"),placa:val("tp"),motorista_id:val("tm")||null,status:val("ts"),observacoes:val("tobs")},caminhoes)}
 
+
+function osDataBR(v){
+  if(!v)return "";
+  const s=String(v);
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m)return `${m[3]}/${m[2]}/${m[1]}`;
+  return s;
+}
+function osDataISO(v){
+  const s=String(v||"").trim();
+  const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+}
+function formatarDataBRInput(el){
+  if(!el)return;
+  let v=String(el.value||"").replace(/\D/g,"").slice(0,8);
+  if(v.length>4)v=v.slice(0,2)+"/"+v.slice(2,4)+"/"+v.slice(4);
+  else if(v.length>2)v=v.slice(0,2)+"/"+v.slice(2);
+  el.value=v;
+}
+async function proximoNumeroOS(){
+ const {data,error}=await sb.from("ordens_servico").select("numero");
+ if(error) return proximoNumeroOSLocal();
+ let maior=0;
+ (data||[]).forEach(o=>{
+   const m=String(o.numero||"").match(/(\d+)\s*$/);
+   if(m) maior=Math.max(maior,parseInt(m[1],10));
+ });
+ return "OS-"+String(maior+1).padStart(4,"0");
+}
+function proximoNumeroOSLocal(){
+ const lista=cache.ordens_servico||cache.ordens||[];
+ let maior=0;
+ lista.forEach(o=>{
+   const m=String(o.numero||"").match(/(\d+)\s*$/);
+   if(m) maior=Math.max(maior,parseInt(m[1],10));
+ });
+ return "OS-"+String(maior+1).padStart(4,"0");
+}
+
+function atualizarPlacaOS(){
+ const sel=$("ocm"),placa=$("oplaca");
+ if(!sel||!placa)return;
+ const cam=(cache.caminhoes||[]).find(x=>String(x.id)===String(sel.value));
+ placa.value=cam?.placa||"";
+}
+function dataHojeISO(){
+ const d=new Date();
+ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function dataAmanhaISO(){
+ const d=new Date(); d.setDate(d.getDate()+1);
+ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function dataOSNormalizada(v){
+ if(!v)return "";
+ const s=String(v).trim();
+ const m=s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+ return m ? m[3]+"-"+m[2]+"-"+m[1] : s.slice(0,10);
+}
+function statusOSParaBanco(status){
+ const mapa={"Agendada":"Agendada","Em andamento":"Em rota","Reagendada":"Agendada","Concluída":"Concluída","Cancelada":"Cancelada"};
+ return mapa[status]||status;
+}
+function statusOSExibicao(status){
+ const mapa={"Agendada":"Agendada","Em rota":"Em andamento","Entregue":"Concluída","Retirada solicitada":"Reagendada","Concluída":"Concluída","Cancelada":"Cancelada"};
+ return mapa[status]||status;
+}
+function enviarOSWhatsApp(id){
+ const row=(cache.ordens||[]).find(x=>String(x.id)===String(id));
+ if(!row)return alert("Ordem de serviço não encontrada.");
+ const cliente=(cache.clientes||[]).find(c=>String(c.id)===String(row.cliente_id));
+ const motorista=(cache.motoristas||[]).find(m=>String(m.id)===String(row.motorista_id));
+ const cam=(cache.caminhoes||[]).find(c=>String(c.id)===String(row.caminhao_id));
+ const cac=(cache.cacambas||[]).find(c=>String(c.id)===String(row.cacamba_id));
+
+ let telefone=prompt("Digite o número do WhatsApp para enviar esta Ordem de Serviço:\n\nEx.: (11) 99999-9999");
+ if(telefone===null)return;
+ telefone=String(telefone||"").replace(/\D/g,"");
+ if(!telefone)return alert("Informe um número de WhatsApp.");
+ if(!telefone.startsWith("55") && (telefone.length===10 || telefone.length===11)) telefone="55"+telefone;
+ if(telefone.length<12)return alert("O número informado não parece válido. Confira o telefone.");
+
+ const msg=[
+   "Olá! Segue a ordem de serviço:",
+   "",
+   "📋 ORDEM DE SERVIÇO — "+(row.numero||""),
+   "🗑️ Caçamba: "+(cac?.numero||"—"),
+   "🚛 Caminhão: "+(cam?.identificacao||"—"),
+   "🔖 Placa: "+(cam?.placa||"—"),
+   "👤 Cliente: "+(cliente?.nome||"—"),
+   "📅 Entrega: "+(osDataBR(row.data_entrega)||"—"),
+   "📅 Retirada prevista: "+(osDataBR(row.data_retirada_prevista)||"—"),
+   "📍 Endereço: "+(row.endereco||"—"),
+   "♻️ Material: "+(row.material||"—"),
+   "📌 Status: "+(statusOSExibicao(row.status||"")||"—"),
+   row.observacoes ? "📝 Observações: "+row.observacoes : ""
+ ].filter(Boolean).join("\n");
+
+ window.open("https://wa.me/"+telefone+"?text="+encodeURIComponent(msg),"_blank");
+}
 function ordens(){
- $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2><div class="card"><h3>Nova OS</h3><div class="grid">
- <div><label>Número *</label><input id="on"></div><div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div><div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div><div><label>Caminhão</label><select id="ocm">${options(cache.caminhoes,"id","identificacao")}</select></div><div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div><div><label>Endereço</label><input id="oe"></div><div><label>Material</label><input id="oma"></div><div><label>Entrega</label><input id="ode" type="date"></div><div><label>Retirada prevista</label><input id="odr" type="date"></div><div><label>Status</label><select id="ost"><option>Agendada</option><option>Em rota</option><option>Entregue</option><option>Retirada solicitada</option><option>Concluída</option><option>Cancelada</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
+ const todas=Array.isArray(cache.ordens)?cache.ordens:[];
+ const ativas=todas.filter(x=>String(x.status||"")!=="Concluída");
+ const concluidas=todas.filter(x=>String(x.status||"")==="Concluída");
+ const hoje=dataHojeISO(), amanha=dataAmanhaISO();
+
+ const nome=(arr,id,key)=>{const r=(arr||[]).find(x=>String(x.id)===String(id));return r?.[key]||""};
+ const linha=x=>`<tr>
+  <td><b>${esc(x.numero||"—")}</b></td>
+  <td>${esc(nome(cache.clientes,x.cliente_id,"nome"))}</td>
+  <td>${esc(nome(cache.cacambas,x.cacamba_id,"numero")||"—")}</td>
+  <td>${esc(nome(cache.caminhoes,x.caminhao_id,"identificacao")||"—")}</td>
+  <td>${esc(nome(cache.caminhoes,x.caminhao_id,"placa")||"—")}</td>
+  <td>${esc(osDataBR(x.data_entrega)||"—")}</td>
+  <td>${esc(osDataBR(x.data_retirada_prevista)||"—")}</td>
+  <td><b>${esc(statusOSExibicao(x.status||""))}</b></td>
+  <td>${esc(x.observacoes||"")}</td>
+  <td>
+   <button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ ✏️</button>
+   <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">🗑️</button>
+   <button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id}')">🖨️</button>
+   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}')">📲</button>
+  </td>
+ </tr>`;
+
+ const tabela=(lista,msgvazio)=>lista.length
+  ? `<div class="tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Caminhão</th><th>Placa</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${lista.map(linha).join("")}</table></div>`
+  : `<p class="small">${msgvazio}</p>`;
+
+ const hojeLista=ativas.filter(x=>dataOSNormalizada(x.data_entrega)===hoje);
+ const amanhaLista=ativas.filter(x=>dataOSNormalizada(x.data_entrega)===amanha);
+ const outrasLista=ativas.filter(x=>{
+   const d=dataOSNormalizada(x.data_entrega);
+   return d!==hoje && d!==amanha;
+ }).sort((a,b)=>String(a.data_entrega||"").localeCompare(String(b.data_entrega||"")));
+
+ $("ordens").innerHTML=`<h2>📋 Ordens de Serviço</h2>
+ <div class="card"><h3>Nova OS</h3><div class="grid">
+  <div><label>Número *</label><input id="on" readonly value="${esc(proximoNumeroOSLocal())}"></div>
+  <div><label>Cliente</label><select id="ocl">${options(cache.clientes,"id","nome")}</select></div>
+  <div><label>Caçamba</label><select id="oca">${options(cache.cacambas,"id","numero")}</select></div>
+  <div><label>Caminhão</label><select id="ocm" onchange="atualizarPlacaOS()">${options(cache.caminhoes,"id","identificacao")}</select></div>
+  <div><label>Placa</label><input id="oplaca" readonly placeholder="Selecione o caminhão"></div>
+  <div><label>Motorista</label><select id="omo">${options(cache.motoristas,"id","nome")}</select></div>
+  <div><label>Endereço</label><input id="oe"></div>
+  <div><label>Material</label><input id="oma"></div>
+  <div><label>Entrega</label><input id="ode" type="text" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="formatarDataBRInput(this)"></div>
+  <div><label>Retirada prevista</label><input id="odr" type="text" placeholder="DD/MM/AAAA" maxlength="10" inputmode="numeric" oninput="formatarDataBRInput(this)"></div>
+  <div><label>Status</label><select id="ost"><option>Agendada</option><option>Em andamento</option><option>Reagendada</option><option>Concluída</option><option>Cancelada</option></select></div>
+  <div style="grid-column:1/-1"><label>Observações</label><textarea id="oobs" rows="3" placeholder="Ex.: instruções para o motorista, acesso, horário, material ou pedido do cliente..."></textarea></div>
  </div><br><button class="btn primary" onclick="addOS()">Criar ordem</button></div>
- <div class="card tablewrap"><table><tr><th>OS</th><th>Cliente</th><th>Caçamba</th><th>Entrega</th><th>Retirada</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.ordens.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.data_entrega)}</td><td>${esc(x.data_retirada_prevista)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('ordens_servico','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button></td></tr>`).join("")}</table></div>`;
+
+ <div class="card"><h3>📅 Ordens de HOJE <span class="small">(${hojeLista.length})</span></h3>${tabela(hojeLista,"Nenhuma ordem para hoje.")}</div>
+ <div class="card"><h3>➡️ Ordens do PRÓXIMO DIA <span class="small">(${amanhaLista.length})</span></h3>${tabela(amanhaLista,"Nenhuma ordem para o próximo dia.")}</div>
+ <div class="card"><details open><summary style="cursor:pointer;font-weight:700;font-size:18px">📂 Outras ordens em aberto (${outrasLista.length})</summary>
+  <div style="margin-top:14px">${tabela(outrasLista,"Nenhuma outra ordem em aberto.")}</div></details></div>
+ <div class="card"><details><summary style="cursor:pointer;font-weight:700;font-size:18px">📁 Ordens concluídas (${concluidas.length})</summary>
+  <div style="margin-top:14px">${tabela(concluidas,"Nenhuma ordem concluída ainda.")}</div></details></div>`;
+ atualizarPlacaOS();
+
+ // Busca o próximo número real no Supabase sem impedir que as ordens sejam exibidas.
+ proximoNumeroOS().then(n=>{if($("on"))$("on").value=n}).catch(()=>{});
 }
 async function addOS(){
- if(!val("on"))return alert("Informe o número da OS.");
- await add("ordens_servico",{numero:val("on"),cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:val("ode")||null,data_retirada_prevista:val("odr")||null,status:val("ost"),observacoes:val("oobs")},ordens);
+ const dados={cliente_id:val("ocl")||null,cacamba_id:val("oca")||null,caminhao_id:val("ocm")||null,motorista_id:val("omo")||null,endereco:val("oe"),material:val("oma"),data_entrega:osDataISO(val("ode"))||null,data_retirada_prevista:osDataISO(val("odr"))||null,status:statusOSParaBanco(val("ost")),observacoes:val("oobs")};
+ let numero=await proximoNumeroOS();
+ for(let tentativa=0;tentativa<3;tentativa++){
+   const {error}=await sb.from("ordens_servico").insert({...dados,numero});
+   if(!error){
+     await loadAll();
+     await ordens();
+     alert("Ordem criada com sucesso: "+numero);
+     return;
+   }
+   if(!String(error.message||"").toLowerCase().includes("duplicate key") || !String(error.message||"").includes("ordens_servico_numero_key")){
+     alert(error.message);
+     return;
+   }
+   numero=await proximoNumeroOS();
+ }
+ alert("Não foi possível gerar um número único para a OS. Tente novamente.");
 }
 
 function movimentacoes(){
@@ -437,12 +1406,45 @@ function movimentacoes(){
  </div><br><button class="btn primary" onclick="addMov()">Registrar movimentação</button></div>
  <div class="card tablewrap" id="movlist"><p class="small">Carregando histórico...</p></div>`;
  load("movimentacoes").then(rows=>{
- $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${new Date(x.data).toLocaleString("pt-BR")}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td><button class="btn" onclick="editRecord('movimentacoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('movimentacoes','${x.id}',movimentacoes)">Excluir</button></td></tr>`).join("")}</table>`;
+ $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td><button class="btn" onclick="editRecord('movimentacoes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('movimentacoes','${x.id}',movimentacoes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('movimentacoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("movlist").innerHTML="<p>"+esc(e.message)+"</p>");
 }
+async 
+const HIST_CACAMBA_KEY="sucatas_analice_cacamba_history_v1";
+function histAll(){try{return JSON.parse(localStorage.getItem(HIST_CACAMBA_KEY)||"{}")}catch(e){return {}}}
+function histSave(h){localStorage.setItem(HIST_CACAMBA_KEY,JSON.stringify(h))}
+function registrarHistoricoTroca(clienteId,anterior,atual){
+  if(!clienteId || !atual)return;
+  const h=histAll();
+  h[String(clienteId)]={
+    anterior_id:anterior?.id||null,
+    anterior_numero:anterior?.numero||null,
+    atual_id:atual.id,
+    atual_numero:atual.numero,
+    data:new Date().toISOString()
+  };
+  histSave(h);
+}
+function historicoCliente(clienteId){
+  const h=histAll()[String(clienteId)];
+  if(!h)return '<span class="small">Anterior: — | Atual: —</span>';
+  return '<span class="small">Anterior: <b>'+esc(h.anterior_numero||"—")+
+    '</b> | Atual: <b>'+esc(h.atual_numero||"—")+
+    '</b><br>Última troca: '+dataBR(h.data)+'</span>';
+}
+function renderHistoricoCacambas(){
+ const el=$("cacambaHistoricoRapido");if(!el)return;
+ const grupos={};(cache.cacambas||[]).forEach(c=>{if(c.cliente_id)(grupos[c.cliente_id]||=[]).push(c)});
+ el.innerHTML=Object.keys(grupos).map(id=>{
+  const c=(cache.clientes||[]).find(x=>String(x.id)===String(id));
+  return '<div class="quick-history"><b>'+esc(c?.nome||"Cliente")+'</b> '+historicoCliente(id)+'</div>';
+ }).join("")||'<p class="small">Nenhum cliente com caçamba.</p>';
+}
+
 async function addMov(){
  if(!val("vc"))return alert("Selecione a caçamba.");
- const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:val("vcl")||null,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")};
+ const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:val("vcl")||null,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")}; 
+ const anteriorCliente=row.cliente_id?(cache.cacambas||[]).find(c=>String(c.cliente_id)===String(row.cliente_id)&&String(c.id)!==String(row.cacamba_id)):null;
  const {data,error}=await sb.from("movimentacoes").insert(row).select().single();
  if(error)return alert(error.message);
  const updates={};
@@ -450,13 +1452,14 @@ async function addMov(){
  if(["Retirada","Entrada no pátio"].includes(row.tipo)){updates.status="No pátio";updates.cliente_id=null;updates.endereco_atual=null;updates.caminhao_id=null;updates.motorista_id=null}
  if(row.tipo==="Saída do pátio")updates.status="Disponível";
  await sb.from("cacambas").update(updates).eq("id",row.cacamba_id);
+ if(row.tipo==="Troca" && row.cliente_id) registrarHistoricoTroca(row.cliente_id,anteriorCliente,row);
  await loadAll();movimentacoes();alert("Movimentação registrada!");
 }
 
 function manutencoes(){
  $("manutencoes").innerHTML=`<h2>🔧 Manutenção</h2><div class="card"><h3>Nova manutenção de caçamba</h3><div class="grid"><div><label>Caçamba</label><select id="mcac">${options(cache.cacambas,"id","numero")}</select></div><div><label>Data</label><input id="mdata" type="date" value="${today()}"></div><div><label>Problema *</label><input id="mprob"></div><div><label>Custo</label><input id="mcusto" type="number" step="0.01"></div><div><label>Status</label><select id="mstatus"><option>Aberta</option><option>Em andamento</option><option>Concluída</option></select></div><div><label>Observações</label><input id="mob"></div></div><br><button class="btn primary" onclick="addMan()">Registrar manutenção</button></div><div class="card tablewrap" id="manlist"></div>`;
  load("manutencoes").then(rows=>{
- $("manlist").innerHTML=`<table><tr><th>Data</th><th>Caçamba</th><th>Problema</th><th>Custo</th><th>Status</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.data)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.problema)}</td><td>R$ ${Number(x.custo||0).toFixed(2)}</td><td>${esc(x.status)}</td><td><button class="btn" onclick="editRecord('manutencoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('manutencoes','${x.id}',manutencoes)">Excluir</button></td></tr>`).join("")}</table>`;
+ $("manlist").innerHTML=`<table><tr><th>Data</th><th>Caçamba</th><th>Problema</th><th>Custo</th><th>Status</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(dataBR(x.data))}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.problema)}</td><td>R$ ${Number(x.custo||0).toFixed(2)}</td><td>${esc(x.status)}</td><td><button class="btn" onclick="editRecord('manutencoes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('manutencoes','${x.id}',manutencoes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('manutencoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("manlist").innerHTML=esc(e.message));
 }
 async function addMan(){
@@ -494,6 +1497,24 @@ async function forgotPassword(){
   if(error){ alert(error.message); return; }
   alert("Enviamos o link de redefinição de senha para seu e-mail.");
 }
+</script>
+<script>
+document.addEventListener("DOMContentLoaded",()=>{
+ const f=document.getElementById("login");
+ if(f) f.addEventListener("submit",e=>{e.preventDefault();login();});
+});
+</script>
+<script>
+document.addEventListener("click",function(ev){
+ const b=ev.target.closest("button");
+ if(b && b.textContent && b.textContent.includes("Ordens")){
+   setTimeout(()=>{
+    const el=document.getElementById("onumero");
+    if(el && !el.value) el.value=proximoNumeroOS();
+    if(el) el.readOnly=true;
+   },100);
+ }
+});
 </script>
 </body>
 </html>
