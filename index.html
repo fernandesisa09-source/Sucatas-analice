@@ -39,7 +39,11 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
  td:last-child,th:last-child{display:none!important}
  .edit-modal{display:none!important}
 }
-.quick-history{padding:10px 12px;margin:7px 0;border:1px solid #ddd;border-radius:10px;background:#fafafa;display:flex;gap:10px;align-items:center;flex-wrap:wrap}</style>
+.quick-history{padding:10px 12px;margin:7px 0;border:1px solid #ddd;border-radius:10px;background:#fafafa;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pesagem-status-pago{background:#d1fae5;color:#065f46;border:1px solid #10b981;padding:5px 9px;border-radius:999px;font-weight:700}
+.pesagem-status-pagamento{background:#fef3c7;color:#92400e;border:1px solid #f59e0b;padding:5px 9px;border-radius:999px;font-weight:700}
+.pesagem-status-aberto{background:#fee2e2;color:#991b1b;border:1px solid #ef4444;padding:5px 9px;border-radius:999px;font-weight:700}
+</style>
 </head>
 <body>
 
@@ -690,6 +694,18 @@ function adPrint(id){
 }
 
 const PESAGEM_KEY="sucatas_analice_pesagens_v1";
+const PRODUTO_KEY="sucatas_analice_produtos_v1";
+function produtosLoad(){try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}}
+function produtosSave(v){localStorage.setItem(PRODUTO_KEY,JSON.stringify(v))}
+function produtoSelecionado(){const id=$("pprod")?.value; return produtosLoad().find(x=>String(x.id)===String(id))||null}
+function produtoSelecionar(){const x=produtoSelecionado(); if(x){if($("pcod"))$("pcod").value=x.codigo||"";if($("pmat"))$("pmat").value=x.nome||"";if($("pp"))$("pp").value=brNum(x.preco);pesagemCalcular()}}
+function produtoNovo(){
+ const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="produtoModal";
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Adicionar produto</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div><label>Código do produto *</label><input id="pr_codigo" placeholder="Ex.: 01"></div><div><label>Produto / Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div><div><label>Preço por kg (R$) *</label><input id="pr_preco" inputmode="decimal" placeholder="0,00"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar produto</button></div></div>`;document.body.appendChild(modal);
+}
+function produtoSalvar(){const codigo=$("pr_codigo")?.value.trim(),nome=$("pr_nome")?.value.trim(),preco=pesoNum($("pr_preco")?.value);if(!codigo||!nome||preco<=0)return alert("Preencha código, produto e preço.");const lista=produtosLoad();if(lista.some(x=>String(x.codigo).toLowerCase()===codigo.toLowerCase()))return alert("Já existe um produto com esse código.");lista.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),codigo,nome,preco});produtosSave(lista);$("produtoModal")?.remove();pesagemRender();alert("Produto cadastrado com sucesso!")}
+function produtoEditar(id){const lista=produtosLoad(),x=lista.find(a=>String(a.id)===String(id));if(!x)return;const codigo=prompt("Código do produto:",x.codigo||"");if(codigo===null)return;const nome=prompt("Produto / Material:",x.nome||"");if(nome===null)return;const precoS=prompt("Preço por kg (R$):",brNum(x.preco));if(precoS===null)return;const preco=pesoNum(precoS);if(!codigo.trim()||!nome.trim()||preco<=0)return alert("Dados inválidos.");x.codigo=codigo.trim();x.nome=nome.trim();x.preco=preco;produtosSave(lista);pesagemRender()}
+function produtoExcluir(id){if(!confirm("Excluir este produto?"))return;produtosSave(produtosLoad().filter(x=>String(x.id)!==String(id)));pesagemRender()}
 function pesagensLoad(){try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}}
 function pesagensSave(v){localStorage.setItem(PESAGEM_KEY,JSON.stringify(v))}
 function pesoNum(v){const s=String(v??"").trim().replace(/\./g,"").replace(",","."); const n=parseFloat(s); return Number.isFinite(n)?n:0}
@@ -711,6 +727,7 @@ function pesagemRender(){
   <div class="grid">
    <div><label>Data</label><input id="pdata" type="date" value="${today()}"></div>
    <div><label>Cliente / Pessoa</label><input id="ppessoa" placeholder="Nome da pessoa"></div>
+   <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(x=>`<option value="${x.id}">${esc(x.codigo)} — ${esc(x.nome)} — R$ ${brNum(x.preco)}</option>`).join("")}</select><button class="btn secondary" onclick="produtoNovo()">➕ Adicionar produto</button></div></div>
    <div><label>Código do material</label><input id="pcod" placeholder="Ex.: 01"></div>
    <div><label>Material</label><input id="pmat" placeholder="Ex.: Papelão"></div>
    <div><label>Peso de entrada (kg)</label><input id="pe" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
@@ -724,8 +741,13 @@ function pesagemRender(){
   <button class="btn secondary" onclick="pesagemLimpar()">🧹 Limpar</button>
  </div>
  <div class="card">
+  <h3 style="margin-top:0">♻️ Produtos / Materiais</h3>
+  <button class="btn primary" onclick="produtoNovo()">➕ Adicionar produto</button>
+  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Código</th><th>Produto</th><th>Preço/kg</th><th class="no-print">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(x=>`<tr><td><b>${esc(x.codigo)}</b></td><td>${esc(x.nome)}</td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️ Editar</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">Excluir</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
+ </div>
+ <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${lista.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th><th>R$/kg</th><th>Total</th><th class="no-print">Ações</th></tr></thead><tbody>${lista.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.pessoa||"")}</td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td><td>${brNum(x.entrada)}</td><td>${brNum(x.saida)}</td><td><b>${brNum(x.liquido)}</b></td><td>${brNum(x.preco)}</td><td><b>R$ ${brNum(x.total)}</b></td><td class="no-print"><button class="btn secondary" onclick="pesagemImprimir('${x.id}')">🖨️</button> <button class="btn secondary" onclick="pesagemWhatsApp('${x.id}')">📲 WhatsApp</button> <button class="btn danger" onclick="pesagemExcluir('${x.id}')">Excluir</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
+  ${lista.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th><th>R$/kg</th><th>Total</th><th class="no-print">Ações</th></tr></thead><tbody>${lista.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.pessoa||"")}</td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td><td>${brNum(x.entrada)}</td><td>${brNum(x.saida)}</td><td><b>${brNum(x.liquido)}</b></td><td>${brNum(x.preco)}</td><td><b>R$ ${brNum(x.total)}</b></td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${x.id}')">✏️ Editar</button> <button class="btn secondary" onclick="pesagemImprimir('${x.id}')">🖨️</button> <button class="btn secondary" onclick="pesagemWhatsApp('${x.id}')">📲 WhatsApp</button> <button class="btn secondary" onclick="pesagemAcrescentarMaterial('${x.id}')">➕ Material</button> <button class="btn secondary" onclick="pesagemAlterarStatus('${x.id}')">💳 Status</button> <button class="btn danger" onclick="pesagemExcluir('${x.id}')">Excluir</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
  </div>`;
 }
 function pesagemSalvar(){
@@ -738,6 +760,12 @@ function pesagemSalvar(){
  const row={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),data,pessoa,codigo,material,entrada:c.entrada,saida:c.saida,liquido:c.liquido,preco:c.preco,total:c.total,observacoes:String($("pobs")?.value||"").trim()};
  const lista=pesagensLoad(); lista.unshift(row); pesagensSave(lista); pesagemRender(); alert("Pesagem registrada com sucesso!");
 }
+function pesagemEditar(id){
+ const lista=pesagensLoad(),x=lista.find(a=>String(a.id)===String(id));if(!x)return;
+ const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="pesagemEditModal";
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>✏️ Editar pesagem</h2><button class="btn" onclick="this.closest('#pesagemEditModal').remove()">✕</button></div><div class="grid"><div><label>Data</label><input id="pe_data" type="date" value="${esc(x.data||today())}"></div><div><label>Cliente / Pessoa</label><input id="pe_pessoa" value="${esc(x.pessoa||"")}"></div><div><label>Código</label><input id="pe_codigo" value="${esc(x.codigo||"")}"></div><div><label>Material</label><input id="pe_material" value="${esc(x.material||"")}"></div><div><label>Peso entrada</label><input id="pe_entrada" inputmode="decimal" value="${brNum(x.entrada)}"></div><div><label>Tara / saída</label><input id="pe_saida" inputmode="decimal" value="${brNum(x.saida)}"></div><div><label>Preço/kg</label><input id="pe_preco" inputmode="decimal" value="${brNum(x.preco)}"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="pe_obs" rows="3">${esc(x.observacoes||"")}</textarea></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#pesagemEditModal').remove()">Cancelar</button><button class="btn primary" onclick="pesagemSalvarEdicao('${id}')">💾 Salvar alterações</button></div></div>`;document.body.appendChild(modal);
+}
+function pesagemSalvarEdicao(id){const lista=pesagensLoad(),x=lista.find(a=>String(a.id)===String(id));if(!x)return;const entrada=pesoNum($("pe_entrada")?.value),saida=pesoNum($("pe_saida")?.value),preco=pesoNum($("pe_preco")?.value),liquido=Math.max(0,entrada-saida),total=liquido*preco;if(entrada<=0||liquido<=0||preco<=0)return alert("Confira os pesos e o preço.");x.data=$("pe_data")?.value||today();x.pessoa=$("pe_pessoa")?.value.trim()||"";x.codigo=$("pe_codigo")?.value.trim()||"";x.material=$("pe_material")?.value.trim()||"";x.entrada=entrada;x.saida=saida;x.liquido=liquido;x.preco=preco;x.total=total;x.observacoes=$("pe_obs")?.value.trim()||"";pesagensSave(lista);$("pesagemEditModal")?.remove();pesagemRender();alert("Pesagem atualizada com sucesso!")}
 function pesagemLimpar(){pesagemRender()}
 function pesagemExcluir(id){if(!confirm("Excluir esta pesagem?"))return;pesagensSave(pesagensLoad().filter(x=>String(x.id)!==String(id)));pesagemRender()}
 function pesagemImprimir(id){
@@ -774,6 +802,67 @@ function pesagemWhatsApp(id){
  ].filter(Boolean).join("\n");
 
  window.open("https://wa.me/"+telefone+"?text="+encodeURIComponent(msg),"_blank");
+}
+
+
+function pesagemStatusClasse(status){
+ const s=String(status||"Aberto").toLowerCase();
+ if(s==="pago") return "pesagem-status-pago";
+ if(s==="pagamento" || s==="em pagamento") return "pesagem-status-pagamento";
+ return "pesagem-status-aberto";
+}
+function pesagemStatusTexto(status){
+ const s=String(status||"Aberto").toLowerCase();
+ if(s==="pago") return "PAGO";
+ if(s==="pagamento" || s==="em pagamento") return "PAGAMENTO";
+ return "ABERTO";
+}
+function pesagemAcrescentarMaterial(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return alert("Pesagem não encontrada.");
+ const pessoa=String(x.pessoa||"").trim();
+ if(!pessoa)return alert("Esta pesagem não tem cliente/pessoa informado.");
+
+ const entrada=prompt("Peso de entrada do material adicional (kg):");
+ if(entrada===null)return;
+ const saida=prompt("Peso de saída / tara (kg):","0");
+ if(saida===null)return;
+ const material=prompt("Material:",x.material||"");
+ if(material===null)return;
+ const codigo=prompt("Código do produto:",x.codigo||"");
+ if(codigo===null)return;
+ const preco=prompt("Preço por kg:",String(x.preco??""));
+ if(preco===null)return;
+
+ const parsePeso = typeof brParse==="function" ? brParse : (v=>parseFloat(String(v).replace(/\./g,"").replace(",", ".")));
+ const e=parsePeso(entrada), s=parsePeso(saida), p=parsePeso(preco);
+ const liquido=Math.max(0,e-s), total=liquido*p;
+ if(!Number.isFinite(e)||!Number.isFinite(s)||!Number.isFinite(p)||liquido<0||p<0)
+   return alert("Confira os pesos e o preço.");
+
+ const novo={
+   ...x,
+   id:crypto.randomUUID(),
+   data:new Date().toISOString(),
+   entrada:e,saida:s,liquido,total,pessoa,
+   material,codigo,preco:p,
+   status:"Aberto",
+   observacoes:(x.observacoes?x.observacoes+" | ":"")+"Material acrescentado ao mesmo cliente."
+ };
+ pesagensSave([novo,...pesagensLoad()]);
+ if(typeof pesagensRender==="function") pesagensRender();
+ alert("Material acrescentado para "+pessoa+".");
+}
+function pesagemAlterarStatus(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return;
+ const v=prompt("Status da pesagem:\n1 - Pago\n2 - Pagamento\n3 - Aberto\n\nDigite 1, 2 ou 3:", x.status==="Pago"?"1":x.status==="Pagamento"?"2":"3");
+ if(v===null)return;
+ const mapa={"1":"Pago","2":"Pagamento","3":"Aberto"};
+ if(!mapa[v])return alert("Escolha 1, 2 ou 3.");
+ const lista=pesagensLoad().map(a=>String(a.id)===String(id)?{...a,status:mapa[v]}:a);
+ pesagensSave(lista);
+ if(typeof pesagensRender==="function") pesagensRender();
 }
 
 function renderPage(page){
