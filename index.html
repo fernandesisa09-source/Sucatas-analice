@@ -814,7 +814,7 @@ function pesagemImprimir(id){
  ${bloco}
  <div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>
  ${bloco}
- <script>window.onload=()=>{window.print();}</script></body></html>`);
+ <script>window.onload=()=>{window.print();}<\/script></body></html>`);
  w.document.close();
 }
 
@@ -899,48 +899,22 @@ function pesagemAcrescentarMaterial(id){
 }
 function pesagemAlterarStatus(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id));
- if(!x)return;
+ if(!x)return alert("Pesagem não encontrada.");
 
  const atual=x.status||"Aberto";
- const w=window.open("","status","width=360,height=330");
- if(!w)return alert("Permita a abertura da janela.");
+ const escolha=prompt("Escolha o status:\n\n🟢 PAGO\n🟡 PAGAMENTO\n🔴 ABERTO\n\nDigite o nome do status:",atual);
+ if(escolha===null)return;
 
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Status da Pesagem</title>
- <style>
- body{font-family:Arial,sans-serif;padding:22px;text-align:center}
- h3{margin-top:0}
- button{display:block;width:100%;padding:13px;margin:10px 0;border:0;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer}
- .pago{background:#d1fae5;color:#065f46;border:2px solid #10b981}
- .pagamento{background:#fef3c7;color:#92400e;border:2px solid #f59e0b}
- .aberto{background:#fee2e2;color:#991b1b;border:2px solid #ef4444}
- .atual{box-shadow:0 0 0 3px #333}
- </style></head><body>
- <h3>Escolha o status da pesagem</h3>
- <button class="pago ${atual==="Pago"?"atual":""}" onclick="selecionar('Pago')">🟢 PAGO</button>
- <button class="pagamento ${atual==="Pagamento"?"atual":""}" onclick="selecionar('Pagamento')">🟡 PAGAMENTO</button>
- <button class="aberto ${atual==="Aberto"?"atual":""}" onclick="selecionar('Aberto')">🔴 ABERTO</button>
- <script>
- function selecionar(status){
-   localStorage.setItem("pesagem_status_temp",JSON.stringify({id:${JSON.stringify(String(id))},status}));
-   window.close();
- }
- </script></body></html>`);
- w.document.close();
+ const normal=String(escolha).trim().toLowerCase();
+ let status="";
+ if(normal==="pago" || normal==="🟢 pago") status="Pago";
+ else if(normal==="pagamento" || normal==="🟡 pagamento") status="Pagamento";
+ else if(normal==="aberto" || normal==="🔴 aberto") status="Aberto";
+ else return alert("Status inválido. Escolha: Pago, Pagamento ou Aberto.");
 
- const timer=setInterval(()=>{
-   try{
-     const raw=localStorage.getItem("pesagem_status_temp");
-     if(!raw)return;
-     const r=JSON.parse(raw);
-     if(String(r.id)!==String(id))return;
-     localStorage.removeItem("pesagem_status_temp");
-     clearInterval(timer);
-     const lista=pesagensLoad().map(a=>String(a.id)===String(id)?{...a,status:r.status}:a);
-     pesagensSave(lista);
-     if(typeof pesagensRender==="function")pesagensRender();
-   }catch(e){}
- },300);
- setTimeout(()=>clearInterval(timer),120000);
+ const lista=pesagensLoad().map(a=>String(a.id)===String(id)?{...a,status}:a);
+ pesagensSave(lista);
+ if(typeof pesagensRender==="function")pesagensRender();
 }
 
 function renderPage(page){
