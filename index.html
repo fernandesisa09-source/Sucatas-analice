@@ -49,13 +49,26 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 .pesagem-add-modal{position:fixed;inset:0;background:rgba(15,23,42,.68);z-index:99999;display:flex;align-items:stretch;justify-content:center;padding:0}.pesagem-add-box{background:#fff;width:100%;height:100%;overflow:auto;padding:28px;box-sizing:border-box}.pesagem-add-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:1px solid #e5e7eb;padding-bottom:16px;margin-bottom:22px}.pesagem-add-head h2{margin:0 0 5px}.pesagem-add-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:18px;border-top:1px solid #e5e7eb}@media(max-width:700px){.pesagem-add-box{padding:18px}.pesagem-add-actions{position:sticky;bottom:0;background:#fff}}
 <style>
 .btn-excluir-discreto{padding:3px 6px!important;font-size:12px!important;min-width:0!important;border:0!important;background:transparent!important;color:#9b8fa3!important;opacity:.7!important;box-shadow:none!important;border-radius:8px!important}.btn-excluir-discreto:hover{opacity:1!important;background:#f5f1f7!important;color:#8a718f!important}
-/* Ações da Pesagem — visual discreto e profissional */
-.pesagem-acoes{display:flex;align-items:center;justify-content:flex-start;gap:5px;white-space:nowrap}
-.pesagem-acao{width:29px!important;height:29px!important;min-width:29px!important;padding:0!important;border:1px solid #e3dfe7!important;border-radius:7px!important;background:#fff!important;color:#666!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:14px!important;font-weight:500!important;line-height:1!important;box-shadow:none!important;opacity:.82!important;transition:all .15s ease!important}
-.pesagem-acao:hover{background:#f6f3f8!important;border-color:#cfc7d8!important;color:#55358a!important;opacity:1!important}
-.pesagem-excluir{width:22px!important;height:22px!important;min-width:22px!important;padding:0!important;border:0!important;border-radius:5px!important;background:transparent!important;color:#a59ba9!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:12px!important;line-height:1!important;box-shadow:none!important;opacity:.55!important;transition:all .15s ease!important}
-.pesagem-excluir:hover{background:#f8f3f5!important;color:#9b6675!important;opacity:1!important}
-.pesagem-acoes-col{width:155px!important}
+/* Pesagem — tabela sofisticada, espaçada e alinhada */
+.pesagem-tabela{table-layout:fixed!important;width:100%!important;border-collapse:separate!important;border-spacing:0!important}
+.pesagem-tabela th{padding:12px 14px!important;font-size:12px!important;letter-spacing:.02em!important;text-transform:uppercase!important;vertical-align:middle!important;white-space:nowrap!important}
+.pesagem-tabela td{padding:12px 14px!important;vertical-align:middle!important;border-bottom:1px solid #eeeaf1!important}
+.pesagem-tabela th:nth-child(1),.pesagem-tabela td:nth-child(1){width:125px!important}
+.pesagem-tabela th:nth-child(2),.pesagem-tabela td:nth-child(2){width:150px!important}
+.pesagem-tabela th:nth-child(3),.pesagem-tabela td:nth-child(3){width:auto!important}
+.pesagem-tabela th:nth-child(4),.pesagem-tabela td:nth-child(4){width:185px!important}
+.pesagem-data-list{display:flex;flex-direction:column;gap:9px;line-height:1.15;white-space:nowrap}
+.pesagem-material-list{display:flex;flex-direction:column;gap:10px}
+.pesagem-material-row{display:grid;grid-template-columns:minmax(170px,1fr) 112px 26px;align-items:center;column-gap:18px;min-height:28px}
+.pesagem-material-nome{font-weight:600;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pesagem-material-peso{font-weight:700;text-align:right;white-space:nowrap;padding-left:8px}
+.pesagem-material-del{width:24px!important;height:24px!important;min-width:24px!important;padding:0!important;border:1px solid #e7e1e8!important;border-radius:7px!important;background:#fff!important;color:#9a8f9e!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:12px!important;line-height:1!important;opacity:.8!important;box-shadow:0 1px 2px rgba(40,25,50,.04)!important;transition:all .15s ease!important}
+.pesagem-material-del:hover{color:#a25f70!important;border-color:#dcc8cf!important;background:#fbf6f8!important;opacity:1!important}
+.pesagem-acoes{display:flex;align-items:center;justify-content:flex-start;gap:7px;white-space:nowrap}
+.pesagem-acao{width:31px!important;height:31px!important;min-width:31px!important;padding:0!important;border:1px solid #dcd6e1!important;border-radius:8px!important;background:#fff!important;color:#625b67!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:16px!important;font-weight:500!important;line-height:1!important;box-shadow:0 1px 3px rgba(50,35,60,.07)!important;opacity:1!important;transition:all .15s ease!important}
+.pesagem-acao:hover{background:#f7f4f9!important;border-color:#bfb4c8!important;transform:translateY(-1px);box-shadow:0 2px 6px rgba(50,35,60,.10)!important}
+.pesagem-acoes-col{width:185px!important}
+@media(max-width:900px){.pesagem-tabela{min-width:760px!important}.pesagem-material-row{grid-template-columns:minmax(170px,1fr) 100px 26px;column-gap:12px}}
 </style>
 </style>
 </head>
@@ -859,10 +872,10 @@ async function pesagemRender(){
  const clientes=agrupar(abertas);
  const clientesArquivados=agrupar(arquivadas);
  const linhas=(g,arquivada=false)=>{
-   const datas=g.items.map(x=>dataBR(x.data)).join("<br>");
-   const mats=g.items.map(x=>`<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="flex:1">${esc(x.material||"—")} <b>— ${brNum(x.liquido)} kg</b></span>${!arquivada?`<button class="pesagem-excluir" title="Excluir pesagem" aria-label="Excluir pesagem" onclick="pesagemExcluir('${x.id}')">⌫</button>`:""}</div>`).join("");
+   const datas=g.items.map(x=>`<span>${dataBR(x.data)}</span>`).join("");
+   const mats=g.items.map(x=>`<div class="pesagem-material-row"><span class="pesagem-material-nome">${esc(x.material||"—")}</span><span class="pesagem-material-peso">${brNum(x.liquido)} kg</span>${!arquivada?`<button class="pesagem-material-del" title="Excluir pesagem" aria-label="Excluir pesagem" onclick="pesagemExcluir('${x.id}')">🗑️</button>`:""}</div>`).join("");
    const first=g.items[0];
-   return `<tr><td>${datas}</td><td><b>${esc(g.nome)}</b></td><td>${mats}</td><td class="no-print"><div class="pesagem-acoes"><button class="pesagem-acao" title="Editar" aria-label="Editar" onclick="pesagemEditar('${first.id}')">✎</button><button class="pesagem-acao" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimirCliente('${encodeURIComponent(g.nome)}')">▣</button><button class="pesagem-acao" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsAppCliente('${esc(g.nome).replace(/'/g,"\'")}')">◉</button> ${!arquivada?`<button class="pesagem-acao" title="Adicionar material" aria-label="Adicionar material" onclick="pesagemAbrirAdicionar('${first.id}')">＋</button><button class="pesagem-acao" title="Concluir e arquivar" aria-label="Concluir e arquivar" onclick="pesagemFecharModal('${esc(g.nome).replace(/'/g,"\'")}')">✓</button>`:""}</div></td></tr>`;
+   return `<tr><td><div class="pesagem-data-list">${datas}</div></td><td><b>${esc(g.nome)}</b></td><td><div class="pesagem-material-list">${mats}</div></td><td class="no-print"><div class="pesagem-acoes"><button class="pesagem-acao" title="Editar" aria-label="Editar" onclick="pesagemEditar('${first.id}')">✏️</button><button class="pesagem-acao" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimirCliente('${encodeURIComponent(g.nome)}')">🖨️</button><button class="pesagem-acao" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsAppCliente('${esc(g.nome).replace(/'/g,"\'")}')">📲</button> ${!arquivada?`<button class="pesagem-acao" title="Adicionar material" aria-label="Adicionar material" onclick="pesagemAbrirAdicionar('${first.id}')">➕</button><button class="pesagem-acao" title="Concluir e arquivar" aria-label="Concluir e arquivar" onclick="pesagemFecharModal('${esc(g.nome).replace(/'/g,"\'")}')">✅</button>`:""}</div></td></tr>`;
  };
  el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
  <div class="card" style="border-left:5px solid #55358a">
@@ -887,12 +900,12 @@ async function pesagemRender(){
  </div>
  <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${clientes.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Materiais / pesos líquidos</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
+  ${clientes.length?`<div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Data</th><th>Pessoa</th><th>Material <span style="font-weight:500;text-transform:none">/ Peso líquido</span></th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
  </div>
  <div class="card">
   <h3 style="margin-top:0">📁 Pesagens concluídas / arquivadas</h3>
   <p class="small">As pesagens concluídas ficam aqui e não aparecem na lista principal.</p>
-  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Materiais / pesos líquidos</th><th class="no-print">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join("")}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
+  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Data</th><th>Pessoa</th><th>Material <span style="font-weight:500;text-transform:none">/ Peso líquido</span></th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join("")}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
  </div>`;
 }
 
