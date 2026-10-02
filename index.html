@@ -723,7 +723,7 @@ function pesagemCalcular(){
 function pesagemRender(){
  const el=$("pesagem"); if(!el)return;
  const lista=pesagensLoad();
- el.innerHTML=`<h2>⚖️ Pesagem e Impressão</h2>
+ el.innerHTML=`<h2> <button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button>⚖️ Pesagem e Impressão</h2>
  <div class="card" style="border-left:5px solid #55358a">
   <h3 style="margin-top:0">📝 Nova pesagem</h3>
   <div class="grid">
@@ -749,7 +749,7 @@ function pesagemRender(){
  </div>
  <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${lista.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th><th>R$/kg</th><th>Total</th><th class="no-print">Ações</th></tr></thead><tbody>${lista.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.pessoa||"")}</td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td><td>${brNum(x.entrada)}</td><td>${brNum(x.saida)}</td><td><b>${brNum(x.liquido)}</b></td><td>${brNum(x.preco)}</td><td><b>R$ ${brNum(x.total)}</b></td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${x.id}')">✏️ ✏️</button> <button class="btn secondary icon-btn" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimir('${x.id}')">🖨️</button> <button class="btn secondary icon-btn" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsApp('${x.id}')">📲</button> <button class="btn secondary icon-btn" title="Acrescentar material" aria-label="Acrescentar material" onclick="pesagemAcrescentarMaterial('${x.id}')">➕</button> <button class="btn danger" onclick="pesagemExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
+  ${lista.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th><th>R$/kg</th><th>Total</th><th class="no-print">Ações</th></tr></thead><tbody>${lista.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.pessoa||"")}</td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td><td>${brNum(x.entrada)}</td><td>${brNum(x.saida)}</td><td><b>${brNum(x.liquido)}</b></td><td>${brNum(x.preco)}</td><td><b>R$ ${brNum(x.total)}</b></td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${x.id}')">✏️ ✏️</button> <button class="btn secondary icon-btn" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimir('${x.id}')">🖨️</button> <button class="btn secondary icon-btn" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsApp('${x.id}')">📲</button> <button class="btn secondary icon-btn" title="Fechar cliente" aria-label="Fechar cliente" onclick="pesagemFecharModal(x.pessoa)">🧾</button> <button class="btn secondary icon-btn" title="Acrescentar material" aria-label="Acrescentar material" onclick="pesagemAcrescentarMaterial('${x.id}')">➕</button> <button class="btn danger" onclick="pesagemExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
  </div>`;
 }
 function pesagemSalvar(){
@@ -917,6 +917,72 @@ function pesagemAlterarStatus(id){
  const lista=pesagensLoad().map(a=>String(a.id)===String(id)?{...a,status}:a);
  pesagensSave(lista);
  if(typeof pesagensRender==="function")pesagensRender();
+}
+
+const PESAGEM_FECH_KEY="sucatas_analice_fechamentos_pesagem_v1";
+function pesagemFechamentosLoad(){
+ try{return JSON.parse(localStorage.getItem(PESAGEM_FECH_KEY)||"[]")}catch(e){return[]}
+}
+function pesagemFechamentosSave(v){localStorage.setItem(PESAGEM_FECH_KEY,JSON.stringify(v||[]))}
+function pesagemFechadasSet(){return new Set(pesagemFechamentosLoad().flatMap(f=>(f.pesagem_ids||[]).map(String)))}
+function pesagemClienteNome(x){return String(x?.pessoa||"").trim()||"Cliente não informado"}
+function pesagemClienteAberta(x){
+ const fech=pesagemFechadasSet();
+ return !fech.has(String(x.id));
+}
+function pesagemAgruparCliente(nome){
+ return pesagensLoad().filter(x=>pesagemClienteAberta(x)&&pesagemClienteNome(x).toLowerCase()===String(nome).trim().toLowerCase());
+}
+function pesagemListaClientesAbertos(){
+ const mapa={};
+ pesagensLoad().filter(pesagemClienteAberta).forEach(x=>{
+   const n=pesagemClienteNome(x);
+   mapa[n.toLowerCase()]={nome:n,items:(mapa[n.toLowerCase()]?.items||[]).concat(x)};
+ });
+ return Object.values(mapa).sort((a,b)=>a.nome.localeCompare(b.nome));
+}
+function pesagemFecharCliente(){
+ const clientes=pesagemListaClientesAbertos();
+ if(!clientes.length)return alert("Não há pesagens abertas para fechar.");
+ const nomes=clientes.map((c,i)=>`${i+1} — ${c.nome} (${c.items.length} material(is))`).join("\n");
+ const escolha=prompt("Escolha o cliente para fechar a pesagem:\n\n"+nomes+"\n\nDigite o número:");
+ if(escolha===null)return;
+ const c=clientes[Number(escolha)-1];
+ if(!c)return alert("Cliente inválido.");
+ pesagemFecharModal(c.nome);
+}
+function pesagemFecharModal(nome){
+ const items=pesagemAgruparCliente(nome);
+ if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+ const peso=items.reduce((s,x)=>s+Number(x.liquido||0),0);
+ const total=items.reduce((s,x)=>s+Number(x.total||0),0);
+ const status=items.every(x=>x.status==="Pago")?"Pago":items.some(x=>x.status==="Pagamento")?"Pagamento":"Aberto";
+ const htmlRows=items.map(x=>`<tr><td>${esc(x.codigo||"")}</td><td>${esc(x.material||"")}</td><td>${typeof brNum==="function"?brNum(x.liquido):x.liquido} kg</td><td>R$ ${typeof brNum==="function"?brNum(x.preco):x.preco}</td><td>R$ ${typeof brNum==="function"?brNum(x.total):x.total}</td></tr>`).join("");
+ const w=window.open("","fechamento","width=900,height=700");
+ if(!w)return alert("Permita a abertura da janela.");
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Fechamento</title><style>
+ body{font-family:Arial;padding:20px;color:#111}h2{text-align:center;margin:5px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin:12px 0;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:7px;font-size:12px}th{background:#eee}.totais{margin-top:14px;font-size:16px;font-weight:800}.acoes{text-align:center;margin-top:20px}button{padding:10px 16px;margin:5px;border-radius:8px;border:0} .pago{background:#d1fae5;color:#065f46}.pagamento{background:#fef3c7;color:#92400e}.aberto{background:#fee2e2;color:#991b1b}</style></head><body>
+ <h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div>
+ <table><thead><tr><th>Código</th><th>Material</th><th>Peso líquido</th><th>Preço/kg</th><th>Total</th></tr></thead><tbody>${htmlRows}</tbody></table>
+ <div class="totais">TOTAL DE PESO: ${typeof brNum==="function"?brNum(peso):peso} kg<br>TOTAL A PAGAR: R$ ${typeof brNum==="function"?brNum(total):total}</div>
+ <div class="acoes"><button onclick="opener.pesagemFecharDefinitivo(${JSON.stringify(nome)},${JSON.stringify(items.map(x=>String(x.id)))},${JSON.stringify(status)});window.close()">💾 Fechar</button><button onclick="window.print()">🖨️ Imprimir</button></div>
+ </body></html>`); w.document.close();
+}
+function pesagemFecharDefinitivo(nome,ids,status){
+ const fech=pesagemFechamentosLoad();
+ fech.unshift({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),cliente:nome,pesagem_ids:ids,status,data:new Date().toISOString(),peso_total:ids.reduce((s,id)=>{const x=pesagensLoad().find(a=>String(a.id)===id);return s+Number(x?.liquido||0)},0),valor_total:ids.reduce((s,id)=>{const x=pesagensLoad().find(a=>String(a.id)===id);return s+Number(x?.total||0)},0)});
+ pesagemFechamentosSave(fech);
+ if(typeof pesagensRender==="function")pesagensRender();
+ alert("Pesagem do cliente fechada com sucesso.");
+}
+function pesagemWhatsAppCliente(nome){
+ const items=pesagemAgruparCliente(nome);
+ if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+ const peso=items.reduce((s,x)=>s+Number(x.liquido||0),0);
+ const total=items.reduce((s,x)=>s+Number(x.total||0),0);
+ const msg=["⚖️ PESAGEM — SUCATAS ANALICE","👤 "+nome,"",...items.map(x=>`${x.codigo||""} — ${x.material||""}: ${brNum(x.liquido)} kg × R$ ${brNum(x.preco)} = R$ ${brNum(x.total)}`),"",`📦 TOTAL DE PESO: ${brNum(peso)} kg`,`💵 TOTAL: R$ ${brNum(total)}`].join("\n");
+ try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
+ window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
 }
 
 function renderPage(page){
