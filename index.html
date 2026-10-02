@@ -80,6 +80,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
  <button data-page="motoristas">👤 Motoristas</button>
  <button data-page="caminhoes">🚛 Caminhões</button>
  <button data-page="adiantamentos">💰 Adiantamentos</button>
+ <button data-page="pesagem">⚖️ Pesagem</button>
  <button data-page="ordens">📋 Ordens</button>
  <button data-page="movimentacoes">🔄 Movimentações</button>
  <button data-page="manutencoes">🔧 Manutenção</button>
@@ -92,6 +93,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <section id="motoristas" class="page"></section>
 <section id="caminhoes" class="page"></section>
 <section id="adiantamentos" class="page"></section>
+<section id="pesagem" class="page"></section>
 <section id="ordens" class="page"></section>
 <section id="movimentacoes" class="page"></section>
 <section id="manutencoes" class="page"></section>
@@ -687,6 +689,93 @@ function adPrint(id){
  w.document.close();setTimeout(()=>w.print(),250);
 }
 
+const PESAGEM_KEY="sucatas_analice_pesagens_v1";
+function pesagensLoad(){try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}}
+function pesagensSave(v){localStorage.setItem(PESAGEM_KEY,JSON.stringify(v))}
+function pesoNum(v){const s=String(v??"").trim().replace(/\./g,"").replace(",","."); const n=parseFloat(s); return Number.isFinite(n)?n:0}
+function moedaNum(v){return pesoNum(v)}
+function brNum(n,d=2){return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})}
+function pesagemCalcular(){
+ const entrada=pesoNum($("pe" )?.value), saida=pesoNum($("ps")?.value), preco=moedaNum($("pp")?.value);
+ const liquido=Math.max(0,entrada-saida), total=liquido*preco;
+ if($("pliq"))$("pliq").value=brNum(liquido);
+ if($("ptotal"))$("ptotal").value=brNum(total);
+ return {entrada,saida,preco,liquido,total};
+}
+function pesagemRender(){
+ const el=$("pesagem"); if(!el)return;
+ const lista=pesagensLoad();
+ el.innerHTML=`<h2>⚖️ Pesagem e Impressão</h2>
+ <div class="card" style="border-left:5px solid #55358a">
+  <h3 style="margin-top:0">📝 Nova pesagem</h3>
+  <div class="grid">
+   <div><label>Data</label><input id="pdata" type="date" value="${today()}"></div>
+   <div><label>Cliente / Pessoa</label><input id="ppessoa" placeholder="Nome da pessoa"></div>
+   <div><label>Código do material</label><input id="pcod" placeholder="Ex.: 01"></div>
+   <div><label>Material</label><input id="pmat" placeholder="Ex.: Papelão"></div>
+   <div><label>Peso de entrada (kg)</label><input id="pe" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
+   <div><label>Peso de saída / tara (kg)</label><input id="ps" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
+   <div><label>Peso líquido (kg)</label><input id="pliq" readonly placeholder="0,00"></div>
+   <div><label>Preço por kg (R$)</label><input id="pp" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
+   <div><label>Total (R$)</label><input id="ptotal" readonly placeholder="0,00"></div>
+   <div style="grid-column:1/-1"><label>Observações</label><textarea id="pobs" rows="2" placeholder="Observações da pesagem..."></textarea></div>
+  </div>
+  <br><button class="btn primary" onclick="pesagemSalvar()">💾 Registrar pesagem</button>
+  <button class="btn secondary" onclick="pesagemLimpar()">🧹 Limpar</button>
+ </div>
+ <div class="card">
+  <h3 style="margin-top:0">📋 Pesagens registradas</h3>
+  ${lista.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th><th>R$/kg</th><th>Total</th><th class="no-print">Ações</th></tr></thead><tbody>${lista.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.pessoa||"")}</td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td><td>${brNum(x.entrada)}</td><td>${brNum(x.saida)}</td><td><b>${brNum(x.liquido)}</b></td><td>${brNum(x.preco)}</td><td><b>R$ ${brNum(x.total)}</b></td><td class="no-print"><button class="btn secondary" onclick="pesagemImprimir('${x.id}')">🖨️</button> <button class="btn secondary" onclick="pesagemWhatsApp('${x.id}')">📲 WhatsApp</button> <button class="btn danger" onclick="pesagemExcluir('${x.id}')">Excluir</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
+ </div>`;
+}
+function pesagemSalvar(){
+ const c=pesagemCalcular();
+ const pessoa=String($("ppessoa")?.value||"").trim(), material=String($("pmat")?.value||"").trim(), codigo=String($("pcod")?.value||"").trim(), data=String($("pdata")?.value||today());
+ if(!material)return alert("Informe o material.");
+ if(c.entrada<=0)return alert("Informe o peso de entrada.");
+ if(c.liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
+ if(c.preco<=0)return alert("Informe o preço por kg.");
+ const row={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),data,pessoa,codigo,material,entrada:c.entrada,saida:c.saida,liquido:c.liquido,preco:c.preco,total:c.total,observacoes:String($("pobs")?.value||"").trim()};
+ const lista=pesagensLoad(); lista.unshift(row); pesagensSave(lista); pesagemRender(); alert("Pesagem registrada com sucesso!");
+}
+function pesagemLimpar(){pesagemRender()}
+function pesagemExcluir(id){if(!confirm("Excluir esta pesagem?"))return;pesagensSave(pesagensLoad().filter(x=>String(x.id)!==String(id)));pesagemRender()}
+function pesagemImprimir(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return;
+ const w=window.open("","_blank"); if(!w)return alert("Permita pop-ups para imprimir.");
+ w.document.write(`<html><head><meta charset="utf-8"><title>Ticket de Pesagem</title><style>body{font-family:Arial;margin:20px;max-width:700px}h1{color:#55358a;border-bottom:3px solid #0a9a4a;padding-bottom:10px}.box{border:1px solid #ccc;padding:14px;margin:10px 0}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #ddd;padding:8px}.total{font-size:22px;font-weight:bold}small{color:#666}@media print{button{display:none}}</style></head><body><h1>Sucatas Analice — Ticket de Pesagem</h1><div class="box"><table><tr><td><b>Data</b></td><td>${dataBR(x.data)}</td></tr><tr><td><b>Cliente / Pessoa</b></td><td>${esc(x.pessoa||"Não informado")}</td></tr><tr><td><b>Material</b></td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td></tr><tr><td><b>Peso de entrada</b></td><td>${brNum(x.entrada)} kg</td></tr><tr><td><b>Peso de saída / tara</b></td><td>${brNum(x.saida)} kg</td></tr><tr><td><b>Peso líquido</b></td><td><b>${brNum(x.liquido)} kg</b></td></tr><tr><td><b>Preço por kg</b></td><td>R$ ${brNum(x.preco)}</td></tr><tr><td><b>Total</b></td><td class="total">R$ ${brNum(x.total)}</td></tr></table></div>${x.observacoes?`<div class="box"><b>Observações:</b><br>${esc(x.observacoes)}</div>`:""}<small>Sucatas Analice</small><script>setTimeout(()=>window.print(),250)<\/script></body></html>`);w.document.close();
+}
+
+
+function pesagemWhatsApp(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return alert("Pesagem não encontrada.");
+
+ let telefone=prompt("Digite o número do WhatsApp para enviar esta pesagem:\n\nPode ser qualquer pessoa.\nEx.: (11) 99999-9999");
+ if(telefone===null)return;
+ telefone=String(telefone||"").replace(/\D/g,"");
+ if(!telefone)return alert("Informe um número de WhatsApp.");
+ if(!telefone.startsWith("55") && (telefone.length===10 || telefone.length===11)) telefone="55"+telefone;
+ if(telefone.length<12)return alert("O número informado não parece válido. Confira o telefone.");
+
+ const msg=[
+   "Olá! Segue o registro da pesagem:",
+   "",
+   "⚖️ PESAGEM — SUCATAS ANALICE",
+   "📅 Data: "+(dataBR(x.data)||"—"),
+   "👤 Pessoa: "+(x.pessoa||"Não informado"),
+   "♻️ Material: "+((x.codigo?x.codigo+" — ":"")+(x.material||"—")),
+   "⚖️ Peso de entrada: "+brNum(x.entrada)+" kg",
+   "⚖️ Peso de saída / tara: "+brNum(x.saida)+" kg",
+   "📦 Peso líquido: "+brNum(x.liquido)+" kg",
+   "💰 Preço por kg: R$ "+brNum(x.preco),
+   "💵 Total: R$ "+brNum(x.total),
+   x.observacoes ? "📝 Observações: "+x.observacoes : ""
+ ].filter(Boolean).join("\n");
+
+ window.open("https://wa.me/"+telefone+"?text="+encodeURIComponent(msg),"_blank");
+}
+
 function renderPage(page){
  if(page==="dashboard")dashboard();
  if(page==="cacambas")cacambas();
@@ -695,6 +784,7 @@ function renderPage(page){
  if(page==="motoristas")motoristas();
  if(page==="caminhoes")caminhoes();
  if(page==="adiantamentos")adRender();
+ if(page==="pesagem")pesagemRender();
  if(page==="ordens")ordens();
  if(page==="movimentacoes")movimentacoes();
  if(page==="manutencoes")manutencoes();
@@ -919,27 +1009,23 @@ function statusOSExibicao(status){
  const mapa={"Agendada":"Agendada","Em rota":"Em andamento","Entregue":"Concluída","Retirada solicitada":"Reagendada","Concluída":"Concluída","Cancelada":"Cancelada"};
  return mapa[status]||status;
 }
-function enviarOSWhatsApp(id, destino="cliente"){
+function enviarOSWhatsApp(id){
  const row=(cache.ordens||[]).find(x=>String(x.id)===String(id));
  if(!row)return alert("Ordem de serviço não encontrada.");
-
  const cliente=(cache.clientes||[]).find(c=>String(c.id)===String(row.cliente_id));
  const motorista=(cache.motoristas||[]).find(m=>String(m.id)===String(row.motorista_id));
  const cam=(cache.caminhoes||[]).find(c=>String(c.id)===String(row.caminhao_id));
  const cac=(cache.cacambas||[]).find(c=>String(c.id)===String(row.cacamba_id));
 
- const pessoa=destino==="motorista" ? motorista : cliente;
- const tipoPessoa=destino==="motorista" ? "motorista" : "cliente";
- if(!pessoa)return alert(destino==="motorista" ? "Esta ordem não tem motorista selecionado." : "Esta ordem não tem cliente selecionado.");
-
- let telefone=String(pessoa.telefone||"").replace(/\D/g,"");
- if(!telefone)return alert("O "+tipoPessoa+" não possui telefone cadastrado.");
+ let telefone=prompt("Digite o número do WhatsApp para enviar esta Ordem de Serviço:\n\nEx.: (11) 99999-9999");
+ if(telefone===null)return;
+ telefone=String(telefone||"").replace(/\D/g,"");
+ if(!telefone)return alert("Informe um número de WhatsApp.");
  if(!telefone.startsWith("55") && (telefone.length===10 || telefone.length===11)) telefone="55"+telefone;
- if(!telefone.startsWith("55") || telefone.length<12)return alert("O telefone do "+tipoPessoa+" não parece válido. Confira o cadastro.");
+ if(telefone.length<12)return alert("O número informado não parece válido. Confira o telefone.");
 
- const saudacao=destino==="motorista" ? "Olá, "+(pessoa.nome||"motorista")+"! Segue sua ordem de serviço:" : "Olá, "+(pessoa.nome||"!")+"! Segue a ordem de serviço:";
  const msg=[
-   saudacao,
+   "Olá! Segue a ordem de serviço:",
    "",
    "📋 ORDEM DE SERVIÇO — "+(row.numero||""),
    "🗑️ Caçamba: "+(cac?.numero||"—"),
@@ -956,7 +1042,6 @@ function enviarOSWhatsApp(id, destino="cliente"){
 
  window.open("https://wa.me/"+telefone+"?text="+encodeURIComponent(msg),"_blank");
 }
-
 function ordens(){
  const todas=Array.isArray(cache.ordens)?cache.ordens:[];
  const ativas=todas.filter(x=>String(x.status||"")!=="Concluída");
@@ -978,8 +1063,7 @@ function ordens(){
    <button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ Editar</button>
    <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button>
    <button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id}')">🖨️</button>
-   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}','cliente')">📲 Cliente</button>
-   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}','motorista')">🚚 Motorista</button>
+   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}')">📲 WhatsApp</button>
   </td>
  </tr>`;
 
