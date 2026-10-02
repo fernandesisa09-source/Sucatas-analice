@@ -839,11 +839,21 @@ async function pesagemRender(){
  iniciarPesagemRealtime();
  const el=$("pesagem"); if(!el)return;
  const lista=pesagensLoad();
- const fechadas=pesagemFechadasSet();
- const abertos=lista.filter(x=>!fechadas.has(String(x.id)));
- const grupos={};
- abertos.forEach(x=>{const nome=pesagemClienteNome(x);const k=nome.toLowerCase();if(!grupos[k])grupos[k]={nome,items:[]};grupos[k].items.push(x)});
- const clientes=Object.values(grupos).sort((a,b)=>a.nome.localeCompare(b.nome));
+ const abertas=lista.filter(x=>!x.fechada);
+ const arquivadas=lista.filter(x=>!!x.fechada);
+ const agrupar=(arr)=>{
+   const grupos={};
+   arr.forEach(x=>{const nome=pesagemClienteNome(x);const k=nome.toLowerCase();if(!grupos[k])grupos[k]={nome,items:[]};grupos[k].items.push(x)});
+   return Object.values(grupos).sort((a,b)=>a.nome.localeCompare(b.nome));
+ };
+ const clientes=agrupar(abertas);
+ const clientesArquivados=agrupar(arquivadas);
+ const linhas=(g,arquivada=false)=>{
+   const datas=g.items.map(x=>dataBR(x.data)).join("<br>");
+   const mats=g.items.map(x=>`<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="flex:1">${esc(x.material||"—")} <b>— ${brNum(x.liquido)} kg</b></span>${!arquivada?`<button class="btn danger icon-btn" title="Excluir esta pesagem" aria-label="Excluir esta pesagem" onclick="pesagemExcluir('${x.id}')">🗑️</button>`:""}</div>`).join("");
+   const first=g.items[0];
+   return `<tr><td>${datas}</td><td><b>${esc(g.nome)}</b></td><td>${mats}</td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${first.id}')">✏️</button> <button class="btn secondary icon-btn" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimirCliente('${encodeURIComponent(g.nome)}')">🖨️</button> <button class="btn secondary icon-btn" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsAppCliente('${esc(g.nome).replace(/'/g,"\\'")}')">📲</button> ${!arquivada?`<button class="btn secondary icon-btn" title="Adicionar material" aria-label="Adicionar material" onclick="pesagemAbrirAdicionar('${first.id}')">➕</button> <button class="btn secondary icon-btn" title="Concluir e arquivar" aria-label="Concluir e arquivar" onclick="pesagemFecharModal('${esc(g.nome).replace(/'/g,"\\'")}')">✅</button>`:""}</td></tr>`;
+ };
  el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
  <div class="card" style="border-left:5px solid #55358a">
   <h3 style="margin-top:0">📝 Nova pesagem</h3>
@@ -851,7 +861,7 @@ async function pesagemRender(){
    <div><label>Data</label><input id="pdata" type="date" value="${today()}"></div>
    <div><label>Cliente / Pessoa</label><input id="ppessoa" placeholder="Nome da pessoa"></div>
    <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<option value="${x.id}">${esc(x.nome)} — R$ ${brNum(x.preco)}</option>`).join("")}</select><button class="btn secondary" onclick="produtoNovo()">➕ Adicionar produto</button></div></div>
-    <div><label>Material</label><input id="pmat" placeholder="Ex.: Papelão"></div>
+   <div><label>Material</label><input id="pmat" placeholder="Ex.: Papelão"></div>
    <div><label>Peso de entrada (kg)</label><input id="pe" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
    <div><label>Peso de saída / tara (kg)</label><input id="ps" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
    <div><label>Peso líquido (kg)</label><input id="pliq" readonly placeholder="0,00"></div>
@@ -863,16 +873,16 @@ async function pesagemRender(){
  <div class="card">
   <h3 style="margin-top:0">♻️ Produtos / Materiais</h3>
   <button class="btn primary" onclick="produtoNovo()">➕ Adicionar produto</button>
-  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Produto / Material</th><th>Preço/kg</th><th class="no-print">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️ ✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
+  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Produto / Material</th><th>Preço/kg</th><th class="no-print">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
  </div>
  <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${clientes.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Materiais / pesos líquidos</th><th class="no-print">Ações</th></tr></thead><tbody>${clientes.map(g=>{
-    const datas=g.items.map(x=>dataBR(x.data)).join("<br>");
-    const mats=g.items.map(x=>`${esc(x.material||"—")} <b>— ${brNum(x.liquido)} kg</b>`).join("<br>");
-    const first=g.items[0];
-    return `<tr><td>${datas}</td><td><b>${esc(g.nome)}</b></td><td>${mats}</td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${first.id}')">✏️</button> <button class="btn secondary icon-btn" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimirCliente('${encodeURIComponent(g.nome)}')">🖨️</button> <button class="btn secondary icon-btn" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsAppCliente('${esc(g.nome).replace(/'/g,"\\'")}')">📲</button> <button class="btn secondary icon-btn" title="Adicionar material" aria-label="Adicionar material" onclick="pesagemAbrirAdicionar('${first.id}')">➕</button> <button class="btn secondary icon-btn" title="Fechar cliente" aria-label="Fechar cliente" onclick="pesagemFecharModal('${esc(g.nome).replace(/'/g,"\\'")}')">🧾</button></td></tr>`;
-  }).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
+  ${clientes.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Materiais / pesos líquidos</th><th class="no-print">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
+ </div>
+ <div class="card">
+  <h3 style="margin-top:0">📁 Pesagens concluídas / arquivadas</h3>
+  <p class="small">As pesagens concluídas ficam aqui e não aparecem na lista principal.</p>
+  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Materiais / pesos líquidos</th><th class="no-print">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join("")}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
  </div>`;
 }
 
