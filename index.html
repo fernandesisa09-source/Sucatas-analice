@@ -822,31 +822,32 @@ function pesagemWhatsApp(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id));
  if(!x)return alert("Pesagem não encontrada.");
 
- let telefone=prompt("Digite o número do WhatsApp para enviar esta pesagem:\n\nPode ser qualquer pessoa.\nEx.: (11) 99999-9999");
- if(telefone===null)return;
- telefone=String(telefone||"").replace(/\D/g,"");
- if(!telefone)return alert("Informe um número de WhatsApp.");
- if(!telefone.startsWith("55") && (telefone.length===10 || telefone.length===11)) telefone="55"+telefone;
- if(telefone.length<12)return alert("O número informado não parece válido. Confira o telefone.");
-
  const msg=[
    "Olá! Segue o registro da pesagem:",
    "",
    "⚖️ PESAGEM — SUCATAS ANALICE",
-   "📅 Data: "+(dataBR(x.data)||"—"),
+   "📅 Data: "+(typeof dataBR==="function"?dataBR(x.data||""):String(x.data||"").slice(0,10)),
    "👤 Pessoa: "+(x.pessoa||"Não informado"),
    "♻️ Material: "+((x.codigo?x.codigo+" — ":"")+(x.material||"—")),
-   "⚖️ Peso de entrada: "+brNum(x.entrada)+" kg",
-   "⚖️ Peso de saída / tara: "+brNum(x.saida)+" kg",
-   "📦 Peso líquido: "+brNum(x.liquido)+" kg",
-   "💰 Preço por kg: R$ "+brNum(x.preco),
-   "💵 Total: R$ "+brNum(x.total),
+   "⚖️ Peso de entrada: "+(typeof brNum==="function"?brNum(x.entrada):x.entrada)+" kg",
+   "⚖️ Peso de saída / tara: "+(typeof brNum==="function"?brNum(x.saida):x.saida)+" kg",
+   "📦 Peso líquido: "+(typeof brNum==="function"?brNum(x.liquido):x.liquido)+" kg",
+   "💰 Preço por kg: R$ "+(typeof brNum==="function"?brNum(x.preco):x.preco),
+   "💵 Total: R$ "+(typeof brNum==="function"?brNum(x.total):x.total),
+   x.status ? "💳 Status: "+pesagemStatusTexto(x.status) : "",
    x.observacoes ? "📝 Observações: "+x.observacoes : ""
  ].filter(Boolean).join("\n");
 
- window.open("https://wa.me/"+telefone+"?text="+encodeURIComponent(msg),"_blank");
-}
+ // Abre o WhatsApp sem escolher número. O usuário escolhe o contato diretamente no WhatsApp.
+ // O texto fica copiado para facilitar o envio.
+ try{
+   if(navigator.clipboard && navigator.clipboard.writeText){
+     navigator.clipboard.writeText(msg).catch(()=>{});
+   }
+ }catch(e){}
 
+ window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
+}
 
 function pesagemStatusClasse(status){
  const s=String(status||"Aberto").toLowerCase();
@@ -899,13 +900,47 @@ function pesagemAcrescentarMaterial(id){
 function pesagemAlterarStatus(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id));
  if(!x)return;
- const v=prompt("Status da pesagem:\n1 - Pago\n2 - Pagamento\n3 - Aberto\n\nDigite 1, 2 ou 3:", x.status==="Pago"?"1":x.status==="Pagamento"?"2":"3");
- if(v===null)return;
- const mapa={"1":"Pago","2":"Pagamento","3":"Aberto"};
- if(!mapa[v])return alert("Escolha 1, 2 ou 3.");
- const lista=pesagensLoad().map(a=>String(a.id)===String(id)?{...a,status:mapa[v]}:a);
- pesagensSave(lista);
- if(typeof pesagensRender==="function") pesagensRender();
+
+ const atual=x.status||"Aberto";
+ const w=window.open("","status","width=360,height=330");
+ if(!w)return alert("Permita a abertura da janela.");
+
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Status da Pesagem</title>
+ <style>
+ body{font-family:Arial,sans-serif;padding:22px;text-align:center}
+ h3{margin-top:0}
+ button{display:block;width:100%;padding:13px;margin:10px 0;border:0;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer}
+ .pago{background:#d1fae5;color:#065f46;border:2px solid #10b981}
+ .pagamento{background:#fef3c7;color:#92400e;border:2px solid #f59e0b}
+ .aberto{background:#fee2e2;color:#991b1b;border:2px solid #ef4444}
+ .atual{box-shadow:0 0 0 3px #333}
+ </style></head><body>
+ <h3>Escolha o status da pesagem</h3>
+ <button class="pago ${atual==="Pago"?"atual":""}" onclick="selecionar('Pago')">🟢 PAGO</button>
+ <button class="pagamento ${atual==="Pagamento"?"atual":""}" onclick="selecionar('Pagamento')">🟡 PAGAMENTO</button>
+ <button class="aberto ${atual==="Aberto"?"atual":""}" onclick="selecionar('Aberto')">🔴 ABERTO</button>
+ <script>
+ function selecionar(status){
+   localStorage.setItem("pesagem_status_temp",JSON.stringify({id:${JSON.stringify(String(id))},status}));
+   window.close();
+ }
+ </script></body></html>`);
+ w.document.close();
+
+ const timer=setInterval(()=>{
+   try{
+     const raw=localStorage.getItem("pesagem_status_temp");
+     if(!raw)return;
+     const r=JSON.parse(raw);
+     if(String(r.id)!==String(id))return;
+     localStorage.removeItem("pesagem_status_temp");
+     clearInterval(timer);
+     const lista=pesagensLoad().map(a=>String(a.id)===String(id)?{...a,status:r.status}:a);
+     pesagensSave(lista);
+     if(typeof pesagensRender==="function")pesagensRender();
+   }catch(e){}
+ },300);
+ setTimeout(()=>clearInterval(timer),120000);
 }
 
 function renderPage(page){
