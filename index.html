@@ -884,14 +884,19 @@ async function pesagemRender(){
   edit:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3Z"/><path d="m13.5 6.5 4 4"/></svg>`,
   print:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v6H6z"/></svg>`,
   whatsapp:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 3.5A10 10 0 0 0 3.8 15.6L2.5 21.5l6-1.3A10 10 0 1 0 20.5 3.5Z"/><path d="M8.2 7.5c.3-.7.6-.7 1-.7h.6c.2 0 .4.1.5.4l.9 2.1c.1.2.1.4 0 .6l-.7 1c-.1.2-.1.4 0 .6.5.9 1.2 1.6 2.1 2.1.2.1.4.1.6 0l1-.7c.2-.1.4-.1.6 0l2.1.9c.3.1.4.3.4.5v.6c0 .4 0 .7-.7 1-1 .4-2.2.2-3.9-.5-1.6-.7-3.1-1.9-4.2-3.2-1.1-1.4-1.7-2.8-1.3-3.7Z"/></svg>`,
-  trash:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg>`
+  trash:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg>`,
+  check:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`
  };
  const acao=(icon,title,on,extra="")=>`<button class="pesagem-acao ${extra}" title="${title}" aria-label="${title}" onclick="${on}">${pesagemSvg[icon]}</button>`;
  const linhas=(g,arquivada=false)=>{
    const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
-   const header=`<tr class="pesagem-cliente-head"><td colspan="5"><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${g.items.length} ${g.items.length===1?'pesagem':'pesagens'}</span><strong>${brNum(total)} kg</strong><span class="pesagem-chevron">⌃</span></div></div></td></tr>`;
-   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><b>${esc(g.nome)}</b></td><td><span class="pesagem-material-nome">${esc(x.material||"—")}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar',`pesagemEditar('${x.id}')`)}${acao('print','Imprimir',`pesagemImprimir('${x.id}')`)}${acao('whatsapp','WhatsApp',`pesagemWhatsApp('${x.id}')`)}${!arquivada?acao('trash','Excluir pesagem',`pesagemExcluir('${x.id}')`,'excluir'):''}</div></td></tr>`).join("");
-   return header+rows;
+   const nomeArg=JSON.stringify(g.nome);
+   const nomeCod=JSON.stringify(encodeURIComponent(g.nome));
+   const idsArg=JSON.stringify(g.items.map(x=>String(x.id)));
+   const resumo=`${g.items.length} ${g.items.length===1?'pesagem':'pesagens'} · ${brNum(total)} kg`;
+   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar todas as pesagens deste cliente no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${!arquivada?`<button class="pesagem-acao pesagem-add-material" title="Acrescentar material para esta pessoa" aria-label="Acrescentar material para esta pessoa" onclick="pesagemAbrirAdicionarCliente(${nomeArg})">＋</button>`:''}${!arquivada?acao('check','Concluir todas as pesagens deste cliente',`pesagemFecharModal(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
+   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><span class="pesagem-material-nome">${esc(x.material||"—")}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}</div></td></tr>`).join("");
+   return `<tr class="pesagem-cliente-head"><td colspan="6"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Data</th><th>Material</th><th>Entrada</th><th>Saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
  };
  el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
  <div class="card" style="border-left:5px solid #55358a">
@@ -981,6 +986,20 @@ async function pesagemExcluir(id){
  pesagemCloud=pesagemCloud.filter(x=>String(x.id)!==String(id));pesagemCloudReady=true;await pesagemRender();
 }
 
+async function pesagemExcluirCliente(nome,ids,arquivada=false){
+ const lista=pesagensLoad().filter(x=>ids.map(String).includes(String(x.id)));
+ const qtd=lista.length;
+ if(!qtd)return alert("Não há pesagens para excluir.");
+ const tipo=arquivada?"arquivadas":"abertas";
+ if(!confirm(`Excluir TODAS as ${qtd} pesagens ${tipo} de ${nome}?\n\nEssa ação não poderá ser desfeita.`))return;
+ const {error}=await sb.from("pesagens").delete().in("id",ids);
+ if(error)return alert("Não foi possível excluir as pesagens: "+error.message);
+ const set=new Set(ids.map(String));
+ pesagemCloud=pesagemCloud.filter(x=>!set.has(String(x.id)));pesagemCloudReady=true;
+ await pesagemRender();
+ alert(`${qtd} pesagem(ns) de ${nome} excluída(s) com sucesso.`);
+}
+
 function pesagemImprimir(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
  const br=v=>brNum(v); const data=dataBR(x.data||"");
@@ -988,8 +1007,12 @@ function pesagemImprimir(id){
  const w=window.open("","_blank","width=800,height=900"); if(!w)return alert("Permita a abertura da janela de impressão.");
  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title><style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}.cabecalho{text-align:center;font-size:22px;font-weight:800;white-space:nowrap}.titulo{text-align:center;font-size:15px;font-weight:700;margin:4px 0 10px}.linha{font-size:12px;margin:5px 0}.cliente-destaque{font-size:20px;font-weight:900;text-align:center;border:2px solid #111;padding:7px 5px;margin:7px 0 10px;text-transform:uppercase}.destaque{font-size:14px;font-weight:700}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between;gap:15mm}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;padding-top:3px;font-size:10px}.corte{text-align:center;height:8mm;line-height:8mm;font-size:9px;border-top:1px dashed #777;border-bottom:1px dashed #777}@media print{.ticket{break-inside:avoid}.corte{break-inside:avoid}}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
 }
-function pesagemImprimirCliente(nomeCod){
- const nome=decodeURIComponent(nomeCod||""); const items=pesagemAgruparCliente(nome); if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+function pesagemItensCliente(nome, arquivada=false){
+ const alvo=String(nome||"").trim().toLowerCase();
+ return pesagensLoad().filter(x=>pesagemClienteNome(x).toLowerCase()===alvo && !!x.fechada===!!arquivada);
+}
+function pesagemImprimirCliente(nomeCod, arquivada=false){
+ const nome=decodeURIComponent(nomeCod||""); const items=pesagemItensCliente(nome,arquivada); if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
  const rows=items.map(x=>`<tr><td>${esc(x.material||"")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join("");
  const w=window.open("","_blank","width=900,height=800"); if(!w)return alert("Permita a abertura da janela.");
  const bloco=`<div class="ticket"><h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div><table><thead><tr><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table><div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
@@ -1035,6 +1058,13 @@ async function pesagemSalvarAdicional(origId){
  const {data,error}=await sb.from("pesagens").insert(novo).select().single();
  if(error)return alert("Não foi possível registrar a nova pesagem: "+error.message);
  pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;document.getElementById("pesagemAddModal")?.remove();await pesagemRender();alert("Nova pesagem registrada para "+pessoa+".");
+}
+
+function pesagemAbrirAdicionarCliente(nome){
+ const abertas=(pesagensLoad()||[]).filter(x=>!x.fechada && String(pesagemClienteNome(x)).trim().toLowerCase()===String(nome).trim().toLowerCase());
+ if(!abertas.length)return alert("Não encontrei pesagens abertas para esta pessoa.");
+ const id=abertas[0]?.id;
+ if(id)pesagemAbrirAdicionar(id);
 }
 
 function pesagemAcrescentarMaterial(id){pesagemAbrirAdicionar(id)}
@@ -1091,10 +1121,19 @@ async function pesagemFecharDefinitivo(nome,ids){
  await pesagemRender();alert("Pesagem do cliente fechada com sucesso.");
 }
 
-function pesagemWhatsAppCliente(nome){
- const items=pesagemAgruparCliente(nome);
- if(!items.length)return alert("Não há pesagens abertas para este cliente.");
- const msg=[nome,...items.map(x=>`${x.material||""} — ${brNum(x.liquido)} kg`)].join("\n");
+function pesagemWhatsAppCliente(nome, arquivada=false){
+ const items=pesagemItensCliente(nome,arquivada);
+ if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
+ const linhas=[
+   "SUCATAS ANALICE",
+   "Pesagens de: "+nome,
+   "",
+   ...items.map((x,i)=>{
+     const data=dataBR(x.data||"");
+     return `${i+1}. ${data} — ${x.material||"Material não informado"}\n   Entrada: ${brNum(x.entrada)} kg | Saída: ${brNum(x.saida)} kg | Líquido: ${brNum(x.liquido)} kg`;
+   })
+ ];
+ const msg=linhas.join("\n");
  try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
  window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
 }
