@@ -441,6 +441,26 @@ async function adLoad(){
  }
  return adCloud.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
 }
+async function adAdd(){
+ const pessoa=String(document.getElementById("adp")?.value||"").trim();
+ const data=String(document.getElementById("add")?.value||"").trim();
+ const valor=adParseBR(document.getElementById("adv")?.value||"");
+ const observacoes=String(document.getElementById("ado")?.value||"").trim();
+ if(!pessoa)return alert("Informe o nome da pessoa.");
+ if(!data)return alert("Informe a data do adiantamento.");
+ if(!Number.isFinite(valor)||valor<=0)return alert("Informe um valor válido para o adiantamento.");
+ try{
+   const row={pessoa,data,valor,observacoes,abatimentos:[]};
+   const {data:novo,error}=await sb.from("adiantamentos").insert(row).select("*").single();
+   if(error)throw error;
+   if(novo){ adCloud=[novo,...(adCloud||[])]; }
+   await adRender();
+   alert("Adiantamento registrado com sucesso!");
+ }catch(e){
+   alert("Não foi possível registrar o adiantamento: "+(e.message||e));
+ }
+}
+
 async function adComplementarExistente(){
  const pessoa=String(document.getElementById("adp")?.value||"").trim();
  if(!pessoa)return alert("Digite o nome da pessoa primeiro.");
@@ -899,29 +919,33 @@ function statusOSExibicao(status){
  const mapa={"Agendada":"Agendada","Em rota":"Em andamento","Entregue":"Concluída","Retirada solicitada":"Reagendada","Concluída":"Concluída","Cancelada":"Cancelada"};
  return mapa[status]||status;
 }
-function enviarOSWhatsApp(id){
+function enviarOSWhatsApp(id, destino="cliente"){
  const row=(cache.ordens||[]).find(x=>String(x.id)===String(id));
  if(!row)return alert("Ordem de serviço não encontrada.");
 
  const cliente=(cache.clientes||[]).find(c=>String(c.id)===String(row.cliente_id));
- if(!cliente)return alert("Esta ordem não tem cliente selecionado.");
-
- let telefone=String(cliente.telefone||"").replace(/\D/g,"");
- if(!telefone)return alert("O cliente não possui telefone cadastrado.");
-
- if(!telefone.startsWith("55") && (telefone.length===10 || telefone.length===11)) telefone="55"+telefone;
- if(!telefone.startsWith("55") || telefone.length<12)return alert("O telefone do cliente não parece válido. Confira o cadastro.");
-
+ const motorista=(cache.motoristas||[]).find(m=>String(m.id)===String(row.motorista_id));
  const cam=(cache.caminhoes||[]).find(c=>String(c.id)===String(row.caminhao_id));
  const cac=(cache.cacambas||[]).find(c=>String(c.id)===String(row.cacamba_id));
 
+ const pessoa=destino==="motorista" ? motorista : cliente;
+ const tipoPessoa=destino==="motorista" ? "motorista" : "cliente";
+ if(!pessoa)return alert(destino==="motorista" ? "Esta ordem não tem motorista selecionado." : "Esta ordem não tem cliente selecionado.");
+
+ let telefone=String(pessoa.telefone||"").replace(/\D/g,"");
+ if(!telefone)return alert("O "+tipoPessoa+" não possui telefone cadastrado.");
+ if(!telefone.startsWith("55") && (telefone.length===10 || telefone.length===11)) telefone="55"+telefone;
+ if(!telefone.startsWith("55") || telefone.length<12)return alert("O telefone do "+tipoPessoa+" não parece válido. Confira o cadastro.");
+
+ const saudacao=destino==="motorista" ? "Olá, "+(pessoa.nome||"motorista")+"! Segue sua ordem de serviço:" : "Olá, "+(pessoa.nome||"!")+"! Segue a ordem de serviço:";
  const msg=[
-   "Olá, "+(cliente.nome||"")+"!",
+   saudacao,
    "",
    "📋 ORDEM DE SERVIÇO — "+(row.numero||""),
    "🗑️ Caçamba: "+(cac?.numero||"—"),
    "🚛 Caminhão: "+(cam?.identificacao||"—"),
    "🔖 Placa: "+(cam?.placa||"—"),
+   "👤 Cliente: "+(cliente?.nome||"—"),
    "📅 Entrega: "+(osDataBR(row.data_entrega)||"—"),
    "📅 Retirada prevista: "+(osDataBR(row.data_retirada_prevista)||"—"),
    "📍 Endereço: "+(row.endereco||"—"),
@@ -954,7 +978,8 @@ function ordens(){
    <button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ Editar</button>
    <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button>
    <button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id}')">🖨️</button>
-   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}')">📲 WhatsApp</button>
+   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}','cliente')">📲 Cliente</button>
+   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}','motorista')">🚚 Motorista</button>
   </td>
  </tr>`;
 
