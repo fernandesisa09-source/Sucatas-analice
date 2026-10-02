@@ -779,7 +779,7 @@ function pesagemImprimir(id){
  const status=pesagemStatusTexto(x.status);
  const bloco=`
   <div class="ticket">
-   <div class="cabecalho">SU CATAS ANALICE</div>
+   <div class="cabecalho">SUCATAS ANALICE</div>
    <div class="titulo">COMPROVANTE DE PESAGEM</div>
    <div class="linha"><b>Data:</b> ${data}</div>
    <div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div>
@@ -803,7 +803,7 @@ function pesagemImprimir(id){
  body{font-family:Arial,sans-serif;margin:0;color:#111}
  .ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}
  .ticket+.ticket{border-top:2px dashed #555;margin-top:0}
- .cabecalho{text-align:center;font-size:22px;font-weight:800;letter-spacing:1px}
+ .cabecalho{text-align:center;font-size:22px;font-weight:800;letter-spacing:0;white-space:nowrap}
  .titulo{text-align:center;font-size:15px;font-weight:700;margin:4px 0 10px}
  .linha{font-size:12px;margin:5px 0}
  .cliente-destaque{font-size:20px;font-weight:900;text-align:center;border:2px solid #111;padding:7px 5px;margin:7px 0 10px;text-transform:uppercase}
