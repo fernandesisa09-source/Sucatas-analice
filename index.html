@@ -47,6 +47,16 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 .icon-btn{min-width:38px!important;width:38px!important;height:36px!important;padding:6px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:18px!important;line-height:1!important}
 
 .pesagem-add-modal{position:fixed;inset:0;background:rgba(15,23,42,.68);z-index:99999;display:flex;align-items:stretch;justify-content:center;padding:0}.pesagem-add-box{background:#fff;width:100%;height:100%;overflow:auto;padding:28px;box-sizing:border-box}.pesagem-add-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:1px solid #e5e7eb;padding-bottom:16px;margin-bottom:22px}.pesagem-add-head h2{margin:0 0 5px}.pesagem-add-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px;padding-top:18px;border-top:1px solid #e5e7eb}@media(max-width:700px){.pesagem-add-box{padding:18px}.pesagem-add-actions{position:sticky;bottom:0;background:#fff}}
+<style>
+.btn-excluir-discreto{padding:3px 6px!important;font-size:12px!important;min-width:0!important;border:0!important;background:transparent!important;color:#9b8fa3!important;opacity:.7!important;box-shadow:none!important;border-radius:8px!important}.btn-excluir-discreto:hover{opacity:1!important;background:#f5f1f7!important;color:#8a718f!important}
+/* Ações da Pesagem — visual discreto e profissional */
+.pesagem-acoes{display:flex;align-items:center;justify-content:flex-start;gap:5px;white-space:nowrap}
+.pesagem-acao{width:29px!important;height:29px!important;min-width:29px!important;padding:0!important;border:1px solid #e3dfe7!important;border-radius:7px!important;background:#fff!important;color:#666!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:14px!important;font-weight:500!important;line-height:1!important;box-shadow:none!important;opacity:.82!important;transition:all .15s ease!important}
+.pesagem-acao:hover{background:#f6f3f8!important;border-color:#cfc7d8!important;color:#55358a!important;opacity:1!important}
+.pesagem-excluir{width:22px!important;height:22px!important;min-width:22px!important;padding:0!important;border:0!important;border-radius:5px!important;background:transparent!important;color:#a59ba9!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:12px!important;line-height:1!important;box-shadow:none!important;opacity:.55!important;transition:all .15s ease!important}
+.pesagem-excluir:hover{background:#f8f3f5!important;color:#9b6675!important;opacity:1!important}
+.pesagem-acoes-col{width:155px!important}
+</style>
 </style>
 </head>
 <body>
@@ -850,9 +860,9 @@ async function pesagemRender(){
  const clientesArquivados=agrupar(arquivadas);
  const linhas=(g,arquivada=false)=>{
    const datas=g.items.map(x=>dataBR(x.data)).join("<br>");
-   const mats=g.items.map(x=>`<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="flex:1">${esc(x.material||"—")} <b>— ${brNum(x.liquido)} kg</b></span>${!arquivada?`<button class="btn danger icon-btn" title="Excluir esta pesagem" aria-label="Excluir esta pesagem" onclick="pesagemExcluir('${x.id}')">🗑️</button>`:""}</div>`).join("");
+   const mats=g.items.map(x=>`<div style="display:flex;align-items:center;gap:6px;margin:3px 0"><span style="flex:1">${esc(x.material||"—")} <b>— ${brNum(x.liquido)} kg</b></span>${!arquivada?`<button class="pesagem-excluir" title="Excluir pesagem" aria-label="Excluir pesagem" onclick="pesagemExcluir('${x.id}')">⌫</button>`:""}</div>`).join("");
    const first=g.items[0];
-   return `<tr><td>${datas}</td><td><b>${esc(g.nome)}</b></td><td>${mats}</td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${first.id}')">✏️</button> <button class="btn secondary icon-btn" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimirCliente('${encodeURIComponent(g.nome)}')">🖨️</button> <button class="btn secondary icon-btn" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsAppCliente('${esc(g.nome).replace(/'/g,"\\'")}')">📲</button> ${!arquivada?`<button class="btn secondary icon-btn" title="Adicionar material" aria-label="Adicionar material" onclick="pesagemAbrirAdicionar('${first.id}')">➕</button> <button class="btn secondary icon-btn" title="Concluir e arquivar" aria-label="Concluir e arquivar" onclick="pesagemFecharModal('${esc(g.nome).replace(/'/g,"\\'")}')">✅</button>`:""}</td></tr>`;
+   return `<tr><td>${datas}</td><td><b>${esc(g.nome)}</b></td><td>${mats}</td><td class="no-print"><div class="pesagem-acoes"><button class="pesagem-acao" title="Editar" aria-label="Editar" onclick="pesagemEditar('${first.id}')">✎</button><button class="pesagem-acao" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimirCliente('${encodeURIComponent(g.nome)}')">▣</button><button class="pesagem-acao" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsAppCliente('${esc(g.nome).replace(/'/g,"\'")}')">◉</button> ${!arquivada?`<button class="pesagem-acao" title="Adicionar material" aria-label="Adicionar material" onclick="pesagemAbrirAdicionar('${first.id}')">＋</button><button class="pesagem-acao" title="Concluir e arquivar" aria-label="Concluir e arquivar" onclick="pesagemFecharModal('${esc(g.nome).replace(/'/g,"\'")}')">✓</button>`:""}</div></td></tr>`;
  };
  el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
  <div class="card" style="border-left:5px solid #55358a">
@@ -873,11 +883,11 @@ async function pesagemRender(){
  <div class="card">
   <h3 style="margin-top:0">♻️ Produtos / Materiais</h3>
   <button class="btn primary" onclick="produtoNovo()">➕ Adicionar produto</button>
-  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Produto / Material</th><th>Preço/kg</th><th class="no-print">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
+  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Produto / Material</th><th>Preço/kg</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
  </div>
  <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${clientes.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Materiais / pesos líquidos</th><th class="no-print">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
+  ${clientes.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Materiais / pesos líquidos</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
  </div>
  <div class="card">
   <h3 style="margin-top:0">📁 Pesagens concluídas / arquivadas</h3>
