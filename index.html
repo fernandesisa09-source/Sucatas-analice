@@ -349,20 +349,15 @@ async function saveEditModal(){
  if(table==="ordens_servico" && !next.numero)return alert("O número da OS é obrigatório.");
  if(table==="manutencoes" && (!Number.isFinite(next.custo)||next.custo<0))return alert("Custo inválido.");
 
- let anteriorParaHistorico=null;
- if(table==="cacambas" && next.cliente_id){
-   anteriorParaHistorico=(cache.cacambas||[]).find(c=>
-     String(c.cliente_id)===String(next.cliente_id) &&
-     String(c.id)!==String(id)
-   )||null;
+ const oldClienteNome=oldClienteId?((cache.clientes||[]).find(c=>String(c.id)===String(oldClienteId))?.nome||null):null;
+ const clienteMudou=table==="cacambas" && String(oldClienteId||"")!==String(next.cliente_id||"");
+ if(clienteMudou && oldClienteId){
+   next.cliente_anterior_id=oldClienteId;
+   next.cliente_anterior_nome=oldClienteNome;
+   next.ultima_troca_at=new Date().toISOString();
  }
-
  const {data:updated,error}=await sb.from(table).update(next).eq("id",id).select().single();
  if(error)return alert(error.message);
-
- if(table==="cacambas" && next.cliente_id && String(oldClienteId)!==String(next.cliente_id)){
-   registrarHistoricoTroca(next.cliente_id,anteriorParaHistorico,updated||{...oldRow,...next,id});
- }
 
  closeEditModal();
  await loadAll();
@@ -1048,7 +1043,7 @@ function tableCac(){
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
   return [x.numero,x.status,x.estado,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Caçamba anterior / atual</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${x.cliente_id?historicoCliente(x.cliente_id):"<span class='small'>—</span>"}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">🗑️</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Caçamba anterior / atual</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${x.cliente_id?historicoCacamba(x):"<span class='small'>—</span>"}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">🗑️</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
@@ -1312,46 +1307,59 @@ async
 const HIST_CACAMBA_KEY="sucatas_analice_cacamba_history_v1";
 function histAll(){try{return JSON.parse(localStorage.getItem(HIST_CACAMBA_KEY)||"{}")}catch(e){return {}}}
 function histSave(h){localStorage.setItem(HIST_CACAMBA_KEY,JSON.stringify(h))}
-function registrarHistoricoTroca(clienteId,anterior,atual){
-  if(!clienteId || !atual)return;
-  const h=histAll();
-  h[String(clienteId)]={
-    anterior_id:anterior?.id||null,
-    anterior_numero:anterior?.numero||null,
-    atual_id:atual.id,
-    atual_numero:atual.numero,
-    data:new Date().toISOString()
-  };
-  histSave(h);
+function registrarHistoricoCacamba(cacamba,clienteAnteriorId,clienteAnteriorNome){
+  if(!cacamba)return;
+  return sb.from("cacambas").update({
+    cliente_anterior_id:clienteAnteriorId||null,
+    cliente_anterior_nome:clienteAnteriorNome||null,
+    ultima_troca_at:new Date().toISOString()
+  }).eq("id",cacamba.id);
+}
+function historicoCacamba(cacamba){
+  if(!cacamba)return '<span class="small">Anterior: — | Atual: —</span>';
+  const atual=(cache.clientes||[]).find(c=>String(c.id)===String(cacamba.cliente_id))?.nome||"";
+  const anterior=cacamba.cliente_anterior_nome||((cache.clientes||[]).find(c=>String(c.id)===String(cacamba.cliente_anterior_id))?.nome||"");
+  if(!anterior&&!atual)return '<span class="small">Anterior: — | Atual: —</span>';
+  return '<span class="small">Anterior: <b>'+esc(anterior||"—")+'</b> | Atual: <b>'+esc(atual||"—")+'</b>'+
+    (cacamba.ultima_troca_at?'<br>Última troca: '+dataBR(cacamba.ultima_troca_at):'')+'</span>';
 }
 function historicoCliente(clienteId){
-  const h=histAll()[String(clienteId)];
-  if(!h)return '<span class="small">Anterior: — | Atual: —</span>';
-  return '<span class="small">Anterior: <b>'+esc(h.anterior_numero||"—")+
-    '</b> | Atual: <b>'+esc(h.atual_numero||"—")+
-    '</b><br>Última troca: '+dataBR(h.data)+'</span>';
+  const c=(cache.cacambas||[]).find(x=>String(x.cliente_id)===String(clienteId));
+  return historicoCacamba(c);
 }
 function renderHistoricoCacambas(){
  const el=$("cacambaHistoricoRapido");if(!el)return;
- const grupos={};(cache.cacambas||[]).forEach(c=>{if(c.cliente_id)(grupos[c.cliente_id]||=[]).push(c)});
- el.innerHTML=Object.keys(grupos).map(id=>{
-  const c=(cache.clientes||[]).find(x=>String(x.id)===String(id));
-  return '<div class="quick-history"><b>'+esc(c?.nome||"Cliente")+'</b> '+historicoCliente(id)+'</div>';
- }).join("")||'<p class="small">Nenhum cliente com caçamba.</p>';
+ const lista=(cache.cacambas||[]).filter(c=>c.cliente_id||c.cliente_anterior_id||c.cliente_anterior_nome);
+ el.innerHTML=lista.map(c=>'<div class="quick-history"><b>Caçamba '+esc(c.numero)+'</b> '+historicoCacamba(c)+'</div>').join("")||'<p class="small">Nenhuma troca registrada.</p>';
 }
 
 async function addMov(){
  if(!val("vc"))return alert("Selecione a caçamba.");
- const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:val("vcl")||null,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")}; 
- const anteriorCliente=row.cliente_id?(cache.cacambas||[]).find(c=>String(c.cliente_id)===String(row.cliente_id)&&String(c.id)!==String(row.cacamba_id)):null;
+ const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:val("vcl")||null,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")};
+ const antes=(cache.cacambas||[]).find(c=>String(c.id)===String(row.cacamba_id));
+ const clienteAnteriorId=antes?.cliente_id||null;
+ const clienteAnteriorNome=clienteAnteriorId?((cache.clientes||[]).find(c=>String(c.id)===String(clienteAnteriorId))?.nome||null):antes?.cliente_anterior_nome||null;
  const {data,error}=await sb.from("movimentacoes").insert(row).select().single();
  if(error)return alert(error.message);
  const updates={};
- if(["Entrega","Troca","Transferência"].includes(row.tipo)){updates.status="No cliente";updates.cliente_id=row.cliente_id;updates.endereco_atual=row.endereco;updates.caminhao_id=row.caminhao_id;updates.motorista_id=row.motorista_id;updates.material=row.material}
- if(["Retirada","Entrada no pátio"].includes(row.tipo)){updates.status="No pátio";updates.cliente_id=null;updates.endereco_atual=null;updates.caminhao_id=null;updates.motorista_id=null}
- if(row.tipo==="Saída do pátio")updates.status="Disponível";
- await sb.from("cacambas").update(updates).eq("id",row.cacamba_id);
- if(row.tipo==="Troca" && row.cliente_id) registrarHistoricoTroca(row.cliente_id,anteriorCliente,row);
+ if(["Entrega","Troca","Transferência"].includes(row.tipo)){
+   if(!row.cliente_id)return alert("Selecione o cliente.");
+   updates.status="No cliente";updates.cliente_id=row.cliente_id;updates.endereco_atual=row.endereco;
+   updates.caminhao_id=row.caminhao_id;updates.motorista_id=row.motorista_id;updates.material=row.material;
+ }
+ if(["Retirada","Entrada no pátio"].includes(row.tipo)){
+   updates.status="No pátio";updates.cliente_id=null;updates.endereco_atual=null;updates.caminhao_id=null;updates.motorista_id=null;
+ }
+ if(row.tipo==="Saída do pátio"){
+   updates.status="Disponível";updates.cliente_id=null;updates.endereco_atual=null;updates.caminhao_id=null;updates.motorista_id=null;updates.data_colocacao=null;updates.material=null;updates.patio=null;
+ }
+ if(antes && String(clienteAnteriorId||"")!==String(row.cliente_id||"") && row.cliente_id){
+   updates.cliente_anterior_id=clienteAnteriorId||null;
+   updates.cliente_anterior_nome=clienteAnteriorNome||null;
+   updates.ultima_troca_at=new Date().toISOString();
+ }
+ const up=await sb.from("cacambas").update(updates).eq("id",row.cacamba_id);
+ if(up.error)return alert(up.error.message);
  await loadAll();movimentacoes();alert("Movimentação registrada!");
 }
 
