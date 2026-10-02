@@ -699,23 +699,26 @@ function adPrint(id){
 
 const PESAGEM_KEY="sucatas_analice_pesagens_v1";
 const PRODUTO_KEY="sucatas_analice_produtos_v1";
-function produtosLoad(){try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}}
-function produtosSave(v){localStorage.setItem(PRODUTO_KEY,JSON.stringify(v))}
-function produtoSelecionado(){const id=$("pprod")?.value; return produtosLoad().find(x=>String(x.id)===String(id))||null}
-function produtoSelecionar(){const x=produtoSelecionado(); if(x){if($("pcod"))$("pcod").value=x.codigo||"";if($("pmat"))$("pmat").value=x.nome||"";pesagemCalcular()}}
-function produtoNovo(){
- const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="produtoModal";
- modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Adicionar produto</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div><label>Código do produto *</label><input id="pr_codigo" placeholder="Ex.: 01"></div><div><label>Produto / Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div><div><label>Preço por kg (R$) *</label><input id="pr_preco" inputmode="decimal" placeholder="0,00"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar produto</button></div></div>`;document.body.appendChild(modal);
+let pesagemCloud=[];
+let produtoCloud=[];
+let pesagemCloudReady=false;
+let produtoCloudReady=false;
+let pesagemRealtimeReady=false;
+
+function produtosLoad(){
+  return produtoCloudReady ? produtoCloud : (()=>{try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}})();
 }
-function produtoSalvar(){const codigo=$("pr_codigo")?.value.trim(),nome=$("pr_nome")?.value.trim(),preco=pesoNum($("pr_preco")?.value);if(!codigo||!nome||preco<=0)return alert("Preencha código, produto e preço.");const lista=produtosLoad();if(lista.some(x=>String(x.codigo).toLowerCase()===codigo.toLowerCase()))return alert("Já existe um produto com esse código.");lista.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),codigo,nome,preco});produtosSave(lista);$("produtoModal")?.remove();pesagemRender();alert("Produto cadastrado com sucesso!")}
-function produtoEditar(id){const lista=produtosLoad(),x=lista.find(a=>String(a.id)===String(id));if(!x)return;const codigo=prompt("Código do produto:",x.codigo||"");if(codigo===null)return;const nome=prompt("Produto / Material:",x.nome||"");if(nome===null)return;const precoS=prompt("Preço por kg (R$):",brNum(x.preco));if(precoS===null)return;const preco=pesoNum(precoS);if(!codigo.trim()||!nome.trim()||preco<=0)return alert("Dados inválidos.");x.codigo=codigo.trim();x.nome=nome.trim();x.preco=preco;produtosSave(lista);pesagemRender()}
-function produtoExcluir(id){if(!confirm("Excluir este produto?"))return;produtosSave(produtosLoad().filter(x=>String(x.id)!==String(id)));pesagemRender()}
-function pesagensLoad(){try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}}
-function pesagensSave(v){localStorage.setItem(PESAGEM_KEY,JSON.stringify(v))}
+function produtosSave(v){produtoCloud=v||[];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud))}
+function pesagensLoad(){
+  return pesagemCloudReady ? pesagemCloud : (()=>{try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}})();
+}
+function pesagensSave(v){pesagemCloud=v||[];pesagemCloudReady=true;localStorage.setItem(PESAGEM_KEY,JSON.stringify(pesagemCloud))}
 function pesoNum(v){const s=String(v??"").trim().replace(/\./g,"").replace(",","."); const n=parseFloat(s); return Number.isFinite(n)?n:0}
 function moedaNum(v){return pesoNum(v)}
 function parseBR(v){return pesoNum(v)}
 function brNum(n,d=2){return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})}
+function produtoSelecionado(){const id=$("pprod")?.value; return produtosLoad().find(x=>String(x.id)===String(id))||null}
+function produtoSelecionar(){const x=produtoSelecionado(); if(x){if($("pcod"))$("pcod").value=x.codigo||"";if($("pmat"))$("pmat").value=x.nome||"";pesagemCalcular()}}
 function pesagemCalcular(){
  const entrada=pesoNum($("pe")?.value), saida=pesoNum($("ps")?.value);
  const liquido=Math.max(0,entrada-saida);
@@ -723,7 +726,117 @@ function pesagemCalcular(){
  return {entrada,saida,liquido};
 }
 
-function pesagemRender(){
+async function produtosCloudLoad(){
+ const local=(()=>{try{return JSON.parse(localStorage.getItem(PRODUTO_KEY)||"[]")}catch(e){return []}})();
+ const {data,error}=await sb.from("produtos_pesagem").select("*").order("codigo",{ascending:true});
+ if(error){
+   produtoCloud=local;produtoCloudReady=true;
+   console.error("produtos_pesagem",error);
+   return produtoCloud;
+ }
+ if(local.length){
+   const idsCloud=new Set((data||[]).map(x=>String(x.id)));
+   const novos=local.map(x=>({
+     id:/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(x.id||""))?x.id:(crypto.randomUUID?crypto.randomUUID():undefined),
+     codigo:String(x.codigo||"").trim(),
+     nome:String(x.nome||"").trim(),
+     preco:Number(x.preco||0)
+   })).filter(x=>x.codigo&&x.nome&&Number(x.preco)>0&&!idsCloud.has(String(x.id)));
+   let migOk=true;
+   if(novos.length){
+     const ins=await sb.from("produtos_pesagem").upsert(novos,{onConflict:"id"});
+     if(ins.error){migOk=false;console.error("migração produtos_pesagem",ins.error);}
+   }
+   if(migOk)localStorage.removeItem(PRODUTO_KEY);
+ }
+ const fresh=await sb.from("produtos_pesagem").select("*").order("codigo",{ascending:true});
+ produtoCloud=fresh.error?(data||[]):(fresh.data||[]);
+ produtoCloudReady=true;
+ return produtoCloud;
+}
+
+async function pesagensCloudLoad(){
+ const local=(()=>{try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}})();
+ const localFechadas=(()=>{try{return new Set(JSON.parse(localStorage.getItem(PESAGEM_FECH_KEY)||"[]").flatMap(f=>(f.pesagem_ids||[]).map(String)))}catch(e){return new Set()}})();
+ const {data,error}=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+ if(error){
+   pesagemCloud=local;pesagemCloudReady=true;
+   console.error("pesagens",error);
+   return pesagemCloud;
+ }
+ if(local.length){
+   const idsCloud=new Set((data||[]).map(x=>String(x.id)));
+   const rows=local.map(x=>({
+     id:/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(x.id||""))?x.id:(crypto.randomUUID?crypto.randomUUID():undefined),
+     data:String(x.data||today()),
+     pessoa:String(x.pessoa||"").trim()||"Cliente não informado",
+     codigo:String(x.codigo||"").trim(),
+     material:String(x.material||"").trim(),
+     entrada:Number(x.entrada||0),
+     saida:Number(x.saida||0),
+     liquido:Number(x.liquido||Math.max(0,Number(x.entrada||0)-Number(x.saida||0))),
+     observacoes:String(x.observacoes||"").trim(),
+     fechada:localFechadas.has(String(x.id))
+   })).filter(x=>x.pessoa&&x.material&&Number(x.entrada)>0&&!idsCloud.has(String(x.id)));
+   let migOk=true;
+   if(rows.length){
+     const ins=await sb.from("pesagens").upsert(rows,{onConflict:"id"});
+     if(ins.error){migOk=false;console.error("migração pesagens",ins.error);}
+   }
+   if(migOk){
+     localStorage.removeItem(PESAGEM_KEY);
+     localStorage.removeItem(PESAGEM_FECH_KEY);
+   }
+ }
+ const fresh=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+ pesagemCloud=fresh.error?(data||[]):(fresh.data||[]);
+ pesagemCloudReady=true;
+ return pesagemCloud;
+}
+
+function iniciarPesagemRealtime(){
+ if(pesagemRealtimeReady)return;
+ pesagemRealtimeReady=true;
+ sb.channel("pesagem-compartilhada")
+   .on("postgres_changes",{event:"*",schema:"public",table:"pesagens"},()=>{pesagensCloudLoad().then(()=>pesagemRender())})
+   .on("postgres_changes",{event:"*",schema:"public",table:"produtos_pesagem"},()=>{produtosCloudLoad().then(()=>pesagemRender())})
+   .subscribe();
+}
+
+async function produtoNovo(){
+ const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="produtoModal";
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Adicionar produto</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div><label>Código do produto *</label><input id="pr_codigo" placeholder="Ex.: 01"></div><div><label>Produto / Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div><div><label>Preço por kg (R$) *</label><input id="pr_preco" inputmode="decimal" placeholder="0,00"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar produto</button></div></div>`;document.body.appendChild(modal);
+}
+async function produtoSalvar(){
+ const codigo=$("pr_codigo")?.value.trim(),nome=$("pr_nome")?.value.trim(),preco=pesoNum($("pr_preco")?.value);
+ if(!codigo||!nome||preco<=0)return alert("Preencha código, produto e preço.");
+ if(produtosLoad().some(x=>String(x.codigo).toLowerCase()===codigo.toLowerCase()))return alert("Já existe um produto com esse código.");
+ const {data,error}=await sb.from("produtos_pesagem").insert({codigo,nome,preco}).select().single();
+ if(error)return alert("Não foi possível salvar o produto: "+error.message);
+ produtoCloud=[data,...produtoCloud];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud));
+ $("produtoModal")?.remove();await pesagemRender();alert("Produto cadastrado com sucesso!");
+}
+async function produtoEditar(id){
+ const x=produtosLoad().find(a=>String(a.id)===String(id));if(!x)return;
+ const codigo=prompt("Código do produto:",x.codigo||"");if(codigo===null)return;
+ const nome=prompt("Produto / Material:",x.nome||"");if(nome===null)return;
+ const precoS=prompt("Preço por kg (R$):",brNum(x.preco));if(precoS===null)return;
+ const preco=pesoNum(precoS);if(!codigo.trim()||!nome.trim()||preco<=0)return alert("Dados inválidos.");
+ const {data,error}=await sb.from("produtos_pesagem").update({codigo:codigo.trim(),nome:nome.trim(),preco,updated_at:new Date().toISOString()}).eq("id",id).select().single();
+ if(error)return alert("Não foi possível atualizar o produto: "+error.message);
+ produtoCloud=produtoCloud.map(a=>String(a.id)===String(id)?data:a);produtoCloudReady=true;await pesagemRender();
+}
+async function produtoExcluir(id){
+ if(!confirm("Excluir este produto?"))return;
+ const {error}=await sb.from("produtos_pesagem").delete().eq("id",id);
+ if(error)return alert("Não foi possível excluir o produto: "+error.message);
+ produtoCloud=produtoCloud.filter(x=>String(x.id)!==String(id));produtoCloudReady=true;await pesagemRender();
+}
+
+async function pesagemRender(){
+ await pesagensCloudLoad();
+ await produtosCloudLoad();
+ iniciarPesagemRealtime();
  const el=$("pesagem"); if(!el)return;
  const lista=pesagensLoad();
  const fechadas=pesagemFechadasSet();
@@ -731,7 +844,7 @@ function pesagemRender(){
  const grupos={};
  abertos.forEach(x=>{const nome=pesagemClienteNome(x);const k=nome.toLowerCase();if(!grupos[k])grupos[k]={nome,items:[]};grupos[k].items.push(x)});
  const clientes=Object.values(grupos).sort((a,b)=>a.nome.localeCompare(b.nome));
- el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão</h2>
+ el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
  <div class="card" style="border-left:5px solid #55358a">
   <h3 style="margin-top:0">📝 Nova pesagem</h3>
   <div class="grid">
@@ -764,19 +877,23 @@ function pesagemRender(){
  </div>`;
 }
 
-function pesagemSalvar(){
+async function pesagemSalvar(){
  const entrada=parseBR($("pe")?.value||"0"), saida=parseBR($("ps")?.value||"0");
  const pessoa=String($("ppessoa")?.value||"").trim();
  const material=String($("pmat")?.value||"").trim();
  const codigo=String($("pcod")?.value||"").trim();
  const data=String($("pdata")?.value||today());
  const liquido=Math.max(0,entrada-saida);
+ if(!pessoa)return alert("Informe o nome da pessoa.");
  if(!material)return alert("Informe o material.");
  if(entrada<=0)return alert("Informe o peso de entrada.");
  if(saida<0)return alert("Informe um peso de saída válido.");
  if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
- const row={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),data,pessoa,codigo,material,entrada,saida,liquido,observacoes:String($("pobs")?.value||"").trim()};
- const lista=pesagensLoad(); lista.unshift(row); pesagensSave(lista); pesagemRender(); alert("Pesagem registrada com sucesso!");
+ const row={data,pessoa,codigo,material,entrada,saida,liquido,observacoes:String($("pobs")?.value||"").trim()};
+ const {data:saved,error}=await sb.from("pesagens").insert(row).select().single();
+ if(error)return alert("Não foi possível registrar a pesagem: "+error.message);
+ pesagemCloud=[saved,...pesagemCloud];pesagemCloudReady=true;
+ await pesagemRender(); alert("Pesagem registrada com sucesso!");
 }
 
 function pesagemEditar(id){
@@ -798,16 +915,25 @@ function pesagemEditar(id){
  const calc=()=>{const a=parseBR($("pe_entrada").value||"0"),b=parseBR($("pe_saida").value||"0");$("pe_liquido").value=brNum(Math.max(0,a-b));};
  $("pe_entrada").oninput=calc;$("pe_saida").oninput=calc;
 }
-function pesagemSalvarEdicao(id){
- const lista=pesagensLoad(),x=lista.find(a=>String(a.id)===String(id));if(!x)return;
+async function pesagemSalvarEdicao(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));if(!x)return;
  const entrada=parseBR($("pe_entrada").value||"0"),saida=parseBR($("pe_saida").value||"0"),liquido=Math.max(0,entrada-saida);
  if(entrada<=0||saida<0||liquido<=0)return alert("Confira os pesos.");
- const novo={...x,data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),codigo:$("pe_codigo").value.trim(),material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim()};
- pesagensSave(lista.map(a=>String(a.id)===String(id)?novo:a));
- $("pesagemEditModal")?.remove();pesagemRender();alert("Pesagem atualizada.");
+ const novo={data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),codigo:$("pe_codigo").value.trim(),material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim(),updated_at:new Date().toISOString()};
+ if(!novo.pessoa||!novo.material)return alert("Informe pessoa e material.");
+ const {data,error}=await sb.from("pesagens").update(novo).eq("id",id).select().single();
+ if(error)return alert("Não foi possível atualizar a pesagem: "+error.message);
+ pesagemCloud=pesagemCloud.map(a=>String(a.id)===String(id)?data:a);pesagemCloudReady=true;
+ $("pesagemEditModal")?.remove();await pesagemRender();alert("Pesagem atualizada.");
 }
 
-function pesagemExcluir(id){if(!confirm("Excluir esta pesagem?"))return;pesagensSave(pesagensLoad().filter(x=>String(x.id)!==String(id)));pesagemRender()}
+async function pesagemExcluir(id){
+ if(!confirm("Excluir esta pesagem?"))return;
+ const {error}=await sb.from("pesagens").delete().eq("id",id);
+ if(error)return alert("Não foi possível excluir a pesagem: "+error.message);
+ pesagemCloud=pesagemCloud.filter(x=>String(x.id)!==String(id));pesagemCloudReady=true;await pesagemRender();
+}
+
 function pesagemImprimir(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
  const br=v=>brNum(v); const data=dataBR(x.data||"");
@@ -854,22 +980,24 @@ function pesagemAbrirAdicionar(id){
 }
 function pesagemAdicionarSelecionarProduto(){const p=produtosLoad().find(x=>String(x.id)===String($("pam_prod")?.value));if(p){$("pam_codigo").value=p.codigo||"";$("pam_material").value=p.nome||""}}
 function pesagemAdicionarCalcular(){const e=parseBR($("pam_entrada")?.value||"0"),s=parseBR($("pam_saida")?.value||"0");if($("pam_liquido"))$("pam_liquido").value=brNum(Math.max(0,e-s));}
-function pesagemSalvarAdicional(origId){
+async function pesagemSalvarAdicional(origId){
  const origem=pesagensLoad().find(a=>String(a.id)===String(origId));if(!origem)return;
  const entrada=parseBR($("pam_entrada")?.value||"0"),saida=parseBR($("pam_saida")?.value||"0"),liquido=Math.max(0,entrada-saida);
  const pessoa=String($("pam_pessoa")?.value||origem.pessoa||"").trim(),material=String($("pam_material")?.value||"").trim(),codigo=String($("pam_codigo")?.value||"").trim();
  if(!material)return alert("Informe o material."); if(entrada<=0)return alert("Informe o peso de entrada."); if(saida<0)return alert("Informe um peso de saída válido."); if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
- const novo={id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),data:String($("pam_data")?.value||today()),pessoa,codigo,material,entrada,saida,liquido,observacoes:String($("pam_obs")?.value||"").trim()};
- pesagensSave([novo,...pesagensLoad()]); document.getElementById("pesagemAddModal")?.remove(); pesagemRender(); alert("Nova pesagem registrada para "+pessoa+".");
+ const novo={data:String($("pam_data")?.value||today()),pessoa,codigo,material,entrada,saida,liquido,observacoes:String($("pam_obs")?.value||"").trim()};
+ const {data,error}=await sb.from("pesagens").insert(novo).select().single();
+ if(error)return alert("Não foi possível registrar a nova pesagem: "+error.message);
+ pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;document.getElementById("pesagemAddModal")?.remove();await pesagemRender();alert("Nova pesagem registrada para "+pessoa+".");
 }
+
 function pesagemAcrescentarMaterial(id){pesagemAbrirAdicionar(id)}
 
 
-function pesagemFechamentosLoad(){
- try{return JSON.parse(localStorage.getItem(PESAGEM_FECH_KEY)||"[]")}catch(e){return[]}
-}
-function pesagemFechamentosSave(v){localStorage.setItem(PESAGEM_FECH_KEY,JSON.stringify(v||[]))}
-function pesagemFechadasSet(){return new Set(pesagemFechamentosLoad().flatMap(f=>(f.pesagem_ids||[]).map(String)))}
+function pesagemFechamentosLoad(){return pesagemCloud.filter(x=>x.fechada)}
+function pesagemFechamentosSave(v){}
+function pesagemFechadasSet(){return new Set(pesagemCloud.filter(x=>x.fechada).map(x=>String(x.id)))}
+
 function pesagemClienteNome(x){return String(x?.pessoa||"").trim()||"Cliente não informado"}
 function pesagemClienteAberta(x){
  const fech=pesagemFechadasSet();
@@ -910,10 +1038,11 @@ function pesagemFecharModal(nome){
  <div class="acoes"><button onclick="opener.pesagemFecharDefinitivo(${JSON.stringify(nome)},${JSON.stringify(items.map(x=>String(x.id)))});window.close()">💾 Fechar</button><button onclick="window.print()">🖨️ Imprimir</button></div>
  </body></html>`); w.document.close();
 }
-function pesagemFecharDefinitivo(nome,ids){
- const fech=pesagemFechamentosLoad();
- fech.unshift({id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())),cliente:nome,pesagem_ids:ids,data:new Date().toISOString()});
- pesagemFechamentosSave(fech); pesagemRender(); alert("Pesagem do cliente fechada com sucesso.");
+async function pesagemFecharDefinitivo(nome,ids){
+ const {error}=await sb.from("pesagens").update({fechada:true,updated_at:new Date().toISOString()}).in("id",ids);
+ if(error)return alert("Não foi possível fechar a pesagem: "+error.message);
+ pesagemCloud=pesagemCloud.map(x=>ids.map(String).includes(String(x.id))?{...x,fechada:true}:x);pesagemCloudReady=true;
+ await pesagemRender();alert("Pesagem do cliente fechada com sucesso.");
 }
 
 function pesagemWhatsAppCliente(nome){
