@@ -836,7 +836,6 @@ function pesagemWhatsApp(id){
    "📦 Peso líquido: "+(typeof brNum==="function"?brNum(x.liquido):x.liquido)+" kg",
    "💰 Preço por kg: R$ "+(typeof brNum==="function"?brNum(x.preco):x.preco),
    "💵 Total: R$ "+(typeof brNum==="function"?brNum(x.total):x.total),
-   x.status ? "💳 Status: "+pesagemStatusTexto(x.status) : "",
    x.observacoes ? "📝 Observações: "+x.observacoes : ""
  ].filter(Boolean).join("\n");
 
@@ -956,15 +955,14 @@ function pesagemFecharModal(nome){
  if(!items.length)return alert("Não há pesagens abertas para este cliente.");
  const peso=items.reduce((s,x)=>s+Number(x.liquido||0),0);
  const total=items.reduce((s,x)=>s+Number(x.total||0),0);
- const status=items.every(x=>x.status==="Pago")?"Pago":items.some(x=>x.status==="Pagamento")?"Pagamento":"Aberto";
- const htmlRows=items.map(x=>`<tr><td>${esc(x.codigo||"")}</td><td>${esc(x.material||"")}</td><td>${typeof brNum==="function"?brNum(x.liquido):x.liquido} kg</td><td>R$ ${typeof brNum==="function"?brNum(x.preco):x.preco}</td><td>R$ ${typeof brNum==="function"?brNum(x.total):x.total}</td></tr>`).join("");
+ const htmlRows=items.map(x=>`<tr><td>${esc(x.codigo||"")}</td><td>${esc(x.material||"")}</td><td>${typeof brNum==="function"?brNum(x.entrada):x.entrada} kg</td><td>${typeof brNum==="function"?brNum(x.saida):x.saida} kg</td><td>${typeof brNum==="function"?brNum(x.liquido):x.liquido} kg</td></tr>`).join("");
  const w=window.open("","fechamento","width=900,height=700");
  if(!w)return alert("Permita a abertura da janela.");
  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Fechamento</title><style>
  body{font-family:Arial;padding:20px;color:#111}h2{text-align:center;margin:5px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin:12px 0;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:7px;font-size:12px}th{background:#eee}.totais{margin-top:14px;font-size:16px;font-weight:800}.acoes{text-align:center;margin-top:20px}button{padding:10px 16px;margin:5px;border-radius:8px;border:0} .pago{background:#d1fae5;color:#065f46}.pagamento{background:#fef3c7;color:#92400e}.aberto{background:#fee2e2;color:#991b1b}</style></head><body>
  <h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div>
- <table><thead><tr><th>Código</th><th>Material</th><th>Peso líquido</th><th>Preço/kg</th><th>Total</th></tr></thead><tbody>${htmlRows}</tbody></table>
- <div class="totais">TOTAL DE PESO: ${typeof brNum==="function"?brNum(peso):peso} kg<br>TOTAL A PAGAR: R$ ${typeof brNum==="function"?brNum(total):total}</div>
+ <table><thead><tr><th>Código</th><th>Material</th><th>Peso de entrada</th><th>Peso de saída</th><th>Peso líquido</th></tr></thead><tbody>${htmlRows}</tbody></table>
+ 
  <div class="acoes"><button onclick="opener.pesagemFecharDefinitivo(${JSON.stringify(nome)},${JSON.stringify(items.map(x=>String(x.id)))},${JSON.stringify(status)});window.close()">💾 Fechar</button><button onclick="window.print()">🖨️ Imprimir</button></div>
  </body></html>`); w.document.close();
 }
@@ -980,7 +978,7 @@ function pesagemWhatsAppCliente(nome){
  if(!items.length)return alert("Não há pesagens abertas para este cliente.");
  const peso=items.reduce((s,x)=>s+Number(x.liquido||0),0);
  const total=items.reduce((s,x)=>s+Number(x.total||0),0);
- const msg=["⚖️ PESAGEM — SUCATAS ANALICE","👤 "+nome,"",...items.map(x=>`${x.codigo||""} — ${x.material||""}: ${brNum(x.liquido)} kg × R$ ${brNum(x.preco)} = R$ ${brNum(x.total)}`),"",`📦 TOTAL DE PESO: ${brNum(peso)} kg`,`💵 TOTAL: R$ ${brNum(total)}`].join("\n");
+ const msg=["⚖️ PESAGEM — SUCATAS ANALICE","👤 "+nome,"",...items.map(x=>`${x.codigo||""} — ${x.material||""}: entrada ${brNum(x.entrada)} kg | saída ${brNum(x.saida)} kg | líquido ${brNum(x.liquido)} kg`),"",`💵 TOTAL: R$ ${brNum(total)}`].join("\n");
  try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
  window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
 }
