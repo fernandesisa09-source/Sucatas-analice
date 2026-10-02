@@ -308,14 +308,16 @@ function closeEditModal(){ $("editModal").style.display="none"; editContext=null
 async function saveEditModal(){
  if(!editContext)return;
  const {table,id}=editContext;
+ const oldRow=(cache[table]||[]).find(x=>String(x.id)===String(id));
+ const oldClienteId=oldRow?.cliente_id||null;
  const next={};
  for(const [field] of editContext.cfg.fields){
    const el=$("edit_"+field); if(!el)continue;
    const v=el.value;
    if(["cliente_id","caminhao_id","motorista_id","cacamba_id"].includes(field)) next[field]=v||null;
-   else if(field==="custo") next[field]=Number(String(v).replace(",",".")||0);
-    else if(table==="ordens_servico" && field==="status") next[field]=statusOSParaBanco(v);
-    else if(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")) next[field]=osDataISO(v)||null;
+   else if(field==="custo") next[field]=Number(String(v).replace(",","." )||0);
+   else if(table==="ordens_servico" && field==="status") next[field]=statusOSParaBanco(v);
+   else if(table==="ordens_servico" && (field==="data_entrega" || field==="data_retirada_prevista")) next[field]=osDataISO(v)||null;
    else next[field]=v;
  }
  if(table==="cacambas" && !next.numero)return alert("O número da caçamba é obrigatório.");
@@ -325,8 +327,21 @@ async function saveEditModal(){
  if(table==="ordens_servico" && !next.numero)return alert("O número da OS é obrigatório.");
  if(table==="manutencoes" && (!Number.isFinite(next.custo)||next.custo<0))return alert("Custo inválido.");
 
- const {error}=await sb.from(table).update(next).eq("id",id);
+ let anteriorParaHistorico=null;
+ if(table==="cacambas" && next.cliente_id){
+   anteriorParaHistorico=(cache.cacambas||[]).find(c=>
+     String(c.cliente_id)===String(next.cliente_id) &&
+     String(c.id)!==String(id)
+   )||null;
+ }
+
+ const {data:updated,error}=await sb.from(table).update(next).eq("id",id).select().single();
  if(error)return alert(error.message);
+
+ if(table==="cacambas" && next.cliente_id && String(oldClienteId)!==String(next.cliente_id)){
+   registrarHistoricoTroca(next.cliente_id,anteriorParaHistorico,updated||{...oldRow,...next,id});
+ }
+
  closeEditModal();
  await loadAll();
  if(table==="cacambas")cacambas();
@@ -403,32 +418,70 @@ async function adLoad(){
  if(error)throw error;
  adCloud=data||[];
 
- // Migra automaticamente os adiantamentos antigos deste aparelho para a nuvem,
- // somente se a conta ainda não tiver nenhum adiantamento salvo.
- if(adCloud.length===0){
-   const antigos=adLocal();
-   if(antigos.length){
-     const rows=antigos.map(a=>({
-       id:a.id||crypto.randomUUID(),
-       pessoa:a.pessoa,
-       data:a.data,
-       valor:Number(a.valor||0),
-       observacoes:a.observacoes||"",
-       abatimentos:a.abatimentos||[]
-     }));
-     const ins=await sb.from("adiantamentos").insert(rows);
-     if(!ins.error){
-       adCloud=rows;
-       localStorage.removeItem(AD_KEY);
-     }
+ // Sincroniza registros antigos que ainda estejam somente neste aparelho.
+ // Junta os registros locais com os que já existem na nuvem.
+ const antigos=adLocal();
+ if(antigos.length){
+   const rows=antigos.map(a=>({
+     id:a.id||crypto.randomUUID(),
+     pessoa:a.pessoa,
+     data:a.data,
+     valor:Number(a.valor||0),
+     observacoes:a.observacoes||"",
+     abatimentos:a.abatimentos||[]
+   }));
+   const idsNuvem=new Set(adCloud.map(x=>String(x.id)));
+   const novosLocais=rows.filter(x=>!idsNuvem.has(String(x.id)));
+   if(novosLocais.length){
+     const ins=await sb.from("adiantamentos").upsert(novosLocais,{onConflict:"id"});
+     if(ins.error)throw ins.error;
+     adCloud=[...adCloud,...novosLocais];
    }
+   localStorage.removeItem(AD_KEY);
  }
- return adCloud;
+ return adCloud.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
 }
+async function adComplementarExistente(){
+ const pessoa=String(document.getElementById("adp")?.value||"").trim();
+ if(!pessoa)return alert("Digite o nome da pessoa primeiro.");
+ const encontrados=(adCloud||[]).filter(a=>
+   String(a.pessoa||"").trim().toLowerCase()===pessoa.toLowerCase() && adSaldo(a)>0
+ );
+ if(!encontrados.length)return alert("Não encontrei adiantamento em aberto para esta pessoa.");
+
+ const a=encontrados[0];
+ const saldo=adSaldo(a);
+ const valorStr=prompt("Adiantamento atual: "+adR$(a.valor)+"\nSaldo atual: "+adR$(saldo)+"\n\nDigite o NOVO valor a acrescentar:");
+ if(valorStr===null)return;
+ const valor=adParseBR(valorStr);
+ if(!Number.isFinite(valor)||valor<=0)return alert("Informe um valor válido.");
+
+ const novo=Number(a.valor||0)+valor;
+ const dataHoje=new Date().toISOString().slice(0,10);
+ const complemento="Complemento de "+adR$(valor)+" em "+adDataBR(dataHoje);
+ const observacoes=a.observacoes ? a.observacoes+" | "+complemento : complemento;
+
+ const {error}=await sb.from("adiantamentos").update({
+   valor:novo,
+   observacoes,
+   updated_at:new Date().toISOString()
+ }).eq("id",a.id);
+
+ if(error)return alert("Não foi possível acrescentar o valor: "+error.message);
+
+ await adRender();
+ alert("Valor acrescentado com sucesso!\nNovo total do adiantamento: "+adR$(novo));
+}
+
 async function adRender(){
  const el=$("adiantamentos");if(!el)return;
  try{await adLoad()}catch(e){
-   el.innerHTML=`<h2>💰 Adiantamentos</h2><div class="card"><b>Não foi possível carregar os adiantamentos.</b><p class="small">${adEsc(e.message||"Verifique sua conexão e tente novamente.")}</p></div>`;
+   el.innerHTML=`<h2>💰 Adiantamentos</h2>
+ <div class="card" style="border-left:5px solid #0a9a4a;background:#f6fff9">
+  <b>☁️ Adiantamentos sincronizados na nuvem</b>
+  <p class="small" style="margin:6px 0">Os adiantamentos ficam salvos na conta e podem ser vistos em todos os aparelhos onde você entrar com a mesma conta.</p>
+  <button class="btn secondary no-print" onclick="adRender()">🔄 Atualizar adiantamentos</button>
+ </div><div class="card"><b>Não foi possível carregar os adiantamentos.</b><p class="small">${adEsc(e.message||"Verifique sua conexão e tente novamente.")}</p></div>`;
    return;
  }
  const listaResumo=adCloud;
@@ -464,7 +517,8 @@ async function adRender(){
   <div><label>Data *</label><input id="add" type="date" value="${today()}"></div>
   <div><label>Valor *</label><input id="adv" inputmode="decimal" placeholder="0,00" oninput="this.value=adNumeroBR(this.value)"></div>
   <div style="grid-column:1/-1"><label>Observações</label><textarea id="ado" rows="3" placeholder="Ex.: motivo do adiantamento, combinado com a pessoa, forma de desconto..."></textarea></div>
- </div><br><button class="btn primary" onclick="adAdd()">💾 Registrar adiantamento</button></div>
+ </div><br><button class="btn primary" onclick="adAdd()">💾 Registrar adiantamento</button>
+ <button class="btn secondary" onclick="adComplementarExistente()">➕ Acrescentar valor a adiantamento existente</button></div>
 
  <div class="card" style="border:2px solid #e0a000;background:#fffdf5">
   <h3 style="margin-top:0">🟡 Adiantamentos em aberto <span class="small">(${abertos.length})</span></h3>
@@ -845,6 +899,40 @@ function statusOSExibicao(status){
  const mapa={"Agendada":"Agendada","Em rota":"Em andamento","Entregue":"Concluída","Retirada solicitada":"Reagendada","Concluída":"Concluída","Cancelada":"Cancelada"};
  return mapa[status]||status;
 }
+function enviarOSWhatsApp(id){
+ const row=(cache.ordens||[]).find(x=>String(x.id)===String(id));
+ if(!row)return alert("Ordem de serviço não encontrada.");
+
+ const cliente=(cache.clientes||[]).find(c=>String(c.id)===String(row.cliente_id));
+ if(!cliente)return alert("Esta ordem não tem cliente selecionado.");
+
+ let telefone=String(cliente.telefone||"").replace(/\D/g,"");
+ if(!telefone)return alert("O cliente não possui telefone cadastrado.");
+
+ if(!telefone.startsWith("55") && (telefone.length===10 || telefone.length===11)) telefone="55"+telefone;
+ if(!telefone.startsWith("55") || telefone.length<12)return alert("O telefone do cliente não parece válido. Confira o cadastro.");
+
+ const cam=(cache.caminhoes||[]).find(c=>String(c.id)===String(row.caminhao_id));
+ const cac=(cache.cacambas||[]).find(c=>String(c.id)===String(row.cacamba_id));
+
+ const msg=[
+   "Olá, "+(cliente.nome||"")+"!",
+   "",
+   "📋 ORDEM DE SERVIÇO — "+(row.numero||""),
+   "🗑️ Caçamba: "+(cac?.numero||"—"),
+   "🚛 Caminhão: "+(cam?.identificacao||"—"),
+   "🔖 Placa: "+(cam?.placa||"—"),
+   "📅 Entrega: "+(osDataBR(row.data_entrega)||"—"),
+   "📅 Retirada prevista: "+(osDataBR(row.data_retirada_prevista)||"—"),
+   "📍 Endereço: "+(row.endereco||"—"),
+   "♻️ Material: "+(row.material||"—"),
+   "📌 Status: "+(statusOSExibicao(row.status||"")||"—"),
+   row.observacoes ? "📝 Observações: "+row.observacoes : ""
+ ].filter(Boolean).join("\n");
+
+ window.open("https://wa.me/"+telefone+"?text="+encodeURIComponent(msg),"_blank");
+}
+
 function ordens(){
  const todas=Array.isArray(cache.ordens)?cache.ordens:[];
  const ativas=todas.filter(x=>String(x.status||"")!=="Concluída");
@@ -866,6 +954,7 @@ function ordens(){
    <button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ Editar</button>
    <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button>
    <button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id}')">🖨️</button>
+   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}')">📲 WhatsApp</button>
   </td>
  </tr>`;
 
