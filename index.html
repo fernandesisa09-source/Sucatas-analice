@@ -43,6 +43,8 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 .pesagem-status-pago{background:#d1fae5;color:#065f46;border:1px solid #10b981;padding:5px 9px;border-radius:999px;font-weight:700}
 .pesagem-status-pagamento{background:#fef3c7;color:#92400e;border:1px solid #f59e0b;padding:5px 9px;border-radius:999px;font-weight:700}
 .pesagem-status-aberto{background:#fee2e2;color:#991b1b;border:1px solid #ef4444;padding:5px 9px;border-radius:999px;font-weight:700}
+
+.icon-btn{min-width:38px!important;width:38px!important;height:36px!important;padding:6px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;font-size:18px!important;line-height:1!important}
 </style>
 </head>
 <body>
@@ -524,9 +526,9 @@ async function adRender(){
    Adiantado: <b>${adR$(a.valor)}</b> | Abatido: <b>${adR$(abat)}</b> | Saldo: <b>${adR$(s)}</b>
    ${a.observacoes?`<div class="small" style="margin-top:8px"><b>Observações:</b> ${adEsc(a.observacoes)}</div>`:""}
    <br>${s>0?`<button class="btn secondary" onclick="adAbater('${a.id}')">➕ Abater</button>`:""}
-   <button class="btn secondary" onclick="adEditar('${a.id}')">✏️ Editar</button>
+   <button class="btn secondary" onclick="adEditar('${a.id}')">✏️ ✏️</button>
    <button class="btn secondary" onclick="adPrint('${a.id}')">🖨️</button>
-   <button class="btn danger" onclick="adDel('${a.id}')">Excluir</button>
+   <button class="btn danger" onclick="adDel('${a.id}')">🗑️</button>
    ${(a.abatimentos||[]).length?`<div class="small" style="margin-top:8px"><b>Abatimentos:</b> ${a.abatimentos.map(x=>adDataBR(x.data)+" — "+adR$(x.valor)).join(" | ")}</div>`:""}
    </div>`;
  };
@@ -743,11 +745,11 @@ function pesagemRender(){
  <div class="card">
   <h3 style="margin-top:0">♻️ Produtos / Materiais</h3>
   <button class="btn primary" onclick="produtoNovo()">➕ Adicionar produto</button>
-  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Código</th><th>Produto</th><th>Preço/kg</th><th class="no-print">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(x=>`<tr><td><b>${esc(x.codigo)}</b></td><td>${esc(x.nome)}</td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️ Editar</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">Excluir</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
+  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Código</th><th>Produto</th><th>Preço/kg</th><th class="no-print">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.codigo).localeCompare(String(b.codigo),undefined,{numeric:true})).map(x=>`<tr><td><b>${esc(x.codigo)}</b></td><td>${esc(x.nome)}</td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️ ✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
  </div>
  <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${lista.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th><th>R$/kg</th><th>Total</th><th class="no-print">Ações</th></tr></thead><tbody>${lista.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.pessoa||"")}</td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td><td>${brNum(x.entrada)}</td><td>${brNum(x.saida)}</td><td><b>${brNum(x.liquido)}</b></td><td>${brNum(x.preco)}</td><td><b>R$ ${brNum(x.total)}</b></td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${x.id}')">✏️ Editar</button> <button class="btn secondary" onclick="pesagemImprimir('${x.id}')">🖨️</button> <button class="btn secondary" onclick="pesagemWhatsApp('${x.id}')">📲 WhatsApp</button> <button class="btn secondary" onclick="pesagemAcrescentarMaterial('${x.id}')">➕ Material</button> <button class="btn secondary" onclick="pesagemAlterarStatus('${x.id}')">💳 Status</button> <button class="btn danger" onclick="pesagemExcluir('${x.id}')">Excluir</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
+  ${lista.length?`<div style="overflow:auto"><table><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th><th>R$/kg</th><th>Total</th><th class="no-print">Ações</th></tr></thead><tbody>${lista.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.pessoa||"")}</td><td>${esc((x.codigo?x.codigo+" — ":"")+x.material)}</td><td>${brNum(x.entrada)}</td><td>${brNum(x.saida)}</td><td><b>${brNum(x.liquido)}</b></td><td>${brNum(x.preco)}</td><td><b>R$ ${brNum(x.total)}</b></td><td class="no-print"><button class="btn secondary" onclick="pesagemEditar('${x.id}')">✏️ ✏️</button> <button class="btn secondary icon-btn" title="Imprimir" aria-label="Imprimir" onclick="pesagemImprimir('${x.id}')">🖨️</button> <button class="btn secondary icon-btn" title="WhatsApp" aria-label="WhatsApp" onclick="pesagemWhatsApp('${x.id}')">📲</button> <button class="btn secondary icon-btn" title="Acrescentar material" aria-label="Acrescentar material" onclick="pesagemAcrescentarMaterial('${x.id}')">➕</button> <button class="btn danger" onclick="pesagemExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada.</p>"}
  </div>`;
 }
 function pesagemSalvar(){
@@ -1032,7 +1034,7 @@ function tableCac(){
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
   return [x.numero,x.status,x.estado,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Caçamba anterior / atual</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${x.cliente_id?historicoCliente(x.cliente_id):"<span class='small'>—</span>"}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">Excluir</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Caçamba anterior / atual</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${x.cliente_id?historicoCliente(x.cliente_id):"<span class='small'>—</span>"}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">🗑️</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
@@ -1050,7 +1052,7 @@ function estadoCacambas(){
  const cards=estados.map(e=>`<div class="card stat"><span>${esc(e)}</span><b>${counts[e]||0}</b></div>`).join("");
  const rows=[...cache.cacambas].sort((a,b)=>(Number(a.numero)||0)-(Number(b.numero)||0)).map(c=>{
    const cl=cache.clientes.find(x=>x.id===c.cliente_id)?.nome||"";
-   return `<tr><td>${esc(c.numero)}</td><td>${esc(c.estado||"Não informado")}</td><td>${esc(c.status||"")}</td><td>${esc(cl)}</td><td>${esc(c.patio||"")}</td><td><button class="btn" onclick="editRecord('cacambas','${c.id}')">Editar</button></td></tr>`;
+   return `<tr><td>${esc(c.numero)}</td><td>${esc(c.estado||"Não informado")}</td><td>${esc(c.status||"")}</td><td>${esc(cl)}</td><td>${esc(c.patio||"")}</td><td><button class="btn" onclick="editRecord('cacambas','${c.id}')">✏️</button></td></tr>`;
  }).join("");
  $("estado").innerHTML=`<h2>📌 Estado das Caçambas</h2>
  <p class="small">Aqui você consegue acompanhar a conservação de cada caçamba.</p>
@@ -1063,7 +1065,7 @@ function clientes(){
  <div><label>Nome *</label><input id="cln"></div><div><label>Responsável</label><input id="clr"></div><div><label>Telefone</label><input id="clt"></div><div><label>E-mail</label><input id="cle"></div>
  <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
  </div><br><button class="btn primary" onclick="addCliente()">Cadastrar cliente</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Caçambas</th><th>Caçamba anterior / atual</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><strong>${cache.cacambas.filter(c=>String(c.cliente_id||"")===String(x.id)).length}</strong></td><td>${historicoCliente(x.id)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('clientes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Caçambas</th><th>Caçamba anterior / atual</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><strong>${cache.cacambas.filter(c=>String(c.cliente_id||"")===String(x.id)).length}</strong></td><td>${historicoCliente(x.id)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('clientes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCliente(){
  if(!val("cln"))return alert("Informe o nome do cliente.");
@@ -1072,13 +1074,13 @@ async function addCliente(){
 
 function motoristas(){
  $("motoristas").innerHTML=`<h2>👤 Motoristas</h2><div class="card"><h3>Novo motorista</h3><div class="grid"><div><label>Nome *</label><input id="mn"></div><div><label>Telefone</label><input id="mtel"></div><div><label>CNH</label><input id="mcnh"></div><div><label>Status</label><select id="mst"><option>Ativo</option><option>Inativo</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="mobs" rows="3" placeholder="Ex.: disponibilidade, restrições, informações da CNH..."></textarea></div></div><br><button class="btn primary" onclick="addMotorista()">Cadastrar motorista</button></div>
- <div class="card tablewrap"><table><tr><th>Nome</th><th>Telefone</th><th>CNH</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.motoristas.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cnh)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('motoristas','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('motoristas','${x.id}',motoristas)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('motoristas','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Nome</th><th>Telefone</th><th>CNH</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.motoristas.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cnh)}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('motoristas','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('motoristas','${x.id}',motoristas)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('motoristas','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addMotorista(){if(!val("mn"))return alert("Informe o nome.");await add("motoristas",{nome:val("mn"),telefone:val("mtel"),cnh:val("mcnh"),status:val("mst"),observacoes:val("mobs")},motoristas)}
 
 function caminhoes(){
  $("caminhoes").innerHTML=`<h2>🚛 Caminhões</h2><div class="card"><h3>Novo caminhão</h3><div class="grid"><div><label>Identificação *</label><input id="ti" placeholder="Caminhão 01"></div><div><label>Placa</label><input id="tp"></div><div><label>Motorista</label><select id="tm">${options(cache.motoristas,"id","nome")}</select></div><div><label>Status</label><select id="ts"><option>Disponível</option><option>Em operação</option><option>Manutenção</option><option>Inativo</option></select></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="tobs" rows="3" placeholder="Ex.: quilometragem, documentação, pneus, informações do veículo..."></textarea></div></div><br><button class="btn primary" onclick="addCaminhao()">Cadastrar caminhão</button></div>
- <div class="card tablewrap"><table><tr><th>Identificação</th><th>Placa</th><th>Motorista</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.caminhoes.map(x=>`<tr><td>${esc(x.identificacao)}</td><td>${esc(x.placa)}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('caminhoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('caminhoes','${x.id}',caminhoes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('caminhoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
+ <div class="card tablewrap"><table><tr><th>Identificação</th><th>Placa</th><th>Motorista</th><th>Status</th><th>Observações</th><th>Ação</th></tr>${cache.caminhoes.map(x=>`<tr><td>${esc(x.identificacao)}</td><td>${esc(x.placa)}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td>${esc(x.status)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('caminhoes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('caminhoes','${x.id}',caminhoes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('caminhoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCaminhao(){if(!val("ti"))return alert("Informe a identificação.");await add("caminhoes",{identificacao:val("ti"),placa:val("tp"),motorista_id:val("tm")||null,status:val("ts"),observacoes:val("tobs")},caminhoes)}
 
@@ -1201,10 +1203,10 @@ function ordens(){
   <td><b>${esc(statusOSExibicao(x.status||""))}</b></td>
   <td>${esc(x.observacoes||"")}</td>
   <td>
-   <button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ Editar</button>
-   <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">Excluir</button>
+   <button class="btn" onclick="editRecord('ordens_servico','${x.id}')">✏️ ✏️</button>
+   <button class="btn danger" onclick="delRow('ordens_servico','${x.id}',ordens)">🗑️</button>
    <button class="btn secondary no-print" onclick="imprimirItem('ordens_servico','${x.id}')">🖨️</button>
-   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}')">📲 WhatsApp</button>
+   <button class="btn secondary no-print" onclick="enviarOSWhatsApp('${x.id}')">📲</button>
   </td>
  </tr>`;
 
@@ -1273,7 +1275,7 @@ function movimentacoes(){
  </div><br><button class="btn primary" onclick="addMov()">Registrar movimentação</button></div>
  <div class="card tablewrap" id="movlist"><p class="small">Carregando histórico...</p></div>`;
  load("movimentacoes").then(rows=>{
- $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td><button class="btn" onclick="editRecord('movimentacoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('movimentacoes','${x.id}',movimentacoes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('movimentacoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
+ $("movlist").innerHTML=`<table><tr><th>Data</th><th>Tipo</th><th>Caçamba</th><th>Cliente</th><th>Caminhão</th><th>Motorista</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.tipo)}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${esc(cache.caminhoes.find(c=>c.id===x.caminhao_id)?.identificacao||"")}</td><td>${esc(cache.motoristas.find(m=>m.id===x.motorista_id)?.nome||"")}</td><td><button class="btn" onclick="editRecord('movimentacoes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('movimentacoes','${x.id}',movimentacoes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('movimentacoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("movlist").innerHTML="<p>"+esc(e.message)+"</p>");
 }
 async 
@@ -1326,7 +1328,7 @@ async function addMov(){
 function manutencoes(){
  $("manutencoes").innerHTML=`<h2>🔧 Manutenção</h2><div class="card"><h3>Nova manutenção de caçamba</h3><div class="grid"><div><label>Caçamba</label><select id="mcac">${options(cache.cacambas,"id","numero")}</select></div><div><label>Data</label><input id="mdata" type="date" value="${today()}"></div><div><label>Problema *</label><input id="mprob"></div><div><label>Custo</label><input id="mcusto" type="number" step="0.01"></div><div><label>Status</label><select id="mstatus"><option>Aberta</option><option>Em andamento</option><option>Concluída</option></select></div><div><label>Observações</label><input id="mob"></div></div><br><button class="btn primary" onclick="addMan()">Registrar manutenção</button></div><div class="card tablewrap" id="manlist"></div>`;
  load("manutencoes").then(rows=>{
- $("manlist").innerHTML=`<table><tr><th>Data</th><th>Caçamba</th><th>Problema</th><th>Custo</th><th>Status</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(dataBR(x.data))}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.problema)}</td><td>R$ ${Number(x.custo||0).toFixed(2)}</td><td>${esc(x.status)}</td><td><button class="btn" onclick="editRecord('manutencoes','${x.id}')">Editar</button> <button class="btn danger" onclick="delRow('manutencoes','${x.id}',manutencoes)">Excluir</button><button class="btn secondary no-print" onclick="imprimirItem('manutencoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
+ $("manlist").innerHTML=`<table><tr><th>Data</th><th>Caçamba</th><th>Problema</th><th>Custo</th><th>Status</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(dataBR(x.data))}</td><td>${esc(cache.cacambas.find(c=>c.id===x.cacamba_id)?.numero||"")}</td><td>${esc(x.problema)}</td><td>R$ ${Number(x.custo||0).toFixed(2)}</td><td>${esc(x.status)}</td><td><button class="btn" onclick="editRecord('manutencoes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('manutencoes','${x.id}',manutencoes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('manutencoes','${x.id}')">🖨️</button></td></tr>`).join("")}</table>`;
  }).catch(e=>$("manlist").innerHTML=esc(e.message));
 }
 async function addMan(){
