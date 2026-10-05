@@ -165,6 +165,7 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function msg(id,text,ok=false){$(id).innerHTML=`<div class="msg ${ok?'ok':'err'}">${esc(text)}</div>`}
 function val(id){return $(id)?.value?.trim()||""}
 function today(){return new Date().toISOString().slice(0,10)}
+function horaAtual(){return new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",hour12:false})}
 
 function imprimirItem(table,id){
  const lista = cache[table] || (table==="ordens_servico" ? (cache.ordens||[]) : []);
@@ -808,7 +809,7 @@ async function produtosCloudLoad(){
 async function pesagensCloudLoad(){
  const local=(()=>{try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}})();
  const localFechadas=(()=>{try{return new Set(JSON.parse(localStorage.getItem(PESAGEM_FECH_KEY)||"[]").flatMap(f=>(f.pesagem_ids||[]).map(String)))}catch(e){return new Set()}})();
- const {data,error}=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+ const {data,error}=await sb.from("pesagens").select("*").order("created_at",{ascending:true,nullsFirst:false}).order("id",{ascending:true});
  if(error){
    pesagemCloud=local;pesagemCloudReady=true;
    console.error("pesagens",error);
@@ -826,6 +827,8 @@ async function pesagensCloudLoad(){
      saida:Number(x.saida||0),
      liquido:Number(x.liquido||Math.max(0,Number(x.entrada||0)-Number(x.saida||0))),
      observacoes:String(x.observacoes||"").trim(),
+     hora_entrada:String(x.hora_entrada||"").trim()||null,
+     hora_saida:String(x.hora_saida||"").trim()||null,
      fechada:localFechadas.has(String(x.id))
    })).filter(x=>x.pessoa&&x.material&&Number(x.entrada)>0&&!idsCloud.has(String(x.id)));
    let migOk=true;
@@ -838,7 +841,7 @@ async function pesagensCloudLoad(){
      localStorage.removeItem(PESAGEM_FECH_KEY);
    }
  }
- const fresh=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+ const fresh=await sb.from("pesagens").select("*").order("created_at",{ascending:true,nullsFirst:false}).order("id",{ascending:true});
  pesagemCloud=fresh.error?(data||[]):(fresh.data||[]);
  pesagemCloudReady=true;
  return pesagemCloud;
@@ -855,23 +858,22 @@ function iniciarPesagemRealtime(){
 
 async function produtoNovo(){
  const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="produtoModal";
- modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Adicionar produto</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div><label>Produto / Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div><div><label>Preço por kg (R$) *</label><input id="pr_preco" inputmode="decimal" placeholder="0,00"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar produto</button></div></div>`;document.body.appendChild(modal);
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Cadastrar material</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div style="grid-column:1/-1"><label>Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar material</button></div></div>`;document.body.appendChild(modal);
 }
 async function produtoSalvar(){
- const nome=$("pr_nome")?.value.trim(),preco=pesoNum($("pr_preco")?.value);
- if(!nome||preco<=0)return alert("Preencha produto e preço.");
- if(produtosLoad().some(x=>String(x.nome||"").trim().toLowerCase()===nome.toLowerCase()))return alert("Esse produto já está cadastrado.");
- const {data,error}=await sb.from("produtos_pesagem").insert({nome,preco}).select().single();
+ const nome=$("pr_nome")?.value.trim();
+ if(!nome)return alert("Informe o nome do material.");
+ if(produtosLoad().some(x=>String(x.nome||"").trim().toLowerCase()===nome.toLowerCase()))return alert("Esse material já está cadastrado.");
+ const {data,error}=await sb.from("produtos_pesagem").insert({nome,preco:0}).select().single();
  if(error)return alert("Não foi possível salvar o produto: "+error.message);
  produtoCloud=[data,...produtoCloud];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud));
  $("produtoModal")?.remove();await pesagemRender();alert("Produto cadastrado com sucesso!");
 }
 async function produtoEditar(id){
  const x=produtosLoad().find(a=>String(a.id)===String(id));if(!x)return;
- const nome=prompt("Produto / Material:",x.nome||"");if(nome===null)return;
- const precoS=prompt("Preço por kg (R$):",brNum(x.preco));if(precoS===null)return;
- const preco=pesoNum(precoS);if(!nome.trim()||preco<=0)return alert("Dados inválidos.");
- const {data,error}=await sb.from("produtos_pesagem").update({nome:nome.trim(),preco,updated_at:new Date().toISOString()}).eq("id",id).select().single();
+ const nome=prompt("Material:",x.nome||"");if(nome===null)return;
+ if(!nome.trim())return alert("Informe o nome do material.");
+ const {data,error}=await sb.from("produtos_pesagem").update({nome:nome.trim(),updated_at:new Date().toISOString()}).eq("id",id).select().single();
  if(error)return alert("Não foi possível atualizar o produto: "+error.message);
  produtoCloud=produtoCloud.map(a=>String(a.id)===String(id)?data:a);produtoCloudReady=true;await pesagemRender();
 }
@@ -884,8 +886,8 @@ async function produtoExcluir(id){
 }
 
 async function pesagemRender(){
- await pesagensCloudLoad();
- await produtosCloudLoad();
+ try{await pesagensCloudLoad();}catch(e){console.error(e)}
+ try{await produtosCloudLoad();}catch(e){console.error(e)}
  iniciarPesagemRealtime();
  const el=$("pesagem"); if(!el)return;
  const lista=pesagensLoad();
@@ -894,7 +896,8 @@ async function pesagemRender(){
  const agrupar=(arr)=>{
    const grupos={};
    arr.forEach(x=>{const nome=pesagemClienteNome(x);const k=nome.toLowerCase();if(!grupos[k])grupos[k]={nome,items:[]};grupos[k].items.push(x)});
-   return Object.values(grupos).sort((a,b)=>a.nome.localeCompare(b.nome));
+   Object.values(grupos).forEach(g=>g.items.sort((a,b)=>{const ca=new Date(a.created_at||0).getTime(),cb=new Date(b.created_at||0).getTime();return ca-cb || Number(a.numero_ticket||0)-Number(b.numero_ticket||0)}));
+   return Object.values(grupos); // ordem do primeiro registro, sem ordem alfabética
  };
  const clientes=agrupar(abertas);
  const clientesArquivados=agrupar(arquivadas);
@@ -913,17 +916,21 @@ async function pesagemRender(){
    const nomeCod=JSON.stringify(encodeURIComponent(g.nome));
    const idsArg=JSON.stringify(g.items.map(x=>String(x.id)));
    const resumo=`${g.items.length} ${g.items.length===1?'pesagem':'pesagens'} · ${brNum(total)} kg`;
-   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar todas as pesagens deste cliente no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${!arquivada?`<button type="button" class="pesagem-acao pesagem-add-material" title="Acrescentar material para esta pessoa" aria-label="Acrescentar material para esta pessoa" onclick='${pesagemJsAttr(`pesagemAbrirAdicionarCliente(${nomeArg})`)}'>＋</button>`:''}${!arquivada?acao('check','Arquivar todas as pesagens deste cliente',`pesagemArquivarCliente(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
-   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><span class="pesagem-material-nome">${esc(x.material||"—")}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}</div></td></tr>`).join("");
-   return `<tr class="pesagem-cliente-head"><td colspan="6"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Data</th><th>Material</th><th>Entrada</th><th>Saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
+   const addBtn=!arquivada?`<button type="button" class="pesagem-acao pesagem-add-material" title="Acrescentar material para esta pessoa" aria-label="Acrescentar material para esta pessoa" onclick="pesagemAbrirAdicionarCliente(${pesagemJsAttr(nomeArg)})">＋</button>`:"";
+   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar pesagens no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${addBtn}${!arquivada?acao('check','Arquivar todas as pesagens deste cliente',`pesagemArquivarCliente(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
+   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td>${esc(x.hora_entrada||'—')}</td><td>${esc(x.hora_saida||'—')}</td><td><span class="pesagem-material-nome">${esc(x.material||'—')}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}</div></td></tr>`).join('');
+   return `<tr class="pesagem-cliente-head"><td colspan="9"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Peso entrada</th><th>Peso saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
  };
+ const materiais=produtosLoad();
  el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
  <div class="card" style="border-left:5px solid #55358a">
   <h3 style="margin-top:0">📝 Nova pesagem</h3>
   <div class="grid">
    <div><label>Data</label><input id="pdata" type="date" value="${today()}"></div>
    <div><label>Cliente / Pessoa</label><input id="ppessoa" placeholder="Nome da pessoa"></div>
-   <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<option value="${x.id}">${esc(x.nome)} — R$ ${brNum(x.preco)}</option>`).join("")}</select><button class="btn secondary" onclick="produtoNovo()">➕ Adicionar produto</button></div></div>
+   <div><label>Horário de entrada</label><input id="phora_entrada" type="time" value="${horaAtual()}"></div>
+   <div><label>Horário de saída</label><input id="phora_saida" type="time"></div>
+   <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um material</option>${materiais.map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select><button class="btn secondary" onclick="produtoNovo()">➕ Cadastrar material</button></div></div>
    <div><label>Material</label><input id="pmat" placeholder="Ex.: Papelão"></div>
    <div><label>Peso de entrada (kg)</label><input id="pe" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
    <div><label>Peso de saída / tara (kg)</label><input id="ps" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
@@ -934,23 +941,25 @@ async function pesagemRender(){
   <button class="btn secondary" onclick="pesagemLimpar()">🧹 Limpar</button>
  </div>
  <div class="card">
-  <h3 style="margin-top:0">♻️ Produtos / Materiais</h3>
-  <button class="btn primary" onclick="produtoNovo()">➕ Adicionar produto</button>
-  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Produto / Material</th><th>Preço/kg</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
+  <details><summary style="cursor:pointer;font-weight:800">♻️ Materiais cadastrados <span class="small">(${materiais.length})</span></summary>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" onclick="produtoNovo()">➕ Cadastrar material</button></div>
+   ${materiais.length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Material</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${materiais.map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join('')}</tbody></table></div>`:"<p class='small'>Nenhum material cadastrado.</p>"}
+  </details>
  </div>
  <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${clientes.length?`<div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
+  ${clientes.length?`<div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join('')}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
  </div>
  <div class="card">
   <h3 style="margin-top:0">📁 Pesagens concluídas / arquivadas</h3>
   <p class="small">As pesagens concluídas ficam aqui e não aparecem na lista principal.</p>
-  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join("")}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
+  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join('')}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
  </div>`;
 }
 
 async function pesagemSalvar(){
  const entrada=parseBR($("pe")?.value||"0"), saida=parseBR($("ps")?.value||"0");
+ const hora_entrada=String($("phora_entrada")?.value||"").trim()||null, hora_saida=String($("phora_saida")?.value||"").trim()||null;
  const pessoa=String($("ppessoa")?.value||"").trim();
  const material=String($("pmat")?.value||"").trim();
  const data=String($("pdata")?.value||today());
@@ -960,7 +969,7 @@ async function pesagemSalvar(){
  if(entrada<=0)return alert("Informe o peso de entrada.");
  if(saida<0)return alert("Informe um peso de saída válido.");
  if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
- const row={data,pessoa,material,entrada,saida,liquido,observacoes:String($("pobs")?.value||"").trim()};
+ const row={data,pessoa,material,entrada,saida,liquido,hora_entrada,hora_saida,observacoes:String($("pobs")?.value||"").trim()};
  const {data:saved,error}=await sb.from("pesagens").insert(row).select().single();
  if(error)return alert("Não foi possível registrar a pesagem: "+error.message);
  pesagemCloud=[saved,...pesagemCloud];pesagemCloudReady=true;
@@ -974,7 +983,8 @@ function pesagemEditar(id){
  <div class="grid">
  <div><label>Data</label><input id="pe_data" type="date" value="${esc(x.data||today())}"></div>
  <div><label>Cliente / Pessoa</label><input id="pe_pessoa" value="${esc(x.pessoa||"")}"></div>
-
+ <div><label>Horário de entrada</label><input id="pe_hora_entrada" type="time" value="${esc(x.hora_entrada||"")}"></div>
+ <div><label>Horário de saída</label><input id="pe_hora_saida" type="time" value="${esc(x.hora_saida||"")}"></div>
  <div><label>Material</label><input id="pe_material" value="${esc(x.material||"")}"></div>
  <div><label>Peso de entrada (kg)</label><input id="pe_entrada" inputmode="decimal" value="${brNum(x.entrada)}"></div>
  <div><label>Peso de saída / tara (kg)</label><input id="pe_saida" inputmode="decimal" value="${brNum(x.saida)}"></div>
@@ -990,7 +1000,7 @@ async function pesagemSalvarEdicao(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id));if(!x)return;
  const entrada=parseBR($("pe_entrada").value||"0"),saida=parseBR($("pe_saida").value||"0"),liquido=Math.max(0,entrada-saida);
  if(entrada<=0||saida<0||liquido<=0)return alert("Confira os pesos.");
- const novo={data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim(),updated_at:new Date().toISOString()};
+ const novo={data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),hora_entrada:$("pe_hora_entrada")?.value||null,hora_saida:$("pe_hora_saida")?.value||null,material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim(),updated_at:new Date().toISOString()};
  if(!novo.pessoa||!novo.material)return alert("Informe pessoa e material.");
  const {data,error}=await sb.from("pesagens").update(novo).eq("id",id).select().single();
  if(error)return alert("Não foi possível atualizar a pesagem: "+error.message);
@@ -1022,9 +1032,9 @@ async function pesagemExcluirCliente(nome,ids,arquivada=false){
 function pesagemImprimir(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
  const br=v=>brNum(v); const data=dataBR(x.data||"");
- const bloco=`<div class="ticket"><div class="cabecalho">SUCATAS ANALICE</div><div class="titulo">COMPROVANTE DE PESAGEM</div><div class="linha"><b>Data:</b> ${data}</div><div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div><div class="linha"><b>Material:</b> ${esc(x.material||"—")}</div><div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div><div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div><div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>${x.observacoes?`<div class="linha"><b>Obs.:</b> ${esc(x.observacoes)}</div>`:""}<div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
+ const bloco=`<div class="ticket"><div class="cabecalho">SUCATAS ANALICE</div><div class="ticket-numero">TICKET Nº ${String(x.numero_ticket||0).padStart(6,"0")}</div><div class="titulo">COMPROVANTE DE PESAGEM</div><div class="linha"><b>Data:</b> ${data}</div><div class="linha"><b>Entrada:</b> ${esc(x.hora_entrada||"—")} &nbsp;&nbsp; <b>Saída:</b> ${esc(x.hora_saida||"—")}</div><div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div><div class="linha"><b>Material:</b> ${esc(x.material||"—")}</div><div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div><div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div><div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>${x.observacoes?`<div class="linha"><b>Obs.:</b> ${esc(x.observacoes)}</div>`:""}<div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
  const w=window.open("","_blank","width=800,height=900"); if(!w)return alert("Permita a abertura da janela de impressão.");
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title><style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}.cabecalho{text-align:center;font-size:22px;font-weight:800;white-space:nowrap}.titulo{text-align:center;font-size:15px;font-weight:700;margin:4px 0 10px}.linha{font-size:12px;margin:5px 0}.cliente-destaque{font-size:20px;font-weight:900;text-align:center;border:2px solid #111;padding:7px 5px;margin:7px 0 10px;text-transform:uppercase}.destaque{font-size:14px;font-weight:700}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between;gap:15mm}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;padding-top:3px;font-size:10px}.corte{text-align:center;height:8mm;line-height:8mm;font-size:9px;border-top:1px dashed #777;border-bottom:1px dashed #777}@media print{.ticket{break-inside:avoid}.corte{break-inside:avoid}}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title><style>@page{size:A4 portrait;margin:5mm}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,sans-serif;color:#111}.ticket{height:125mm;max-height:125mm;overflow:hidden;border:1.2px solid #111;padding:5mm;position:relative;page-break-inside:avoid;break-inside:avoid}.cabecalho{text-align:center;font-size:18px;font-weight:800;white-space:nowrap}.ticket-numero{text-align:center;font-size:9px;font-weight:800;margin-top:2px}.titulo{text-align:center;font-size:12px;font-weight:700;margin:3px 0 6px}.linha{font-size:10px;line-height:1.2;margin:3px 0}.cliente-destaque{font-size:16px;line-height:1.1;font-weight:900;text-align:center;border:1.5px solid #111;padding:5px 4px;margin:5px 0 7px;text-transform:uppercase}.destaque{font-size:11px;font-weight:700}.assinaturas{position:absolute;left:5mm;right:5mm;bottom:5mm;display:flex;justify-content:space-between;gap:10mm}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;padding-top:2px;font-size:8px}.corte{text-align:center;height:5mm;line-height:5mm;font-size:7px;border-top:1px dashed #777;border-bottom:1px dashed #777;page-break-inside:avoid;break-inside:avoid}@media print{html,body{width:210mm;height:297mm}.ticket{height:125mm;max-height:125mm}.corte{height:5mm;line-height:5mm}}</style></head><body>${bloco}<div class="corte"></div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
 }
 function pesagemItensCliente(nome, arquivada=false){
  const alvo=String(nome||"").trim().toLowerCase();
@@ -1032,15 +1042,15 @@ function pesagemItensCliente(nome, arquivada=false){
 }
 function pesagemImprimirCliente(nomeCod, arquivada=false){
  const nome=decodeURIComponent(nomeCod||""); const items=pesagemItensCliente(nome,arquivada); if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
- const rows=items.map(x=>`<tr><td>${esc(x.material||"")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join("");
+ const rows=items.map(x=>`<tr><td>TK-${String(x.numero_ticket||0).padStart(6,"0")}</td><td>${dataBR(x.data)}</td><td>${esc(x.hora_entrada||"—")}</td><td>${esc(x.hora_saida||"—")}</td><td>${esc(x.material||"")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join("");
  const w=window.open("","_blank","width=900,height=800"); if(!w)return alert("Permita a abertura da janela.");
- const bloco=`<div class="ticket"><h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div><table><thead><tr><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table><div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>@page{size:A4 portrait;margin:8mm}body{font-family:Arial;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}h2{text-align:center;margin:0 0 10px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin-bottom:14px;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:7px;font-size:11px}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;font-size:10px;padding-top:3px}.corte{text-align:center;height:8mm;line-height:8mm;border-top:1px dashed #777;border-bottom:1px dashed #777;font-size:9px}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ const bloco=`<div class="ticket"><h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div><table><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table><div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>@page{size:A4 portrait;margin:8mm}body{font-family:Arial;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}h2{text-align:center;margin:0 0 10px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin-bottom:14px;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:7px;font-size:11px}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;font-size:10px;padding-top:3px}.corte{text-align:center;height:8mm;line-height:8mm;border-top:1px dashed #777;border-bottom:1px dashed #777;font-size:9px}</style></head><body>${bloco}<div class="corte"></div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
 
 function pesagemWhatsApp(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
- const msg=[x.pessoa||"",`${x.material||""} — ${brNum(x.liquido)} kg`].filter(Boolean).join("\n");
+ const msg=[x.pessoa||"",dataBR(x.data||""),`Peso líquido: ${brNum(x.liquido)} kg`].filter(Boolean).join("\n");
  try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
  window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
 }
@@ -1055,6 +1065,8 @@ function pesagemAbrirAdicionar(id){
    <div class="grid">
     <div><label>Data</label><input id="pam_data" type="date" value="${today()}"></div>
     <div><label>Cliente / Pessoa</label><input id="pam_pessoa" value="${esc(pessoa)}" readonly></div>
+    <div><label>Horário de entrada</label><input id="pam_hora_entrada" type="time" value="${horaAtual()}"></div>
+    <div><label>Horário de saída</label><input id="pam_hora_saida" type="time"></div>
     <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pam_prod" onchange="pesagemAdicionarSelecionarProduto()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select></div></div>
     <div><label>Material</label><input id="pam_material" value="${esc(x.material||"")}" placeholder="Ex.: Papelão"></div>
     <div><label>Peso de entrada (kg)</label><input id="pam_entrada" inputmode="decimal" placeholder="0,00" oninput="pesagemAdicionarCalcular()"></div>
@@ -1073,7 +1085,7 @@ async function pesagemSalvarAdicional(origId){
  const entrada=parseBR($("pam_entrada")?.value||"0"),saida=parseBR($("pam_saida")?.value||"0"),liquido=Math.max(0,entrada-saida);
  const pessoa=String($("pam_pessoa")?.value||origem.pessoa||"").trim(),material=String($("pam_material")?.value||"").trim();
  if(!material)return alert("Informe o material."); if(entrada<=0)return alert("Informe o peso de entrada."); if(saida<0)return alert("Informe um peso de saída válido."); if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
- const novo={data:String($("pam_data")?.value||today()),pessoa,material,entrada,saida,liquido,observacoes:String($("pam_obs")?.value||"").trim()};
+ const novo={data:String($("pam_data")?.value||today()),pessoa,material,entrada,saida,liquido,hora_entrada:$("pam_hora_entrada")?.value||null,hora_saida:$("pam_hora_saida")?.value||null,observacoes:String($("pam_obs")?.value||"").trim()};
  const {data,error}=await sb.from("pesagens").insert(novo).select().single();
  if(error)return alert("Não foi possível registrar a nova pesagem: "+error.message);
  pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;document.getElementById("pesagemAddModal")?.remove();await pesagemRender();alert("Nova pesagem registrada para "+pessoa+".");
@@ -1156,13 +1168,9 @@ function pesagemWhatsAppCliente(nome, arquivada=false){
  const items=pesagemItensCliente(nome,arquivada);
  if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
  const linhas=[
-   "SUCATAS ANALICE",
-   "Pesagens de: "+nome,
+   nome,
    "",
-   ...items.map((x,i)=>{
-     const data=dataBR(x.data||"");
-     return `${i+1}. ${data} — ${x.material||"Material não informado"}\n   Entrada: ${brNum(x.entrada)} kg | Saída: ${brNum(x.saida)} kg | Líquido: ${brNum(x.liquido)} kg`;
-   })
+   ...items.map(x=>`${dataBR(x.data||"")} — Peso líquido: ${brNum(x.liquido)} kg`)
  ];
  const msg=linhas.join("\n");
  try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
