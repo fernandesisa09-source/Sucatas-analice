@@ -1497,7 +1497,30 @@ function logAdicionarManual(){
 }
 function logRemover(id){logState.items=logState.items.filter(x=>x.id!==id);logState.routes=[];logSave();logistica();}
 function logLimparDia(){if(!confirm("Limpar somente as necessidades da data selecionada?"))return;const d=logState.date;logState.items=logState.items.filter(x=>x.date!==d);logState.routes=[];logSave();logistica();}
-function logCarregarOS(){const d=logState.date;const os=logOrdemRows().filter(o=>dataOSNormalizada(o.data_entrega)===d||dataOSNormalizada(o.data_retirada_prevista)===d);let add=0;for(const o of os){if(logState.items.some(x=>String(x.sourceOSId)===String(o.id)&&x.date===d))continue;logState.items.push({id:crypto.randomUUID(),date:d,sourceOSId:o.id,tipo:"entrega",cliente:logClienteNome(o.cliente_id),endereco:logAddressOS(o),cacamba:logCacambaNumero(o.cacamba_id),material:o.material||"",patio:"",hora:"",prioridade:"Normal",empresaFinal:"",observacoes:o.observacoes||""});add++;}logSave();logistica();if(!add)alert("Nenhuma OS nova foi encontrada para essa data.");}
+function logCarregarOS(){
+ const d=logState.date||dataHojeISO();
+ const os=logOrdemRows().filter(o=>dataOSNormalizada(o.data_entrega)===d||dataOSNormalizada(o.data_retirada_prevista)===d);
+ if(!os.length){logSave();logistica();return alert("Não há ordens de serviço abertas para a data selecionada.");}
+ let add=0,atualizadas=0;
+ for(const o of os){
+   const existente=logState.items.find(x=>String(x.sourceOSId)===String(o.id)&&x.date===d);
+   if(existente){
+     existente.cliente=logClienteNome(o.cliente_id);
+     existente.endereco=logAddressOS(o);
+     existente.cacamba=logCacambaNumero(o.cacamba_id);
+     existente.material=o.material||"";
+     existente.observacoes=o.observacoes||"";
+     atualizadas++;
+     continue;
+   }
+   logState.items.push({id:crypto.randomUUID(),date:d,sourceOSId:o.id,tipo:"entrega",cliente:logClienteNome(o.cliente_id),endereco:logAddressOS(o),cacamba:logCacambaNumero(o.cacamba_id),material:o.material||"",patio:"",hora:"",prioridade:"Normal",empresaFinal:"",observacoes:o.observacoes||""});
+   add++;
+ }
+ logState.routes=[];
+ logSave();
+ logistica();
+ alert(`Logística atualizada.\n\n${add} OS adicionada(s) e ${atualizadas} OS já carregada(s) foram sincronizadas.`);
+}
 function logSugerirFinal(id){
  const it=logState.items.find(x=>x.id===id); if(!it)return;
  const retiradas=logState.items.filter(x=>x.date===logState.date&&x.tipo==="retirada"&&x.id!==it.id);
@@ -1521,7 +1544,7 @@ function logistica(){
  }).join("");
  $("logistica").innerHTML=`<h2>🚛 Logística Inteligente</h2>
  <div class="card"><h3>Planejamento do dia</h3><p class="small">Monte as necessidades do dia e o sistema cruza as paradas para sugerir combinações que reduzam retornos vazios. A estratégia é uma sugestão: você pode ajustar conforme sua operação.</p>
- <div class="grid"><div><label>Data</label><input id="ldata" type="date" value="${esc(d)}" onchange="logState.date=this.value;logSave();logistica()"></div><div><label>Carregar OS do dia</label><button class="btn primary" onclick="logCarregarOS()">📋 Trazer ordens do dia (${os.length})</button></div><div><label>Ações</label><div><button class="btn" onclick="logGerarEstrategia()">✨ Gerar estratégia</button> <button class="btn secondary" onclick="logPrint()">🖨️ Imprimir</button> <button class="btn danger" onclick="logLimparDia()">Limpar dia</button></div></div></div></div>
+ <div class="grid"><div><label>Data</label><input id="ldata" type="date" value="${esc(d)}" onchange="logState.date=this.value;logSave();logistica()"></div><div><label>Carregar OS do dia</label><button class="btn primary" onclick="logCarregarOS()">📋 Trazer / sincronizar OS (${os.length})</button><div class="small" style="margin-top:6px">Atualiza as OS abertas desta data sem duplicar as que já estão na logística.</div></div><div><label>Ações</label><div><button class="btn" onclick="logGerarEstrategia()">✨ Gerar estratégia</button> <button class="btn secondary" onclick="logPrint()">🖨️ Imprimir</button> <button class="btn danger" onclick="logLimparDia()">Limpar dia</button></div></div></div></div>
  <div class="card"><h3>➕ Necessidade manual</h3><div class="grid"><div><label>Tipo</label><select id="ltipo"><option value="entrega">Entregar caçamba</option><option value="retirada">Retirar caçamba</option><option value="final">Levar à empresa final</option><option value="busca">Buscar material</option><option value="ponto">Parada/compromisso</option></select></div><div><label>Cliente</label><input id="lcliente" list="logClientes" placeholder="Nome do cliente"><datalist id="logClientes">${(cache.clientes||[]).map(c=>`<option value="${esc(c.nome)}">`).join("")}</datalist></div><div><label>Endereço / região</label><input id="lendereco" placeholder="Ex.: Osasco, Centro, Rua..."></div><div><label>Caçamba</label><input id="lcacamba" placeholder="Nº"></div><div><label>Material</label><input id="lmaterial"></div><div><label>Pátio de saída</label><select id="lpatio">${patioOptions.map(x=>`<option>${esc(x)}</option>`).join("")}</select></div><div><label>Horário limite</label><input id="lhora" type="time"></div><div><label>Prioridade</label><select id="lprioridade"><option>Normal</option><option>Alta</option><option>Urgente</option><option>Baixa</option></select></div><div><label>Empresa final</label><input id="lempresa" placeholder="Se houver"></div><div style="grid-column:1/-1"><label>Observação</label><textarea id="lobs" rows="2" placeholder="Ex.: precisa passar pela empresa final antes de voltar ao pátio"></textarea></div></div><br><button class="btn primary" onclick="logAdicionarManual()">Adicionar à logística</button></div>
  <div class="card"><h3>📋 Necessidades do dia (${itens.length})</h3>${itens.length?itens.map(logItemCard).join(""):"<p class='small'>Nenhuma necessidade. Você pode trazer as OS do dia ou adicionar manualmente.</p>"}</div>
  <div class="card"><h3>🧠 Estratégia sugerida</h3>${strategy||"<p class='small'>Ainda não foi gerada uma estratégia. Adicione as necessidades e toque em <b>Gerar estratégia</b>.</p>"}</div>
