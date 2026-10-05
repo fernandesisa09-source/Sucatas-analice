@@ -193,8 +193,16 @@ function imprimirAtual(){window.print();}
 function show(page){
  document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
- $(page).classList.add("active"); document.querySelector(`nav button[data-page="${page}"]`)?.classList.add("active");
- renderPage(page);
+ const alvo=$(page);
+ if(!alvo)return;
+ alvo.classList.add("active"); document.querySelector(`nav button[data-page="${page}"]`)?.classList.add("active");
+ try{
+   const r=renderPage(page);
+   if(r&&typeof r.catch==="function")r.catch(e=>{console.error("Erro ao abrir aba",page,e);alvo.innerHTML=`<div class="card"><h2>⚠️ Não foi possível carregar esta aba</h2><p class="small">O sistema continua funcionando. Tente novamente em alguns segundos.</p><button class="btn primary" onclick="show('${page}')">🔄 Tentar novamente</button></div>`;});
+ }catch(e){
+   console.error("Erro ao abrir aba",page,e);
+   alvo.innerHTML=`<div class="card"><h2>⚠️ Não foi possível carregar esta aba</h2><p class="small">Tente novamente.</p><button class="btn primary" onclick="show('${page}')">🔄 Tentar novamente</button></div>`;
+ }
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.page));
 
@@ -1149,18 +1157,18 @@ function pesagemWhatsAppCliente(nome, arquivada=false){
 }
 
 function renderPage(page){
- if(page==="dashboard")dashboard();
- if(page==="cacambas")cacambas();
- if(page==="estado")estadoCacambas();
- if(page==="clientes")clientes();
- if(page==="motoristas")motoristas();
- if(page==="caminhoes")caminhoes();
- if(page==="adiantamentos")adRender();
- if(page==="pesagem")pesagemRender();
- if(page==="ordens")ordens();
- if(page==="logistica")logistica();
- if(page==="movimentacoes")movimentacoes();
- if(page==="manutencoes")manutencoes();
+ if(page==="dashboard")return dashboard();
+ if(page==="cacambas")return cacambas();
+ if(page==="estado")return estadoCacambas();
+ if(page==="clientes")return clientes();
+ if(page==="motoristas")return motoristas();
+ if(page==="caminhoes")return caminhoes();
+ if(page==="adiantamentos")return adRender();
+ if(page==="pesagem")return pesagemRender();
+ if(page==="ordens")return ordens();
+ if(page==="logistica")return logistica();
+ if(page==="movimentacoes")return movimentacoes();
+ if(page==="manutencoes")return manutencoes();
 }
 function dashboard(){
  const c=cache.cacambas;
