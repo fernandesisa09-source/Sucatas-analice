@@ -905,14 +905,15 @@ async function pesagemRender(){
   trash:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg>`,
   check:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`
  };
- const acao=(icon,title,on,extra="")=>`<button class="pesagem-acao ${extra}" title="${title}" aria-label="${title}" onclick="${on}">${pesagemSvg[icon]}</button>`;
+ function pesagemJsAttr(on){return String(on).replace(/&/g,"&amp;").replace(/'/g,"&#39;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+ const acao=(icon,title,on,extra="")=>`<button type="button" class="pesagem-acao ${extra}" title="${title}" aria-label="${title}" onclick='${pesagemJsAttr(on)}'>${pesagemSvg[icon]}</button>`;
  const linhas=(g,arquivada=false)=>{
    const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
    const nomeArg=JSON.stringify(g.nome);
    const nomeCod=JSON.stringify(encodeURIComponent(g.nome));
    const idsArg=JSON.stringify(g.items.map(x=>String(x.id)));
    const resumo=`${g.items.length} ${g.items.length===1?'pesagem':'pesagens'} · ${brNum(total)} kg`;
-   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar todas as pesagens deste cliente no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${!arquivada?`<button class="pesagem-acao pesagem-add-material" title="Acrescentar material para esta pessoa" aria-label="Acrescentar material para esta pessoa" onclick="pesagemAbrirAdicionarCliente(${nomeArg})">＋</button>`:''}${!arquivada?acao('check','Concluir todas as pesagens deste cliente',`pesagemFecharModal(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
+   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar todas as pesagens deste cliente no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${!arquivada?`<button type="button" class="pesagem-acao pesagem-add-material" title="Acrescentar material para esta pessoa" aria-label="Acrescentar material para esta pessoa" onclick='${pesagemJsAttr(`pesagemAbrirAdicionarCliente(${nomeArg})`)}'>＋</button>`:''}${!arquivada?acao('check','Arquivar todas as pesagens deste cliente',`pesagemArquivarCliente(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
    const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><span class="pesagem-material-nome">${esc(x.material||"—")}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}</div></td></tr>`).join("");
    return `<tr class="pesagem-cliente-head"><td colspan="6"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Data</th><th>Material</th><th>Entrada</th><th>Saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
  };
@@ -1117,6 +1118,18 @@ function pesagemFecharCliente(){
  const c=clientes[Number(escolha)-1];
  if(!c)return alert("Cliente inválido.");
  pesagemFecharModal(c.nome);
+}
+async function pesagemArquivarCliente(nome){
+ const items=pesagemAgruparCliente(nome);
+ if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+ const ids=items.map(x=>String(x.id));
+ if(!confirm("Arquivar todas as "+items.length+" pesagens de "+nome+"?"))return;
+ const {error}=await sb.from("pesagens").update({fechada:true,updated_at:new Date().toISOString()}).in("id",ids);
+ if(error)return alert("Não foi possível arquivar as pesagens: "+error.message);
+ pesagemCloud=pesagemCloud.map(x=>ids.includes(String(x.id))?{...x,fechada:true}:x);
+ pesagemCloudReady=true;
+ await pesagemRender();
+ alert("Pesagens de "+nome+" arquivadas com sucesso!");
 }
 function pesagemFecharModal(nome){
  const items=pesagemAgruparCliente(nome);
