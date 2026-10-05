@@ -122,6 +122,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
  <button data-page="adiantamentos">💰 Adiantamentos</button>
  <button data-page="pesagem">⚖️ Pesagem</button>
  <button data-page="ordens">📋 Ordens</button>
+ <button data-page="logistica">🚛 Logística</button>
  <button data-page="movimentacoes">🔄 Movimentações</button>
  <button data-page="manutencoes">🔧 Manutenção</button>
 </nav>
@@ -135,6 +136,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <section id="adiantamentos" class="page"></section>
 <section id="pesagem" class="page"></section>
 <section id="ordens" class="page"></section>
+<section id="logistica" class="page"></section>
 <section id="movimentacoes" class="page"></section>
 <section id="manutencoes" class="page"></section>
 </main>
@@ -1156,6 +1158,7 @@ function renderPage(page){
  if(page==="adiantamentos")adRender();
  if(page==="pesagem")pesagemRender();
  if(page==="ordens")ordens();
+ if(page==="logistica")logistica();
  if(page==="movimentacoes")movimentacoes();
  if(page==="manutencoes")manutencoes();
 }
@@ -1416,6 +1419,107 @@ function enviarOSWhatsApp(id){
 
  window.open("https://wa.me/"+telefone+"?text="+encodeURIComponent(msg),"_blank");
 }
+
+/* ===================== LOGÍSTICA INTELIGENTE ===================== */
+const LOG_KEY="sucatas_analice_logistica_v1";
+let logState=JSON.parse(localStorage.getItem(LOG_KEY)||"null")||{date:dataHojeISO(),items:[],routes:[]};
+if(!Array.isArray(logState.items))logState.items=[];
+if(!Array.isArray(logState.routes))logState.routes=[];
+function logSave(){localStorage.setItem(LOG_KEY,JSON.stringify(logState));}
+function logEsc(v){return esc(v||"");}
+function logNorm(v){return String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();}
+function logTokens(v){return [...new Set(logNorm(v).split(/\s+/).filter(x=>x.length>=4))];}
+function logDateBR(v){return v?osDataBRPrint(v):"";}
+function logTipoLabel(t){return {entrega:"Entregar caçamba",retirada:"Retirar caçamba",final:"Levar à empresa final",busca:"Buscar material",ponto:"Parada/compromisso"}[t]||t;}
+function logOrdemRows(){return (cache.ordens||[]).filter(x=>String(x.status||"")!=="Concluída" && String(x.status||"")!=="Cancelada");}
+function logClienteNome(id){return (cache.clientes||[]).find(x=>String(x.id)===String(id))?.nome||"";}
+function logCacambaNumero(id){return (cache.cacambas||[]).find(x=>String(x.id)===String(id))?.numero||"";}
+function logCaminhaoNome(id){const x=(cache.caminhoes||[]).find(x=>String(x.id)===String(id));return x?.identificacao||x?.placa||"";}
+function logAddressOS(o){return o?.endereco||logClienteEndereco(o?.cliente_id)||"";}
+function logClienteEndereco(id){const c=(cache.clientes||[]).find(x=>String(x.id)===String(id));if(!c)return "";return [c.endereco,c.numero,c.bairro,c.cidade,c.estado,c.cep].filter(Boolean).join(", ");}
+function logScore(a,b){
+ const A=logTokens(a),B=logTokens(b); if(!A.length||!B.length)return 0;
+ let common=A.filter(x=>B.includes(x));
+ let score=common.length*20;
+ if(logNorm(a)===logNorm(b))score+=100;
+ if(common.some(x=>["osasco","barueri","carapicuiba","cotia","taboao","jandira","itapevi","sao","paulo"].includes(x)))score+=15;
+ return Math.min(100,score);
+}
+function logProximidadeLabel(score){if(score>=60)return "🟢 Forte oportunidade de combinar";if(score>=35)return "🟡 Pode valer combinar";return "⚪ Pouca evidência de proximidade";}
+function logPriorityWeight(p){return ({Urgente:40,Alta:25,Normal:10,Baixa:0}[p]??10);}
+function logGerarEstrategia(){
+ const date=logState.date||dataHojeISO();
+ const itens=logState.items.filter(x=>!x.date||x.date===date).map((x,i)=>({...x,_i:i}));
+ const usados=new Set(),rotas=[];
+ const ordemItems=itens.filter(x=>x.sourceOSId).map(x=>{const o=(cache.ordens||[]).find(z=>String(z.id)===String(x.sourceOSId));return o?{...x,os:o}:x});
+ // 1) Primeiro agrupa retirada + empresa final quando há endereço/região parecida.
+ for(const it of itens){
+  if(usados.has(it._i))continue;
+  if(it.tipo!=="retirada")continue;
+  let melhor=null,best=-1;
+  for(const fin of itens){
+   if(usados.has(fin._i)||fin._i===it._i||fin.tipo!=="final")continue;
+   const sc=logScore(it.endereco,fin.endereco);
+   if(sc>best){best=sc;melhor=fin;}
+  }
+  const par=[it]; if(melhor&&best>=25){par.push(melhor);usados.add(melhor._i);}
+  usados.add(it._i);
+  rotas.push({name:"Rota sugerida "+(rotas.length+1),patio:it.patio||"Analice",items:par,reason:melhor?`${logProximidadeLabel(best)} entre a retirada e a empresa final (${best}% de compatibilidade por endereço/região).`:`Retirada prioritária; sem empresa final próxima informada.`,score:best});
+ }
+ // 2) Agrupa entregas restantes por endereço/região e prioridade.
+ for(const it of itens){
+  if(usados.has(it._i))continue;
+  const grupo=[it];usados.add(it._i);
+  for(const cand of itens){if(usados.has(cand._i))continue;if(cand.tipo!==it.tipo&&it.tipo!=="entrega"&&cand.tipo!=="entrega")continue;const sc=logScore(it.endereco,cand.endereco);if(sc>=35){grupo.push(cand);usados.add(cand._i);}}
+  grupo.sort((a,b)=>logPriorityWeight(b.prioridade)-logPriorityWeight(a.prioridade));
+  rotas.push({name:"Rota sugerida "+(rotas.length+1),patio:it.patio||"Analice",items:grupo,reason:grupo.length>1?"Serviços com endereços/regiões semelhantes foram agrupados para reduzir deslocamentos.":"Serviço isolado ou sem outra parada suficientemente próxima.",score:0});
+ }
+ // 3) Ordena rotas por prioridade e horário.
+ rotas.sort((a,b)=>{const pa=Math.max(...a.items.map(x=>logPriorityWeight(x.prioridade)));const pb=Math.max(...b.items.map(x=>logPriorityWeight(x.prioridade)));return pb-pa||String(a.items[0]?.hora||"").localeCompare(String(b.items[0]?.hora||""));});
+ logState.routes=rotas.map((r,i)=>({...r,name:`Rota ${i+1}`}));logSave();logistica();
+}
+function logAdicionarOS(osId){
+ const o=(cache.ordens||[]).find(x=>String(x.id)===String(osId));if(!o)return;
+ const exists=logState.items.some(x=>String(x.sourceOSId)===String(osId)&&x.date===logState.date);if(exists)return alert("Essa OS já está na logística do dia.");
+ logState.items.push({id:crypto.randomUUID(),date:logState.date,sourceOSId:o.id,tipo:"entrega",cliente:logClienteNome(o.cliente_id),endereco:logAddressOS(o),cacamba:logCacambaNumero(o.cacamba_id),material:o.material||"",patio:"",hora:"",prioridade:"Normal",empresaFinal:"",observacoes:o.observacoes||""});logSave();logistica();
+}
+function logAdicionarManual(){
+ const tipo=val("ltipo"),cliente=val("lcliente"),endereco=val("lendereco");if(!endereco)return alert("Informe o endereço ou região da parada.");
+ logState.items.push({id:crypto.randomUUID(),date:val("ldata")||dataHojeISO(),sourceOSId:null,tipo,cliente,endereco,cacamba:val("lcacamba"),material:val("lmaterial"),patio:val("lpatio"),hora:val("lhora"),prioridade:val("lprioridade"),empresaFinal:val("lempresa"),observacoes:val("lobs")});logState.date=val("ldata")||logState.date;logSave();logistica();
+}
+function logRemover(id){logState.items=logState.items.filter(x=>x.id!==id);logState.routes=[];logSave();logistica();}
+function logLimparDia(){if(!confirm("Limpar somente as necessidades da data selecionada?"))return;const d=logState.date;logState.items=logState.items.filter(x=>x.date!==d);logState.routes=[];logSave();logistica();}
+function logCarregarOS(){const d=logState.date;const os=logOrdemRows().filter(o=>dataOSNormalizada(o.data_entrega)===d||dataOSNormalizada(o.data_retirada_prevista)===d);let add=0;for(const o of os){if(logState.items.some(x=>String(x.sourceOSId)===String(o.id)&&x.date===d))continue;logState.items.push({id:crypto.randomUUID(),date:d,sourceOSId:o.id,tipo:"entrega",cliente:logClienteNome(o.cliente_id),endereco:logAddressOS(o),cacamba:logCacambaNumero(o.cacamba_id),material:o.material||"",patio:"",hora:"",prioridade:"Normal",empresaFinal:"",observacoes:o.observacoes||""});add++;}logSave();logistica();if(!add)alert("Nenhuma OS nova foi encontrada para essa data.");}
+function logSugerirFinal(id){
+ const it=logState.items.find(x=>x.id===id); if(!it)return;
+ const retiradas=logState.items.filter(x=>x.date===logState.date&&x.tipo==="retirada"&&x.id!==it.id);
+ if(!retiradas.length)return alert("Adicione uma retirada e uma empresa final para o sistema comparar.");
+ const ranked=retiradas.map(x=>({x,score:logScore(it.endereco,x.endereco)})).sort((a,b)=>b.score-a.score);const r=ranked[0];alert(`Melhor combinação encontrada:\n\n${r.x.cliente||"Retirada"}\n${r.x.endereco}\n\nCompatibilidade por endereço/região: ${r.score}%.\n\n${logProximidadeLabel(r.score)}`);
+}
+function logPrint(){
+ const r=logState.routes||[];const w=window.open("","_blank");if(!w)return alert("Permita pop-ups para imprimir.");
+ const html=r.map(x=>`<div class="route"><h2>${esc(x.name)} — Pátio: ${esc(x.patio||"A definir")}</h2><p>${esc(x.reason)}</p>${x.items.map((i,n)=>`<div class="stop"><b>${n+1}. ${esc(logTipoLabel(i.tipo))}</b><br>Cliente: ${esc(i.cliente||"—")}<br>Endereço: ${esc(i.endereco||"—")}<br>Caçamba: ${esc(i.cacamba||"—")}<br>Material: ${esc(i.material||"—")}<br>Horário: ${esc(i.hora||"—")}<br>Prioridade: ${esc(i.prioridade||"Normal")}${i.empresaFinal?`<br>Empresa final: ${esc(i.empresaFinal)}`:""}</div>`).join("")}</div>`).join("");
+ w.document.write(`<html><head><meta charset="utf-8"><title>Planejamento Logístico</title><style>body{font-family:Arial;margin:30px;color:#333}h1{color:#55358a}.route{border:2px solid #ddd;border-radius:12px;padding:16px;margin-bottom:18px}.stop{border-top:1px solid #ddd;padding:10px 0;line-height:1.5}</style></head><body><h1>🚛 Planejamento Logístico — ${logDateBR(logState.date)}</h1>${html||"<p>Nenhuma rota gerada.</p>"}</body></html>`);w.document.close();setTimeout(()=>w.print(),300);
+}
+function logItemCard(i){return `<div class="card" style="margin:8px 0;border-left:4px solid #55358a"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(logTipoLabel(i.tipo))}</b><span class="small">${esc(i.prioridade||"Normal")} ${i.hora?"• "+esc(i.hora):""}</span></div><div class="small" style="margin-top:6px">${esc(i.cliente||"Sem cliente")} • ${esc(i.endereco||"Sem endereço")}</div><div class="small">${i.cacamba?"Caçamba "+esc(i.cacamba)+" • ":""}${esc(i.material||"")}${i.empresaFinal?" • Final: "+esc(i.empresaFinal):""}</div><div style="margin-top:8px"><button class="btn danger" onclick="logRemover('${i.id}')">🗑️</button>${i.tipo==="final"?` <button class="btn" onclick="logSugerirFinal('${i.id}')">🔎 Comparar</button>`:""}</div></div>`;}
+function logistica(){
+ const d=logState.date||dataHojeISO(); logState.date=d;
+ const itens=logState.items.filter(x=>x.date===d);
+ const os=logOrdemRows().filter(o=>dataOSNormalizada(o.data_entrega)===d||dataOSNormalizada(o.data_retirada_prevista)===d);
+ const patioOptions=["","Analice","Estrada das Rosas"];
+ const strategy=(logState.routes||[]).map((r)=>{
+   const stops=r.items.map((i,n)=>`<div style="padding:9px 0;border-top:1px solid #eee"><b>${n+1}. ${esc(logTipoLabel(i.tipo))}</b> — ${esc(i.cliente||"Sem cliente")}<br><span class="small">📍 ${esc(i.endereco||"Sem endereço")}${i.cacamba?" • 🗑️ "+esc(i.cacamba):""}${i.empresaFinal?" • ♻️ "+esc(i.empresaFinal):""}${i.hora?" • ⏰ "+esc(i.hora):""}</span></div>`).join("");
+   return `<div class="card" style="margin:10px 0;border-left:5px solid #0a9a4a"><h3 style="margin:0">🚛 ${esc(r.name)}</h3><p class="small">${esc(r.reason)}</p><p><b>Saída:</b> ${esc(r.patio||"A definir")}</p>${stops}</div>`;
+ }).join("");
+ $("logistica").innerHTML=`<h2>🚛 Logística Inteligente</h2>
+ <div class="card"><h3>Planejamento do dia</h3><p class="small">Monte as necessidades do dia e o sistema cruza as paradas para sugerir combinações que reduzam retornos vazios. A estratégia é uma sugestão: você pode ajustar conforme sua operação.</p>
+ <div class="grid"><div><label>Data</label><input id="ldata" type="date" value="${esc(d)}" onchange="logState.date=this.value;logSave();logistica()"></div><div><label>Carregar OS do dia</label><button class="btn primary" onclick="logCarregarOS()">📋 Trazer ordens do dia (${os.length})</button></div><div><label>Ações</label><div><button class="btn" onclick="logGerarEstrategia()">✨ Gerar estratégia</button> <button class="btn secondary" onclick="logPrint()">🖨️ Imprimir</button> <button class="btn danger" onclick="logLimparDia()">Limpar dia</button></div></div></div></div>
+ <div class="card"><h3>➕ Necessidade manual</h3><div class="grid"><div><label>Tipo</label><select id="ltipo"><option value="entrega">Entregar caçamba</option><option value="retirada">Retirar caçamba</option><option value="final">Levar à empresa final</option><option value="busca">Buscar material</option><option value="ponto">Parada/compromisso</option></select></div><div><label>Cliente</label><input id="lcliente" list="logClientes" placeholder="Nome do cliente"><datalist id="logClientes">${(cache.clientes||[]).map(c=>`<option value="${esc(c.nome)}">`).join("")}</datalist></div><div><label>Endereço / região</label><input id="lendereco" placeholder="Ex.: Osasco, Centro, Rua..."></div><div><label>Caçamba</label><input id="lcacamba" placeholder="Nº"></div><div><label>Material</label><input id="lmaterial"></div><div><label>Pátio de saída</label><select id="lpatio">${patioOptions.map(x=>`<option>${esc(x)}</option>`).join("")}</select></div><div><label>Horário limite</label><input id="lhora" type="time"></div><div><label>Prioridade</label><select id="lprioridade"><option>Normal</option><option>Alta</option><option>Urgente</option><option>Baixa</option></select></div><div><label>Empresa final</label><input id="lempresa" placeholder="Se houver"></div><div style="grid-column:1/-1"><label>Observação</label><textarea id="lobs" rows="2" placeholder="Ex.: precisa passar pela empresa final antes de voltar ao pátio"></textarea></div></div><br><button class="btn primary" onclick="logAdicionarManual()">Adicionar à logística</button></div>
+ <div class="card"><h3>📋 Necessidades do dia (${itens.length})</h3>${itens.length?itens.map(logItemCard).join(""):"<p class='small'>Nenhuma necessidade. Você pode trazer as OS do dia ou adicionar manualmente.</p>"}</div>
+ <div class="card"><h3>🧠 Estratégia sugerida</h3>${strategy||"<p class='small'>Ainda não foi gerada uma estratégia. Adicione as necessidades e toque em <b>Gerar estratégia</b>.</p>"}</div>
+ <div class="card"><h3>💡 Como a lógica funciona</h3><ul class="small"><li>Prioriza serviços urgentes e horários definidos.</li><li>Procura combinar retirada com empresa final quando os endereços/regiões têm forte semelhança.</li><li>Agrupa entregas e outras paradas próximas para reduzir deslocamentos.</li><li>Você escolhe o pátio: <b>Analice</b> ou <b>Estrada das Rosas</b>.</li><li>O sistema não altera suas OS automaticamente; ele sugere a melhor sequência para você decidir.</li></ul></div>`;
+}
+
 function ordens(){
  const todas=Array.isArray(cache.ordens)?cache.ordens:[];
  const ativas=todas.filter(x=>String(x.status||"")!=="Concluída");
