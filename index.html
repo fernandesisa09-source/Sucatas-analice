@@ -1071,11 +1071,12 @@ function pesagemImprimir(id){
  const w=window.open("","_blank","width=800,height=900"); if(!w)return alert("Permita a abertura da janela de impressão.");
  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title>
  <style>
- @page{size:A4 portrait;margin:4mm}
+ @page{size:A4 portrait;margin:0}
  *{box-sizing:border-box}
- html,body{margin:0;padding:0;width:210mm;min-height:297mm}
- body{font-family:Arial,sans-serif;color:#111}
- .ticket{height:112mm;max-height:112mm;overflow:hidden;border:1px solid #111;padding:4mm;position:relative;page-break-inside:avoid;break-inside:avoid;background:#fff}
+ html{margin:0;padding:0;width:210mm}
+ body{font-family:Arial,sans-serif;color:#111;margin:0;padding:8mm 6mm 0;width:210mm;height:auto;min-height:0}
+ .ticket{height:125mm;max-height:125mm;overflow:hidden;border:1px solid #111;padding:3.5mm;position:relative;page-break-inside:avoid;break-inside:avoid;background:#fff;margin:0}
+ .ticket + .corte + .ticket{margin-top:0}
  .ticket-venda{border:2px solid #b83280;background:#fff4fb}
  .ticket-venda .cabecalho{color:#8f235f}
  .ticket-venda .operacao{border-color:#b83280;background:#b83280;color:#fff}
@@ -1119,11 +1120,12 @@ function pesagemImprimirCliente(nomeCod, arquivada=false){
  const w=window.open("","_blank","width=900,height=800");
  if(!w)return alert("Permita a abertura da janela.");
  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>
- @page{size:A4 portrait;margin:4mm}
+ @page{size:A4 portrait;margin:0}
  *{box-sizing:border-box}
- html,body{margin:0;padding:0;width:210mm;min-height:297mm}
- body{font-family:Arial,sans-serif;color:#111}
- .ticket{height:112mm;max-height:112mm;overflow:hidden;border:1px solid #111;padding:4mm;position:relative;page-break-inside:avoid;break-inside:avoid;background:#fff}
+ html{margin:0;padding:0;width:210mm}
+ body{font-family:Arial,sans-serif;color:#111;margin:0;padding:8mm 6mm 0;width:210mm;height:auto;min-height:0}
+ .ticket{height:125mm;max-height:125mm;overflow:hidden;border:1px solid #111;padding:3.5mm;position:relative;page-break-inside:avoid;break-inside:avoid;background:#fff;margin:0}
+ .ticket + .corte + .ticket{margin-top:0}
  .ticket-venda{border:2px solid #b83280;background:#fff4fb}.ticket-venda .cabecalho{color:#8f235f}.ticket-venda .operacao{background:#b83280;color:#fff;border-color:#b83280}
  .ticket-compra .operacao{background:#55358a;color:#fff;border-color:#55358a}
  .ticket-misto .operacao{background:#666;color:#fff;border-color:#666}
@@ -1134,7 +1136,7 @@ function pesagemImprimirCliente(nomeCod, arquivada=false){
  table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #aaa;padding:2.2px;font-size:7px;text-align:center;line-height:1.05;overflow:hidden}th{font-weight:800}td:nth-child(5){text-align:left}
  .observacao{font-size:8px;line-height:1.1;margin-top:2.5mm;padding:2mm;border:1px solid #777;border-radius:1.5mm;max-height:14mm;overflow:hidden}
  .corte{text-align:center;height:4mm;line-height:4mm;font-size:6.5px;border-top:1px dashed #777;border-bottom:1px dashed #777;page-break-inside:avoid;break-inside:avoid}
- @media print{html,body{width:210mm;height:297mm}.ticket{height:112mm;max-height:112mm}}
+ @media print{html{width:210mm}.ticket{height:125mm;max-height:125mm}.corte{height:4mm;line-height:4mm}}
  </style></head><body>${bloco}<div class="corte"></div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);
  w.document.close();
 }
