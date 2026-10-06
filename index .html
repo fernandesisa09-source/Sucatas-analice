@@ -122,6 +122,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
  <button data-page="adiantamentos">💰 Adiantamentos</button>
  <button data-page="pesagem">⚖️ Pesagem</button>
  <button data-page="ordens">📋 Ordens</button>
+ <button data-page="logistica">🚛 Logística</button>
  <button data-page="movimentacoes">🔄 Movimentações</button>
  <button data-page="manutencoes">🔧 Manutenção</button>
 </nav>
@@ -135,6 +136,7 @@ table{width:100%;border-collapse:collapse;min-width:700px}th,td{padding:9px;bord
 <section id="adiantamentos" class="page"></section>
 <section id="pesagem" class="page"></section>
 <section id="ordens" class="page"></section>
+<section id="logistica" class="page"></section>
 <section id="movimentacoes" class="page"></section>
 <section id="manutencoes" class="page"></section>
 </main>
@@ -163,6 +165,7 @@ function esc(v){return String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function msg(id,text,ok=false){$(id).innerHTML=`<div class="msg ${ok?'ok':'err'}">${esc(text)}</div>`}
 function val(id){return $(id)?.value?.trim()||""}
 function today(){return new Date().toISOString().slice(0,10)}
+function horaAtual(){return new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",hour12:false})}
 
 function imprimirItem(table,id){
  const lista = cache[table] || (table==="ordens_servico" ? (cache.ordens||[]) : []);
@@ -191,8 +194,16 @@ function imprimirAtual(){window.print();}
 function show(page){
  document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));
  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
- $(page).classList.add("active"); document.querySelector(`nav button[data-page="${page}"]`)?.classList.add("active");
- renderPage(page);
+ const alvo=$(page);
+ if(!alvo)return;
+ alvo.classList.add("active"); document.querySelector(`nav button[data-page="${page}"]`)?.classList.add("active");
+ try{
+   const r=renderPage(page);
+   if(r&&typeof r.catch==="function")r.catch(e=>{console.error("Erro ao abrir aba",page,e);alvo.innerHTML=`<div class="card"><h2>⚠️ Não foi possível carregar esta aba</h2><p class="small">O sistema continua funcionando. Tente novamente em alguns segundos.</p><button class="btn primary" onclick="show('${page}')">🔄 Tentar novamente</button></div>`;});
+ }catch(e){
+   console.error("Erro ao abrir aba",page,e);
+   alvo.innerHTML=`<div class="card"><h2>⚠️ Não foi possível carregar esta aba</h2><p class="small">Tente novamente.</p><button class="btn primary" onclick="show('${page}')">🔄 Tentar novamente</button></div>`;
+ }
 }
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.page));
 
@@ -363,25 +374,33 @@ async function saveEditModal(){
    else next[field]=v;
  }
  if(table==="cacambas" && !next.numero)return alert("O número da caçamba é obrigatório.");
+ if(table==="cacambas"){
+   const livre=(next.status==="Disponível"||next.status==="No pátio");
+   if(next.status==="No cliente" && !next.cliente_id)return alert("Selecione o cliente para uma caçamba que está No cliente.");
+   if(livre){
+     next.cliente_id=null;next.caminhao_id=null;next.motorista_id=null;next.endereco_atual=null;next.data_colocacao=null;next.material=null;
+     if(next.status==="Disponível")next.patio=null;
+   }
+ }
  if(table==="clientes" && !next.nome)return alert("O nome do cliente é obrigatório.");
  if(table==="motoristas" && !next.nome)return alert("O nome do motorista é obrigatório.");
  if(table==="caminhoes" && !next.identificacao)return alert("A identificação do caminhão é obrigatória.");
  if(table==="ordens_servico" && !next.numero)return alert("O número da OS é obrigatório.");
  if(table==="manutencoes" && (!Number.isFinite(next.custo)||next.custo<0))return alert("Custo inválido.");
 
- let anteriorParaHistorico=null;
- if(table==="cacambas" && next.cliente_id){
-   anteriorParaHistorico=(cache.cacambas||[]).find(c=>
-     String(c.cliente_id)===String(next.cliente_id) &&
-     String(c.id)!==String(id)
-   )||null;
+ const clienteAnterior=(cache.clientes||[]).find(c=>String(c.id)===String(oldClienteId))||null;
+ const clienteAtual=(cache.clientes||[]).find(c=>String(c.id)===String(next.cliente_id))||null;
+ const mudouCliente=table==="cacambas" && String(oldClienteId||"")!==String(next.cliente_id||"");
+ if(table==="cacambas" && mudouCliente && oldClienteId && !next.cliente_id){
+   next.cliente_anterior_id=oldClienteId;next.cliente_anterior_nome=clienteAnterior?.nome||null;next.ultima_troca_at=new Date().toISOString();
  }
-
+ if(table==="cacambas" && mudouCliente && next.cliente_id){
+   next.cliente_anterior_id=oldClienteId||null;next.cliente_anterior_nome=clienteAnterior?.nome||null;next.ultima_troca_at=new Date().toISOString();
+ }
  const {data:updated,error}=await sb.from(table).update(next).eq("id",id).select().single();
  if(error)return alert(error.message);
-
- if(table==="cacambas" && next.cliente_id && String(oldClienteId)!==String(next.cliente_id)){
-   registrarHistoricoTroca(next.cliente_id,anteriorParaHistorico,updated||{...oldRow,...next,id});
+ if(table==="cacambas" && mudouCliente){
+   registrarHistoricoTroca(id,clienteAnterior,clienteAtual);
  }
 
  closeEditModal();
@@ -751,10 +770,15 @@ function parseBR(v){return pesoNum(v)}
 function brNum(n,d=2){return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})}
 function produtoSelecionado(){const id=$("pprod")?.value; return produtosLoad().find(x=>String(x.id)===String(id))||null}
 function produtoSelecionar(){const x=produtoSelecionado(); if(x){if($("pmat"))$("pmat").value=x.nome||"";pesagemCalcular()}}
+function pesagemLiquidoCalcular(entrada,saida,tipo){
+ const e=Number(entrada||0), s=Number(saida||0);
+ return String(tipo||"compra").toLowerCase()==="venda" ? Math.abs(e-s) : e-s;
+}
 function pesagemCalcular(){
  const entrada=pesoNum($("pe")?.value), saida=pesoNum($("ps")?.value);
- const liquido=Math.max(0,entrada-saida);
- if($("pliq"))$("pliq").value=brNum(liquido);
+ const tipo=$("pmov")?.value||"compra";
+ const liquido=pesagemLiquidoCalcular(entrada,saida,tipo);
+ if($("pliq"))$("pliq").value=brNum(Math.max(0,liquido));
  return {entrada,saida,liquido};
 }
 
@@ -790,7 +814,7 @@ async function produtosCloudLoad(){
 async function pesagensCloudLoad(){
  const local=(()=>{try{return JSON.parse(localStorage.getItem(PESAGEM_KEY)||"[]")}catch(e){return []}})();
  const localFechadas=(()=>{try{return new Set(JSON.parse(localStorage.getItem(PESAGEM_FECH_KEY)||"[]").flatMap(f=>(f.pesagem_ids||[]).map(String)))}catch(e){return new Set()}})();
- const {data,error}=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+ const {data,error}=await sb.from("pesagens").select("*").order("created_at",{ascending:true,nullsFirst:false}).order("id",{ascending:true});
  if(error){
    pesagemCloud=local;pesagemCloudReady=true;
    console.error("pesagens",error);
@@ -808,6 +832,9 @@ async function pesagensCloudLoad(){
      saida:Number(x.saida||0),
      liquido:Number(x.liquido||Math.max(0,Number(x.entrada||0)-Number(x.saida||0))),
      observacoes:String(x.observacoes||"").trim(),
+     hora_entrada:String(x.hora_entrada||"").trim()||null,
+     hora_saida:String(x.hora_saida||"").trim()||null,
+     tipo_movimento:String(x.tipo_movimento||"compra").trim().toLowerCase()==="venda"?"venda":"compra",
      fechada:localFechadas.has(String(x.id))
    })).filter(x=>x.pessoa&&x.material&&Number(x.entrada)>0&&!idsCloud.has(String(x.id)));
    let migOk=true;
@@ -820,7 +847,7 @@ async function pesagensCloudLoad(){
      localStorage.removeItem(PESAGEM_FECH_KEY);
    }
  }
- const fresh=await sb.from("pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+ const fresh=await sb.from("pesagens").select("*").order("created_at",{ascending:true,nullsFirst:false}).order("id",{ascending:true});
  pesagemCloud=fresh.error?(data||[]):(fresh.data||[]);
  pesagemCloudReady=true;
  return pesagemCloud;
@@ -837,23 +864,22 @@ function iniciarPesagemRealtime(){
 
 async function produtoNovo(){
  const modal=document.createElement("div");modal.className="edit-modal";modal.style.display="flex";modal.id="produtoModal";
- modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Adicionar produto</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div><label>Produto / Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div><div><label>Preço por kg (R$) *</label><input id="pr_preco" inputmode="decimal" placeholder="0,00"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar produto</button></div></div>`;document.body.appendChild(modal);
+ modal.innerHTML=`<div class="edit-box"><div class="edit-head"><h2>➕ Cadastrar material</h2><button class="btn" onclick="this.closest('#produtoModal').remove()">✕</button></div><div class="grid"><div style="grid-column:1/-1"><label>Material *</label><input id="pr_nome" placeholder="Ex.: Papelão"></div></div><div class="edit-actions"><button class="btn secondary" onclick="this.closest('#produtoModal').remove()">Cancelar</button><button class="btn primary" onclick="produtoSalvar()">💾 Salvar material</button></div></div>`;document.body.appendChild(modal);
 }
 async function produtoSalvar(){
- const nome=$("pr_nome")?.value.trim(),preco=pesoNum($("pr_preco")?.value);
- if(!nome||preco<=0)return alert("Preencha produto e preço.");
- if(produtosLoad().some(x=>String(x.nome||"").trim().toLowerCase()===nome.toLowerCase()))return alert("Esse produto já está cadastrado.");
- const {data,error}=await sb.from("produtos_pesagem").insert({nome,preco}).select().single();
+ const nome=$("pr_nome")?.value.trim();
+ if(!nome)return alert("Informe o nome do material.");
+ if(produtosLoad().some(x=>String(x.nome||"").trim().toLowerCase()===nome.toLowerCase()))return alert("Esse material já está cadastrado.");
+ const {data,error}=await sb.from("produtos_pesagem").insert({nome,preco:0}).select().single();
  if(error)return alert("Não foi possível salvar o produto: "+error.message);
  produtoCloud=[data,...produtoCloud];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud));
  $("produtoModal")?.remove();await pesagemRender();alert("Produto cadastrado com sucesso!");
 }
 async function produtoEditar(id){
  const x=produtosLoad().find(a=>String(a.id)===String(id));if(!x)return;
- const nome=prompt("Produto / Material:",x.nome||"");if(nome===null)return;
- const precoS=prompt("Preço por kg (R$):",brNum(x.preco));if(precoS===null)return;
- const preco=pesoNum(precoS);if(!nome.trim()||preco<=0)return alert("Dados inválidos.");
- const {data,error}=await sb.from("produtos_pesagem").update({nome:nome.trim(),preco,updated_at:new Date().toISOString()}).eq("id",id).select().single();
+ const nome=prompt("Material:",x.nome||"");if(nome===null)return;
+ if(!nome.trim())return alert("Informe o nome do material.");
+ const {data,error}=await sb.from("produtos_pesagem").update({nome:nome.trim(),updated_at:new Date().toISOString()}).eq("id",id).select().single();
  if(error)return alert("Não foi possível atualizar o produto: "+error.message);
  produtoCloud=produtoCloud.map(a=>String(a.id)===String(id)?data:a);produtoCloudReady=true;await pesagemRender();
 }
@@ -866,8 +892,8 @@ async function produtoExcluir(id){
 }
 
 async function pesagemRender(){
- await pesagensCloudLoad();
- await produtosCloudLoad();
+ try{await pesagensCloudLoad();}catch(e){console.error(e)}
+ try{await produtosCloudLoad();}catch(e){console.error(e)}
  iniciarPesagemRealtime();
  const el=$("pesagem"); if(!el)return;
  const lista=pesagensLoad();
@@ -876,7 +902,8 @@ async function pesagemRender(){
  const agrupar=(arr)=>{
    const grupos={};
    arr.forEach(x=>{const nome=pesagemClienteNome(x);const k=nome.toLowerCase();if(!grupos[k])grupos[k]={nome,items:[]};grupos[k].items.push(x)});
-   return Object.values(grupos).sort((a,b)=>a.nome.localeCompare(b.nome));
+   Object.values(grupos).forEach(g=>g.items.sort((a,b)=>{const ca=new Date(a.created_at||0).getTime(),cb=new Date(b.created_at||0).getTime();return cb-ca || Number(b.numero_ticket||0)-Number(a.numero_ticket||0)}));
+   return Object.values(grupos).sort((a,b)=>{const ca=new Date(a.items[0]?.created_at||0).getTime(),cb=new Date(b.items[0]?.created_at||0).getTime();return cb-ca || String(b.nome).localeCompare(String(a.nome))}); // mais recente primeiro
  };
  const clientes=agrupar(abertas);
  const clientesArquivados=agrupar(arquivadas);
@@ -887,24 +914,30 @@ async function pesagemRender(){
   trash:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M7 7l1 13h8l1-13"/><path d="M10 11v5M14 11v5"/></svg>`,
   check:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>`
  };
- const acao=(icon,title,on,extra="")=>`<button class="pesagem-acao ${extra}" title="${title}" aria-label="${title}" onclick="${on}">${pesagemSvg[icon]}</button>`;
+ function pesagemJsAttr(on){return String(on).replace(/&/g,"&amp;").replace(/'/g,"&#39;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+ const acao=(icon,title,on,extra="")=>`<button type="button" class="pesagem-acao ${extra}" title="${title}" aria-label="${title}" onclick='${pesagemJsAttr(on)}'>${pesagemSvg[icon]}</button>`;
  const linhas=(g,arquivada=false)=>{
    const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
    const nomeArg=JSON.stringify(g.nome);
    const nomeCod=JSON.stringify(encodeURIComponent(g.nome));
    const idsArg=JSON.stringify(g.items.map(x=>String(x.id)));
    const resumo=`${g.items.length} ${g.items.length===1?'pesagem':'pesagens'} · ${brNum(total)} kg`;
-   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar todas as pesagens deste cliente no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${!arquivada?`<button class="pesagem-acao pesagem-add-material" title="Acrescentar material para esta pessoa" aria-label="Acrescentar material para esta pessoa" onclick="pesagemAbrirAdicionarCliente(${nomeArg})">＋</button>`:''}${!arquivada?acao('check','Concluir todas as pesagens deste cliente',`pesagemFecharModal(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
-   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><span class="pesagem-material-nome">${esc(x.material||"—")}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}</div></td></tr>`).join("");
-   return `<tr class="pesagem-cliente-head"><td colspan="6"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Data</th><th>Material</th><th>Entrada</th><th>Saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
+   const addBtn=!arquivada?`<button type="button" class="pesagem-acao pesagem-add-material" title="Acrescentar material para esta pessoa" aria-label="Acrescentar material para esta pessoa" onclick="pesagemAbrirAdicionarCliente(${pesagemJsAttr(nomeArg)})">＋</button>`:"";
+   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar pesagens no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${addBtn}${!arquivada?acao('check','Arquivar todas as pesagens deste cliente',`pesagemArquivarCliente(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
+   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td>${esc(x.hora_entrada||'—')}</td><td>${esc(x.hora_saida||'—')}</td><td><span class="pesagem-material-nome">${esc(x.material||'—')}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}${acao('trash','Excluir somente esta pesagem',`pesagemExcluir('${x.id}')`,'excluir')}</div></td></tr>`).join('');
+   return `<tr class="pesagem-cliente-head"><td colspan="9"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Peso entrada</th><th>Peso saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
  };
+ const materiais=produtosLoad();
  el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
  <div class="card" style="border-left:5px solid #55358a">
   <h3 style="margin-top:0">📝 Nova pesagem</h3>
   <div class="grid">
    <div><label>Data</label><input id="pdata" type="date" value="${today()}"></div>
    <div><label>Cliente / Pessoa</label><input id="ppessoa" placeholder="Nome da pessoa"></div>
-   <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<option value="${x.id}">${esc(x.nome)} — R$ ${brNum(x.preco)}</option>`).join("")}</select><button class="btn secondary" onclick="produtoNovo()">➕ Adicionar produto</button></div></div>
+   <div><label>Horário de entrada</label><input id="phora_entrada" type="time" value="${horaAtual()}"></div>
+   <div><label>Horário de saída</label><input id="phora_saida" type="time"></div>
+   <div><label>Tipo de operação</label><select id="pmov" onchange="pesagemCalcular()"><option value="compra">Compra — entrada maior que saída</option><option value="venda">Venda — permite entrada maior ou menor que saída</option></select></div>
+   <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pprod" onchange="produtoSelecionar()" style="flex:1;min-width:220px"><option value="">Selecione um material</option>${materiais.map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select><button class="btn secondary" onclick="produtoNovo()">➕ Cadastrar material</button></div></div>
    <div><label>Material</label><input id="pmat" placeholder="Ex.: Papelão"></div>
    <div><label>Peso de entrada (kg)</label><input id="pe" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
    <div><label>Peso de saída / tara (kg)</label><input id="ps" inputmode="decimal" placeholder="0,00" oninput="pesagemCalcular()"></div>
@@ -915,33 +948,37 @@ async function pesagemRender(){
   <button class="btn secondary" onclick="pesagemLimpar()">🧹 Limpar</button>
  </div>
  <div class="card">
-  <h3 style="margin-top:0">♻️ Produtos / Materiais</h3>
-  <button class="btn primary" onclick="produtoNovo()">➕ Adicionar produto</button>
-  ${produtosLoad().length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Produto / Material</th><th>Preço/kg</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td>R$ ${brNum(x.preco)}</td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join("")}</tbody></table></div>`:"<p class='small'>Nenhum produto cadastrado.</p>"}
+  <details><summary style="cursor:pointer;font-weight:800">♻️ Materiais cadastrados <span class="small">(${materiais.length})</span></summary>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button class="btn primary" onclick="produtoNovo()">➕ Cadastrar material</button></div>
+   ${materiais.length?`<div style="overflow:auto;margin-top:12px"><table><thead><tr><th>Material</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${materiais.map(x=>`<tr><td><b>${esc(x.nome)}</b></td><td class="no-print"><button class="btn secondary" onclick="produtoEditar('${x.id}')">✏️</button> <button class="btn danger" onclick="produtoExcluir('${x.id}')">🗑️</button></td></tr>`).join('')}</tbody></table></div>`:"<p class='small'>Nenhum material cadastrado.</p>"}
+  </details>
  </div>
  <div class="card">
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
-  ${clientes.length?`<div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join("")}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
+  ${clientes.length?`<div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join('')}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
  </div>
  <div class="card">
   <h3 style="margin-top:0">📁 Pesagens concluídas / arquivadas</h3>
   <p class="small">As pesagens concluídas ficam aqui e não aparecem na lista principal.</p>
-  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join("")}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
+  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join('')}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
  </div>`;
 }
 
 async function pesagemSalvar(){
  const entrada=parseBR($("pe")?.value||"0"), saida=parseBR($("ps")?.value||"0");
+ const hora_entrada=String($("phora_entrada")?.value||"").trim()||null, hora_saida=String($("phora_saida")?.value||"").trim()||null;
  const pessoa=String($("ppessoa")?.value||"").trim();
  const material=String($("pmat")?.value||"").trim();
  const data=String($("pdata")?.value||today());
- const liquido=Math.max(0,entrada-saida);
+ const tipo_movimento=String($("pmov")?.value||"compra").toLowerCase()==="venda"?"venda":"compra";
+ const liquido=pesagemLiquidoCalcular(entrada,saida,tipo_movimento);
  if(!pessoa)return alert("Informe o nome da pessoa.");
  if(!material)return alert("Informe o material.");
  if(entrada<=0)return alert("Informe o peso de entrada.");
  if(saida<0)return alert("Informe um peso de saída válido.");
+ if(tipo_movimento==="compra" && entrada<saida)return alert("Na compra, o peso de entrada deve ser maior ou igual ao peso de saída. Se for uma venda, selecione Venda.");
  if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
- const row={data,pessoa,material,entrada,saida,liquido,observacoes:String($("pobs")?.value||"").trim()};
+ const row={data,pessoa,material,entrada,saida,liquido,tipo_movimento,hora_entrada,hora_saida,observacoes:String($("pobs")?.value||"").trim()};
  const {data:saved,error}=await sb.from("pesagens").insert(row).select().single();
  if(error)return alert("Não foi possível registrar a pesagem: "+error.message);
  pesagemCloud=[saved,...pesagemCloud];pesagemCloudReady=true;
@@ -955,7 +992,9 @@ function pesagemEditar(id){
  <div class="grid">
  <div><label>Data</label><input id="pe_data" type="date" value="${esc(x.data||today())}"></div>
  <div><label>Cliente / Pessoa</label><input id="pe_pessoa" value="${esc(x.pessoa||"")}"></div>
-
+ <div><label>Horário de entrada</label><input id="pe_hora_entrada" type="time" value="${esc(x.hora_entrada||"")}"></div>
+ <div><label>Horário de saída</label><input id="pe_hora_saida" type="time" value="${esc(x.hora_saida||"")}"></div>
+ <div><label>Tipo de operação</label><select id="pe_mov" onchange="pesagemEditarCalcular()"><option value="compra" ${String(x.tipo_movimento||"compra")==="compra"?"selected":""}>Compra — entrada maior que saída</option><option value="venda" ${String(x.tipo_movimento||"")==="venda"?"selected":""}>Venda — entrada pode ser maior ou menor</option></select></div>
  <div><label>Material</label><input id="pe_material" value="${esc(x.material||"")}"></div>
  <div><label>Peso de entrada (kg)</label><input id="pe_entrada" inputmode="decimal" value="${brNum(x.entrada)}"></div>
  <div><label>Peso de saída / tara (kg)</label><input id="pe_saida" inputmode="decimal" value="${brNum(x.saida)}"></div>
@@ -964,14 +1003,16 @@ function pesagemEditar(id){
  </div><br>
  <button class="btn primary" onclick="pesagemSalvarEdicao('${x.id}')">💾 Salvar alterações</button></div>`;
  document.body.appendChild(modal);
- const calc=()=>{const a=parseBR($("pe_entrada").value||"0"),b=parseBR($("pe_saida").value||"0");$("pe_liquido").value=brNum(Math.max(0,a-b));};
+ const calc=()=>{const a=parseBR($("pe_entrada").value||"0"),b=parseBR($("pe_saida").value||"0"),t=$("pe_mov")?.value||"compra";$("pe_liquido").value=brNum(Math.max(0,pesagemLiquidoCalcular(a,b,t)));};
+ window.pesagemEditarCalcular=calc;
  $("pe_entrada").oninput=calc;$("pe_saida").oninput=calc;
 }
 async function pesagemSalvarEdicao(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id));if(!x)return;
- const entrada=parseBR($("pe_entrada").value||"0"),saida=parseBR($("pe_saida").value||"0"),liquido=Math.max(0,entrada-saida);
+ const entrada=parseBR($("pe_entrada").value||"0"),saida=parseBR($("pe_saida").value||"0"),tipo_movimento=String($("pe_mov")?.value||"compra").toLowerCase()==="venda"?"venda":"compra",liquido=pesagemLiquidoCalcular(entrada,saida,tipo_movimento);
  if(entrada<=0||saida<0||liquido<=0)return alert("Confira os pesos.");
- const novo={data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim(),updated_at:new Date().toISOString()};
+ if(tipo_movimento==="compra" && entrada<saida)return alert("Na compra, o peso de entrada deve ser maior ou igual ao peso de saída. Se for uma venda, selecione Venda.");
+ const novo={data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),hora_entrada:$("pe_hora_entrada")?.value||null,hora_saida:$("pe_hora_saida")?.value||null,tipo_movimento,material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim(),updated_at:new Date().toISOString()};
  if(!novo.pessoa||!novo.material)return alert("Informe pessoa e material.");
  const {data,error}=await sb.from("pesagens").update(novo).eq("id",id).select().single();
  if(error)return alert("Não foi possível atualizar a pesagem: "+error.message);
@@ -1003,9 +1044,40 @@ async function pesagemExcluirCliente(nome,ids,arquivada=false){
 function pesagemImprimir(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
  const br=v=>brNum(v); const data=dataBR(x.data||"");
- const bloco=`<div class="ticket"><div class="cabecalho">SUCATAS ANALICE</div><div class="titulo">COMPROVANTE DE PESAGEM</div><div class="linha"><b>Data:</b> ${data}</div><div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div><div class="linha"><b>Material:</b> ${esc(x.material||"—")}</div><div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div><div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div><div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>${x.observacoes?`<div class="linha"><b>Obs.:</b> ${esc(x.observacoes)}</div>`:""}<div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
+ const operacao=String(x.tipo_movimento||"compra").toLowerCase()==="venda"?"VENDA":"COMPRA";
+ const bloco=`<div class="ticket">
+   <div class="cabecalho">SUCATAS ANALICE</div>
+   <div class="ticket-numero">TICKET Nº ${String(x.numero_ticket||0).padStart(6,"0")}</div>
+   <div class="operacao">${operacao}</div>
+   <div class="titulo">COMPROVANTE DE PESAGEM</div>
+   <div class="linha"><b>Data:</b> ${data}</div>
+   <div class="linha"><b>Entrada:</b> ${esc(x.hora_entrada||"—")} &nbsp;&nbsp; <b>Saída:</b> ${esc(x.hora_saida||"—")}</div>
+   <div class="cliente-destaque">${esc(x.pessoa||"CLIENTE NÃO INFORMADO")}</div>
+   <div class="linha"><b>Material:</b> ${esc(x.material||"—")}</div>
+   <div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div>
+   <div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div>
+   <div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>
+   ${x.observacoes?`<div class="observacao"><b>Observação:</b> ${esc(x.observacoes)}</div>`:""}
+ </div>`;
  const w=window.open("","_blank","width=800,height=900"); if(!w)return alert("Permita a abertura da janela de impressão.");
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title><style>@page{size:A4 portrait;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}.cabecalho{text-align:center;font-size:22px;font-weight:800;white-space:nowrap}.titulo{text-align:center;font-size:15px;font-weight:700;margin:4px 0 10px}.linha{font-size:12px;margin:5px 0}.cliente-destaque{font-size:20px;font-weight:900;text-align:center;border:2px solid #111;padding:7px 5px;margin:7px 0 10px;text-transform:uppercase}.destaque{font-size:14px;font-weight:700}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between;gap:15mm}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;padding-top:3px;font-size:10px}.corte{text-align:center;height:8mm;line-height:8mm;font-size:9px;border-top:1px dashed #777;border-bottom:1px dashed #777}@media print{.ticket{break-inside:avoid}.corte{break-inside:avoid}}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ticket de Pesagem</title>
+ <style>
+ @page{size:A4 portrait;margin:4mm}
+ *{box-sizing:border-box}
+ html,body{margin:0;padding:0;width:210mm;min-height:297mm}
+ body{font-family:Arial,sans-serif;color:#111}
+ .ticket{height:112mm;max-height:112mm;overflow:hidden;border:1px solid #111;padding:4mm;position:relative;page-break-inside:avoid;break-inside:avoid}
+ .cabecalho{text-align:center;font-size:17px;font-weight:800;white-space:nowrap}
+ .ticket-numero{text-align:center;font-size:8px;font-weight:800;margin-top:1px}
+ .operacao{width:max-content;min-width:25mm;margin:2mm auto 1.5mm;padding:2mm 8mm;border:1.5px solid #111;border-radius:2mm;text-align:center;font-size:13px;font-weight:900;letter-spacing:.5px}
+ .titulo{text-align:center;font-size:11px;font-weight:700;margin:1.5mm 0 3.5mm}
+ .linha{font-size:9.5px;line-height:1.15;margin:2mm 0}
+ .cliente-destaque{font-size:14px;line-height:1.05;font-weight:900;text-align:center;border:1px solid #111;padding:3.5mm 3px;margin:3mm 0 4mm;text-transform:uppercase}
+ .destaque{font-size:10.5px;font-weight:700}
+ .observacao{font-size:9px;line-height:1.15;margin-top:3mm;padding:2.5mm;border:1px solid #777;border-radius:1.5mm;max-height:15mm;overflow:hidden}
+ .corte{text-align:center;height:4mm;line-height:4mm;font-size:6.5px;border-top:1px dashed #777;border-bottom:1px dashed #777;page-break-inside:avoid;break-inside:avoid}
+ @media print{html,body{width:210mm;height:297mm}.ticket{height:112mm;max-height:112mm}.corte{height:4mm;line-height:4mm}}
+ </style></head><body>${bloco}<div class="corte"></div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`); w.document.close();
 }
 function pesagemItensCliente(nome, arquivada=false){
  const alvo=String(nome||"").trim().toLowerCase();
@@ -1013,15 +1085,15 @@ function pesagemItensCliente(nome, arquivada=false){
 }
 function pesagemImprimirCliente(nomeCod, arquivada=false){
  const nome=decodeURIComponent(nomeCod||""); const items=pesagemItensCliente(nome,arquivada); if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
- const rows=items.map(x=>`<tr><td>${esc(x.material||"")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join("");
+ const rows=items.map(x=>`<tr><td>TK-${String(x.numero_ticket||0).padStart(6,"0")}</td><td>${dataBR(x.data)}</td><td>${esc(x.hora_entrada||"—")}</td><td>${esc(x.hora_saida||"—")}</td><td>${esc(x.material||"")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join("");
  const w=window.open("","_blank","width=900,height=800"); if(!w)return alert("Permita a abertura da janela.");
- const bloco=`<div class="ticket"><h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div><table><thead><tr><th>Material</th><th>Entrada</th><th>Tara</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table><div class="assinaturas"><span>Assinatura Sucatas Analice</span><span>Assinatura Cliente</span></div></div>`;
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>@page{size:A4 portrait;margin:8mm}body{font-family:Arial;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}h2{text-align:center;margin:0 0 10px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin-bottom:14px;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:7px;font-size:11px}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;font-size:10px;padding-top:3px}.corte{text-align:center;height:8mm;line-height:8mm;border-top:1px dashed #777;border-bottom:1px dashed #777;font-size:9px}</style></head><body>${bloco}<div class="corte">✂ RECORTE AQUI — VIA CLIENTE / VIA SUCATAS ANALICE ✂</div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ const bloco=`<div class="ticket"><h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div><table><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>@page{size:A4 portrait;margin:8mm}body{font-family:Arial;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}h2{text-align:center;margin:0 0 10px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin-bottom:14px;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:7px;font-size:11px}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;font-size:10px;padding-top:3px}.corte{text-align:center;height:8mm;line-height:8mm;border-top:1px dashed #777;border-bottom:1px dashed #777;font-size:9px}</style></head><body>${bloco}<div class="corte"></div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
 }
 
 function pesagemWhatsApp(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
- const msg=[x.pessoa||"",`${x.material||""} — ${brNum(x.liquido)} kg`].filter(Boolean).join("\n");
+ const msg=[x.pessoa||"",dataBR(x.data||""),`Produto: ${x.material||"Não informado"}`,`Peso líquido: ${brNum(x.liquido)} kg`].filter(Boolean).join("\n");
  try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
  window.open("https://wa.me/?text="+encodeURIComponent(msg),"_blank");
 }
@@ -1036,6 +1108,9 @@ function pesagemAbrirAdicionar(id){
    <div class="grid">
     <div><label>Data</label><input id="pam_data" type="date" value="${today()}"></div>
     <div><label>Cliente / Pessoa</label><input id="pam_pessoa" value="${esc(pessoa)}" readonly></div>
+    <div><label>Horário de entrada</label><input id="pam_hora_entrada" type="time" value="${horaAtual()}"></div>
+    <div><label>Horário de saída</label><input id="pam_hora_saida" type="time"></div>
+    <div><label>Tipo de operação</label><select id="pam_mov" onchange="pesagemAdicionarCalcular()"><option value="compra">Compra — entrada maior que saída</option><option value="venda">Venda — entrada pode ser maior ou menor</option></select></div>
     <div style="grid-column:1/-1"><label>Produto / Material</label><div style="display:flex;gap:8px;flex-wrap:wrap"><select id="pam_prod" onchange="pesagemAdicionarSelecionarProduto()" style="flex:1;min-width:220px"><option value="">Selecione um produto</option>${produtosLoad().sort((a,b)=>String(a.nome).localeCompare(String(b.nome))).map(p=>`<option value="${p.id}">${esc(p.nome)}</option>`).join("")}</select></div></div>
     <div><label>Material</label><input id="pam_material" value="${esc(x.material||"")}" placeholder="Ex.: Papelão"></div>
     <div><label>Peso de entrada (kg)</label><input id="pam_entrada" inputmode="decimal" placeholder="0,00" oninput="pesagemAdicionarCalcular()"></div>
@@ -1048,13 +1123,13 @@ function pesagemAbrirAdicionar(id){
  document.body.appendChild(modal);
 }
 function pesagemAdicionarSelecionarProduto(){const p=produtosLoad().find(x=>String(x.id)===String($("pam_prod")?.value));if(p){$("pam_material").value=p.nome||""}}
-function pesagemAdicionarCalcular(){const e=parseBR($("pam_entrada")?.value||"0"),s=parseBR($("pam_saida")?.value||"0");if($("pam_liquido"))$("pam_liquido").value=brNum(Math.max(0,e-s));}
+function pesagemAdicionarCalcular(){const e=parseBR($("pam_entrada")?.value||"0"),s=parseBR($("pam_saida")?.value||"0"),t=$("pam_mov")?.value||"compra";if($("pam_liquido"))$("pam_liquido").value=brNum(Math.max(0,pesagemLiquidoCalcular(e,s,t)));}
 async function pesagemSalvarAdicional(origId){
  const origem=pesagensLoad().find(a=>String(a.id)===String(origId));if(!origem)return;
- const entrada=parseBR($("pam_entrada")?.value||"0"),saida=parseBR($("pam_saida")?.value||"0"),liquido=Math.max(0,entrada-saida);
+ const entrada=parseBR($("pam_entrada")?.value||"0"),saida=parseBR($("pam_saida")?.value||"0"),tipo_movimento=String($("pam_mov")?.value||"compra").toLowerCase()==="venda"?"venda":"compra",liquido=pesagemLiquidoCalcular(entrada,saida,tipo_movimento);
  const pessoa=String($("pam_pessoa")?.value||origem.pessoa||"").trim(),material=String($("pam_material")?.value||"").trim();
- if(!material)return alert("Informe o material."); if(entrada<=0)return alert("Informe o peso de entrada."); if(saida<0)return alert("Informe um peso de saída válido."); if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
- const novo={data:String($("pam_data")?.value||today()),pessoa,material,entrada,saida,liquido,observacoes:String($("pam_obs")?.value||"").trim()};
+ if(!material)return alert("Informe o material."); if(entrada<=0)return alert("Informe o peso de entrada."); if(saida<0)return alert("Informe um peso de saída válido."); if(tipo_movimento==="compra" && entrada<saida)return alert("Na compra, o peso de entrada deve ser maior ou igual ao peso de saída. Se for uma venda, selecione Venda."); if(liquido<=0)return alert("O peso líquido precisa ser maior que zero.");
+ const novo={data:String($("pam_data")?.value||today()),pessoa,material,entrada,saida,liquido,tipo_movimento,hora_entrada:$("pam_hora_entrada")?.value||null,hora_saida:$("pam_hora_saida")?.value||null,observacoes:String($("pam_obs")?.value||"").trim()};
  const {data,error}=await sb.from("pesagens").insert(novo).select().single();
  if(error)return alert("Não foi possível registrar a nova pesagem: "+error.message);
  pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;document.getElementById("pesagemAddModal")?.remove();await pesagemRender();alert("Nova pesagem registrada para "+pessoa+".");
@@ -1100,6 +1175,18 @@ function pesagemFecharCliente(){
  if(!c)return alert("Cliente inválido.");
  pesagemFecharModal(c.nome);
 }
+async function pesagemArquivarCliente(nome){
+ const items=pesagemAgruparCliente(nome);
+ if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+ const ids=items.map(x=>String(x.id));
+ if(!confirm("Arquivar todas as "+items.length+" pesagens de "+nome+"?"))return;
+ const {error}=await sb.from("pesagens").update({fechada:true,updated_at:new Date().toISOString()}).in("id",ids);
+ if(error)return alert("Não foi possível arquivar as pesagens: "+error.message);
+ pesagemCloud=pesagemCloud.map(x=>ids.includes(String(x.id))?{...x,fechada:true}:x);
+ pesagemCloudReady=true;
+ await pesagemRender();
+ alert("Pesagens de "+nome+" arquivadas com sucesso!");
+}
 function pesagemFecharModal(nome){
  const items=pesagemAgruparCliente(nome);
  if(!items.length)return alert("Não há pesagens abertas para este cliente.");
@@ -1125,13 +1212,9 @@ function pesagemWhatsAppCliente(nome, arquivada=false){
  const items=pesagemItensCliente(nome,arquivada);
  if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
  const linhas=[
-   "SUCATAS ANALICE",
-   "Pesagens de: "+nome,
+   nome,
    "",
-   ...items.map((x,i)=>{
-     const data=dataBR(x.data||"");
-     return `${i+1}. ${data} — ${x.material||"Material não informado"}\n   Entrada: ${brNum(x.entrada)} kg | Saída: ${brNum(x.saida)} kg | Líquido: ${brNum(x.liquido)} kg`;
-   })
+   ...items.map(x=>`${dataBR(x.data||"")} — Produto: ${x.material||"Não informado"} — Peso líquido: ${brNum(x.liquido)} kg`)
  ];
  const msg=linhas.join("\n");
  try{navigator.clipboard?.writeText(msg).catch(()=>{})}catch(e){}
@@ -1139,17 +1222,18 @@ function pesagemWhatsAppCliente(nome, arquivada=false){
 }
 
 function renderPage(page){
- if(page==="dashboard")dashboard();
- if(page==="cacambas")cacambas();
- if(page==="estado")estadoCacambas();
- if(page==="clientes")clientes();
- if(page==="motoristas")motoristas();
- if(page==="caminhoes")caminhoes();
- if(page==="adiantamentos")adRender();
- if(page==="pesagem")pesagemRender();
- if(page==="ordens")ordens();
- if(page==="movimentacoes")movimentacoes();
- if(page==="manutencoes")manutencoes();
+ if(page==="dashboard")return dashboard();
+ if(page==="cacambas")return cacambas();
+ if(page==="estado")return estadoCacambas();
+ if(page==="clientes")return clientes();
+ if(page==="motoristas")return motoristas();
+ if(page==="caminhoes")return caminhoes();
+ if(page==="adiantamentos")return adRender();
+ if(page==="pesagem")return pesagemRender();
+ if(page==="ordens")return ordens();
+ if(page==="logistica")return logistica();
+ if(page==="movimentacoes")return movimentacoes();
+ if(page==="manutencoes")return manutencoes();
 }
 function dashboard(){
  const c=cache.cacambas;
@@ -1253,11 +1337,15 @@ function tableCac(){
   const cl=cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"";
   return [x.numero,x.status,x.estado,x.endereco_atual,x.material,cl].join(" ").toLowerCase().includes(q)
  });
- $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Caçamba anterior / atual</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${x.cliente_id?historicoCliente(x.cliente_id):"<span class='small'>—</span>"}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">🗑️</button></td></tr>`).join("")}</table>`;
+ $("ctable").innerHTML=`<table><tr><th>Nº</th><th>Status</th><th>Estado</th><th>Cliente</th><th>Caçamba anterior / atual</th><th>Endereço</th><th>Material</th><th>Pátio</th><th>Observações</th><th>Ação</th></tr>${rows.map(x=>`<tr><td>${esc(x.numero)}</td><td>${esc(x.status)}</td><td>${esc(x.estado||"Não informado")}</td><td>${esc(cache.clientes.find(c=>c.id===x.cliente_id)?.nome||"")}</td><td>${historicoCacamba(x)}</td><td>${esc(x.endereco_atual)}</td><td>${esc(x.material)}</td><td>${esc(x.patio)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('cacambas','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('cacambas','${x.id}',()=>{cacambas()})">🗑️</button></td></tr>`).join("")}</table>`;
 }
 async function addCacamba(){
  if(!val("cn"))return alert("Informe o número da caçamba.");
- await add("cacambas",{numero:val("cn"),status:val("cs"),cliente_id:val("cc")||null,caminhao_id:val("ct")||null,motorista_id:val("cm")||null,material:val("cma"),endereco_atual:val("ce"),patio:val("cp"),estado:val("cestado")||null,observacoes:val("cobs")},cacambas);
+ const status=val("cs");
+ const cliente=val("cc")||null;
+ if(status==="No cliente" && !cliente)return alert("Selecione o cliente para uma caçamba que está No cliente.");
+ const livre=(status==="Disponível"||status==="No pátio");
+ await add("cacambas",{numero:val("cn"),status,cliente_id:livre?null:cliente,caminhao_id:livre?null:(val("ct")||null),motorista_id:livre?null:(val("cm")||null),material:livre?null:val("cma"),endereco_atual:livre?null:val("ce"),patio:val("cp")||null,estado:val("cestado")||null,observacoes:val("cobs")},cacambas);
 }
 
 function estadoCacambas(){
@@ -1404,6 +1492,130 @@ function enviarOSWhatsApp(id){
 
  window.open("https://wa.me/"+telefone+"?text="+encodeURIComponent(msg),"_blank");
 }
+
+/* ===================== LOGÍSTICA INTELIGENTE ===================== */
+const LOG_KEY="sucatas_analice_logistica_v1";
+let logState=JSON.parse(localStorage.getItem(LOG_KEY)||"null")||{date:dataHojeISO(),items:[],routes:[]};
+if(!Array.isArray(logState.items))logState.items=[];
+if(!Array.isArray(logState.routes))logState.routes=[];
+function logSave(){localStorage.setItem(LOG_KEY,JSON.stringify(logState));}
+function logEsc(v){return esc(v||"");}
+function logNorm(v){return String(v||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();}
+function logTokens(v){return [...new Set(logNorm(v).split(/\s+/).filter(x=>x.length>=4))];}
+function logDateBR(v){return v?osDataBRPrint(v):"";}
+function logTipoLabel(t){return {entrega:"Entregar caçamba",retirada:"Retirar caçamba",final:"Levar à empresa final",busca:"Buscar material",ponto:"Parada/compromisso"}[t]||t;}
+function logOrdemRows(){return (cache.ordens||[]).filter(x=>String(x.status||"")!=="Concluída" && String(x.status||"")!=="Cancelada");}
+function logClienteNome(id){return (cache.clientes||[]).find(x=>String(x.id)===String(id))?.nome||"";}
+function logCacambaNumero(id){return (cache.cacambas||[]).find(x=>String(x.id)===String(id))?.numero||"";}
+function logCaminhaoNome(id){const x=(cache.caminhoes||[]).find(x=>String(x.id)===String(id));return x?.identificacao||x?.placa||"";}
+function logAddressOS(o){return o?.endereco||logClienteEndereco(o?.cliente_id)||"";}
+function logClienteEndereco(id){const c=(cache.clientes||[]).find(x=>String(x.id)===String(id));if(!c)return "";return [c.endereco,c.numero,c.bairro,c.cidade,c.estado,c.cep].filter(Boolean).join(", ");}
+function logScore(a,b){
+ const A=logTokens(a),B=logTokens(b); if(!A.length||!B.length)return 0;
+ let common=A.filter(x=>B.includes(x));
+ let score=common.length*20;
+ if(logNorm(a)===logNorm(b))score+=100;
+ if(common.some(x=>["osasco","barueri","carapicuiba","cotia","taboao","jandira","itapevi","sao","paulo"].includes(x)))score+=15;
+ return Math.min(100,score);
+}
+function logProximidadeLabel(score){if(score>=60)return "🟢 Forte oportunidade de combinar";if(score>=35)return "🟡 Pode valer combinar";return "⚪ Pouca evidência de proximidade";}
+function logPriorityWeight(p){return ({Urgente:40,Alta:25,Normal:10,Baixa:0}[p]??10);}
+function logGerarEstrategia(){
+ const date=logState.date||dataHojeISO();
+ const itens=logState.items.filter(x=>!x.date||x.date===date).map((x,i)=>({...x,_i:i}));
+ const usados=new Set(),rotas=[];
+ const ordemItems=itens.filter(x=>x.sourceOSId).map(x=>{const o=(cache.ordens||[]).find(z=>String(z.id)===String(x.sourceOSId));return o?{...x,os:o}:x});
+ // 1) Primeiro agrupa retirada + empresa final quando há endereço/região parecida.
+ for(const it of itens){
+  if(usados.has(it._i))continue;
+  if(it.tipo!=="retirada")continue;
+  let melhor=null,best=-1;
+  for(const fin of itens){
+   if(usados.has(fin._i)||fin._i===it._i||fin.tipo!=="final")continue;
+   const sc=logScore(it.endereco,fin.endereco);
+   if(sc>best){best=sc;melhor=fin;}
+  }
+  const par=[it]; if(melhor&&best>=25){par.push(melhor);usados.add(melhor._i);}
+  usados.add(it._i);
+  rotas.push({name:"Rota sugerida "+(rotas.length+1),patio:it.patio||"Analice",items:par,reason:melhor?`${logProximidadeLabel(best)} entre a retirada e a empresa final (${best}% de compatibilidade por endereço/região).`:`Retirada prioritária; sem empresa final próxima informada.`,score:best});
+ }
+ // 2) Agrupa entregas restantes por endereço/região e prioridade.
+ for(const it of itens){
+  if(usados.has(it._i))continue;
+  const grupo=[it];usados.add(it._i);
+  for(const cand of itens){if(usados.has(cand._i))continue;if(cand.tipo!==it.tipo&&it.tipo!=="entrega"&&cand.tipo!=="entrega")continue;const sc=logScore(it.endereco,cand.endereco);if(sc>=35){grupo.push(cand);usados.add(cand._i);}}
+  grupo.sort((a,b)=>logPriorityWeight(b.prioridade)-logPriorityWeight(a.prioridade));
+  rotas.push({name:"Rota sugerida "+(rotas.length+1),patio:it.patio||"Analice",items:grupo,reason:grupo.length>1?"Serviços com endereços/regiões semelhantes foram agrupados para reduzir deslocamentos.":"Serviço isolado ou sem outra parada suficientemente próxima.",score:0});
+ }
+ // 3) Ordena rotas por prioridade e horário.
+ rotas.sort((a,b)=>{const pa=Math.max(...a.items.map(x=>logPriorityWeight(x.prioridade)));const pb=Math.max(...b.items.map(x=>logPriorityWeight(x.prioridade)));return pb-pa||String(a.items[0]?.hora||"").localeCompare(String(b.items[0]?.hora||""));});
+ logState.routes=rotas.map((r,i)=>({...r,name:`Rota ${i+1}`}));logSave();logistica();
+}
+function logAdicionarOS(osId){
+ const o=(cache.ordens||[]).find(x=>String(x.id)===String(osId));if(!o)return;
+ const exists=logState.items.some(x=>String(x.sourceOSId)===String(osId)&&x.date===logState.date);if(exists)return alert("Essa OS já está na logística do dia.");
+ logState.items.push({id:crypto.randomUUID(),date:logState.date,sourceOSId:o.id,tipo:"entrega",cliente:logClienteNome(o.cliente_id),endereco:logAddressOS(o),cacamba:logCacambaNumero(o.cacamba_id),material:o.material||"",patio:"",hora:"",prioridade:"Normal",empresaFinal:"",observacoes:o.observacoes||""});logSave();logistica();
+}
+function logAdicionarManual(){
+ const tipo=val("ltipo"),cliente=val("lcliente"),endereco=val("lendereco");if(!endereco)return alert("Informe o endereço ou região da parada.");
+ logState.items.push({id:crypto.randomUUID(),date:val("ldata")||dataHojeISO(),sourceOSId:null,tipo,cliente,endereco,cacamba:val("lcacamba"),material:val("lmaterial"),patio:val("lpatio"),hora:val("lhora"),prioridade:val("lprioridade"),empresaFinal:val("lempresa"),observacoes:val("lobs")});logState.date=val("ldata")||logState.date;logSave();logistica();
+}
+function logRemover(id){logState.items=logState.items.filter(x=>x.id!==id);logState.routes=[];logSave();logistica();}
+function logLimparDia(){if(!confirm("Limpar somente as necessidades da data selecionada?"))return;const d=logState.date;logState.items=logState.items.filter(x=>x.date!==d);logState.routes=[];logSave();logistica();}
+function logCarregarOS(){
+ const d=logState.date||dataHojeISO();
+ const os=logOrdemRows().filter(o=>dataOSNormalizada(o.data_entrega)===d||dataOSNormalizada(o.data_retirada_prevista)===d);
+ if(!os.length){logSave();logistica();return alert("Não há ordens de serviço abertas para a data selecionada.");}
+ let add=0,atualizadas=0;
+ for(const o of os){
+   const existente=logState.items.find(x=>String(x.sourceOSId)===String(o.id)&&x.date===d);
+   if(existente){
+     existente.cliente=logClienteNome(o.cliente_id);
+     existente.endereco=logAddressOS(o);
+     existente.cacamba=logCacambaNumero(o.cacamba_id);
+     existente.material=o.material||"";
+     existente.observacoes=o.observacoes||"";
+     atualizadas++;
+     continue;
+   }
+   logState.items.push({id:crypto.randomUUID(),date:d,sourceOSId:o.id,tipo:"entrega",cliente:logClienteNome(o.cliente_id),endereco:logAddressOS(o),cacamba:logCacambaNumero(o.cacamba_id),material:o.material||"",patio:"",hora:"",prioridade:"Normal",empresaFinal:"",observacoes:o.observacoes||""});
+   add++;
+ }
+ logState.routes=[];
+ logSave();
+ logistica();
+ alert(`Logística atualizada.\n\n${add} OS adicionada(s) e ${atualizadas} OS já carregada(s) foram sincronizadas.`);
+}
+function logSugerirFinal(id){
+ const it=logState.items.find(x=>x.id===id); if(!it)return;
+ const retiradas=logState.items.filter(x=>x.date===logState.date&&x.tipo==="retirada"&&x.id!==it.id);
+ if(!retiradas.length)return alert("Adicione uma retirada e uma empresa final para o sistema comparar.");
+ const ranked=retiradas.map(x=>({x,score:logScore(it.endereco,x.endereco)})).sort((a,b)=>b.score-a.score);const r=ranked[0];alert(`Melhor combinação encontrada:\n\n${r.x.cliente||"Retirada"}\n${r.x.endereco}\n\nCompatibilidade por endereço/região: ${r.score}%.\n\n${logProximidadeLabel(r.score)}`);
+}
+function logPrint(){
+ const r=logState.routes||[];const w=window.open("","_blank");if(!w)return alert("Permita pop-ups para imprimir.");
+ const html=r.map(x=>`<div class="route"><h2>${esc(x.name)} — Pátio: ${esc(x.patio||"A definir")}</h2><p>${esc(x.reason)}</p>${x.items.map((i,n)=>`<div class="stop"><b>${n+1}. ${esc(logTipoLabel(i.tipo))}</b><br>Cliente: ${esc(i.cliente||"—")}<br>Endereço: ${esc(i.endereco||"—")}<br>Caçamba: ${esc(i.cacamba||"—")}<br>Material: ${esc(i.material||"—")}<br>Horário: ${esc(i.hora||"—")}<br>Prioridade: ${esc(i.prioridade||"Normal")}${i.empresaFinal?`<br>Empresa final: ${esc(i.empresaFinal)}`:""}</div>`).join("")}</div>`).join("");
+ w.document.write(`<html><head><meta charset="utf-8"><title>Planejamento Logístico</title><style>body{font-family:Arial;margin:30px;color:#333}h1{color:#55358a}.route{border:2px solid #ddd;border-radius:12px;padding:16px;margin-bottom:18px}.stop{border-top:1px solid #ddd;padding:10px 0;line-height:1.5}</style></head><body><h1>🚛 Planejamento Logístico — ${logDateBR(logState.date)}</h1>${html||"<p>Nenhuma rota gerada.</p>"}</body></html>`);w.document.close();setTimeout(()=>w.print(),300);
+}
+function logItemCard(i){return `<div class="card" style="margin:8px 0;border-left:4px solid #55358a"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap"><b>${esc(logTipoLabel(i.tipo))}</b><span class="small">${esc(i.prioridade||"Normal")} ${i.hora?"• "+esc(i.hora):""}</span></div><div class="small" style="margin-top:6px">${esc(i.cliente||"Sem cliente")} • ${esc(i.endereco||"Sem endereço")}</div><div class="small">${i.cacamba?"Caçamba "+esc(i.cacamba)+" • ":""}${esc(i.material||"")}${i.empresaFinal?" • Final: "+esc(i.empresaFinal):""}</div><div style="margin-top:8px"><button class="btn danger" onclick="logRemover('${i.id}')">🗑️</button>${i.tipo==="final"?` <button class="btn" onclick="logSugerirFinal('${i.id}')">🔎 Comparar</button>`:""}</div></div>`;}
+function logistica(){
+ const d=logState.date||dataHojeISO(); logState.date=d;
+ const itens=logState.items.filter(x=>x.date===d);
+ const os=logOrdemRows().filter(o=>dataOSNormalizada(o.data_entrega)===d||dataOSNormalizada(o.data_retirada_prevista)===d);
+ const patioOptions=["","Analice","Estrada das Rosas"];
+ const strategy=(logState.routes||[]).map((r)=>{
+   const stops=r.items.map((i,n)=>`<div style="padding:9px 0;border-top:1px solid #eee"><b>${n+1}. ${esc(logTipoLabel(i.tipo))}</b> — ${esc(i.cliente||"Sem cliente")}<br><span class="small">📍 ${esc(i.endereco||"Sem endereço")}${i.cacamba?" • 🗑️ "+esc(i.cacamba):""}${i.empresaFinal?" • ♻️ "+esc(i.empresaFinal):""}${i.hora?" • ⏰ "+esc(i.hora):""}</span></div>`).join("");
+   return `<div class="card" style="margin:10px 0;border-left:5px solid #0a9a4a"><h3 style="margin:0">🚛 ${esc(r.name)}</h3><p class="small">${esc(r.reason)}</p><p><b>Saída:</b> ${esc(r.patio||"A definir")}</p>${stops}</div>`;
+ }).join("");
+ $("logistica").innerHTML=`<h2>🚛 Logística Inteligente</h2>
+ <div class="card"><h3>Planejamento do dia</h3><p class="small">Monte as necessidades do dia e o sistema cruza as paradas para sugerir combinações que reduzam retornos vazios. A estratégia é uma sugestão: você pode ajustar conforme sua operação.</p>
+ <div class="grid"><div><label>Data</label><input id="ldata" type="date" value="${esc(d)}" onchange="logState.date=this.value;logSave();logistica()"></div><div><label>Carregar OS do dia</label><button class="btn primary" onclick="logCarregarOS()">📋 Trazer / sincronizar OS (${os.length})</button><div class="small" style="margin-top:6px">Atualiza as OS abertas desta data sem duplicar as que já estão na logística.</div></div><div><label>Ações</label><div><button class="btn" onclick="logGerarEstrategia()">✨ Gerar estratégia</button> <button class="btn secondary" onclick="logPrint()">🖨️ Imprimir</button> <button class="btn danger" onclick="logLimparDia()">Limpar dia</button></div></div></div></div>
+ <div class="card"><h3>➕ Necessidade manual</h3><div class="grid"><div><label>Tipo</label><select id="ltipo"><option value="entrega">Entregar caçamba</option><option value="retirada">Retirar caçamba</option><option value="final">Levar à empresa final</option><option value="busca">Buscar material</option><option value="ponto">Parada/compromisso</option></select></div><div><label>Cliente</label><input id="lcliente" list="logClientes" placeholder="Nome do cliente"><datalist id="logClientes">${(cache.clientes||[]).map(c=>`<option value="${esc(c.nome)}">`).join("")}</datalist></div><div><label>Endereço / região</label><input id="lendereco" placeholder="Ex.: Osasco, Centro, Rua..."></div><div><label>Caçamba</label><input id="lcacamba" placeholder="Nº"></div><div><label>Material</label><input id="lmaterial"></div><div><label>Pátio de saída</label><select id="lpatio">${patioOptions.map(x=>`<option>${esc(x)}</option>`).join("")}</select></div><div><label>Horário limite</label><input id="lhora" type="time"></div><div><label>Prioridade</label><select id="lprioridade"><option>Normal</option><option>Alta</option><option>Urgente</option><option>Baixa</option></select></div><div><label>Empresa final</label><input id="lempresa" placeholder="Se houver"></div><div style="grid-column:1/-1"><label>Observação</label><textarea id="lobs" rows="2" placeholder="Ex.: precisa passar pela empresa final antes de voltar ao pátio"></textarea></div></div><br><button class="btn primary" onclick="logAdicionarManual()">Adicionar à logística</button></div>
+ <div class="card"><h3>📋 Necessidades do dia (${itens.length})</h3>${itens.length?itens.map(logItemCard).join(""):"<p class='small'>Nenhuma necessidade. Você pode trazer as OS do dia ou adicionar manualmente.</p>"}</div>
+ <div class="card"><h3>🧠 Estratégia sugerida</h3>${strategy||"<p class='small'>Ainda não foi gerada uma estratégia. Adicione as necessidades e toque em <b>Gerar estratégia</b>.</p>"}</div>
+ <div class="card"><h3>💡 Como a lógica funciona</h3><ul class="small"><li>Prioriza serviços urgentes e horários definidos.</li><li>Procura combinar retirada com empresa final quando os endereços/regiões têm forte semelhança.</li><li>Agrupa entregas e outras paradas próximas para reduzir deslocamentos.</li><li>Você escolhe o pátio: <b>Analice</b> ou <b>Estrada das Rosas</b>.</li><li>O sistema não altera suas OS automaticamente; ele sugere a melhor sequência para você decidir.</li></ul></div>`;
+}
+
 function ordens(){
  const todas=Array.isArray(cache.ordens)?cache.ordens:[];
  const ativas=todas.filter(x=>String(x.status||"")!=="Concluída");
@@ -1498,50 +1710,72 @@ function movimentacoes(){
  }).catch(e=>$("movlist").innerHTML="<p>"+esc(e.message)+"</p>");
 }
 async 
-const HIST_CACAMBA_KEY="sucatas_analice_cacamba_history_v1";
+const HIST_CACAMBA_KEY="sucatas_analice_cacamba_history_v2";
 function histAll(){try{return JSON.parse(localStorage.getItem(HIST_CACAMBA_KEY)||"{}")}catch(e){return {}}}
 function histSave(h){localStorage.setItem(HIST_CACAMBA_KEY,JSON.stringify(h))}
-function registrarHistoricoTroca(clienteId,anterior,atual){
-  if(!clienteId || !atual)return;
+function historicoCacamba(cacamba){
+  if(!cacamba)return '<span class="small">Anterior: — | Atual: —</span>';
+  const anterior=cacamba.cliente_anterior_nome||"—";
+  const atual=(cache.clientes||[]).find(x=>String(x.id)===String(cacamba.cliente_id))?.nome || (cacamba.cliente_id?"—":"Disponível");
+  if(!cacamba.cliente_anterior_nome && !cacamba.ultima_troca_at) return '<span class="small">Anterior: — | Atual: '+esc(atual)+'</span>';
+  return '<span class="small">Anterior: <b>'+esc(anterior)+'</b> | Atual: <b>'+esc(atual)+'</b>'+
+    (cacamba.ultima_troca_at?'<br>Última troca: '+dataBR(cacamba.ultima_troca_at):'')+'</span>';
+}
+function registrarHistoricoTroca(cacambaId,clienteAnterior,clienteAtual){
+  if(!cacambaId)return;
+  const cac=(cache.cacambas||[]).find(c=>String(c.id)===String(cacambaId));
+  const anteriorNome=clienteAnterior?.nome || cac?.cliente_anterior_nome || null;
+  const anteriorId=clienteAnterior?.id || cac?.cliente_id || null;
+  const now=new Date().toISOString();
+  if(cac){
+    cac.cliente_anterior_id=anteriorId;
+    cac.cliente_anterior_nome=anteriorNome;
+    cac.ultima_troca_at=now;
+  }
   const h=histAll();
-  h[String(clienteId)]={
-    anterior_id:anterior?.id||null,
-    anterior_numero:anterior?.numero||null,
-    atual_id:atual.id,
-    atual_numero:atual.numero,
-    data:new Date().toISOString()
-  };
+  h[String(cacambaId)]={anterior_id:anteriorId,anterior_nome:anteriorNome,atual_id:clienteAtual?.id||null,atual_nome:clienteAtual?.nome||null,data:now,numero:cac?.numero||clienteAtual?.numero||null};
   histSave(h);
 }
 function historicoCliente(clienteId){
-  const h=histAll()[String(clienteId)];
-  if(!h)return '<span class="small">Anterior: — | Atual: —</span>';
-  return '<span class="small">Anterior: <b>'+esc(h.anterior_numero||"—")+
-    '</b> | Atual: <b>'+esc(h.atual_numero||"—")+
-    '</b><br>Última troca: '+dataBR(h.data)+'</span>';
+  const itens=(cache.cacambas||[]).filter(c=>String(c.cliente_id)===String(clienteId));
+  if(!itens.length)return '<span class="small">—</span>';
+  return itens.map(c=>'<div style="margin-bottom:4px"><b>Caçamba '+esc(c.numero||"")+'</b><br>'+historicoCacamba(c)+'</div>').join('');
 }
 function renderHistoricoCacambas(){
  const el=$("cacambaHistoricoRapido");if(!el)return;
- const grupos={};(cache.cacambas||[]).forEach(c=>{if(c.cliente_id)(grupos[c.cliente_id]||=[]).push(c)});
- el.innerHTML=Object.keys(grupos).map(id=>{
-  const c=(cache.clientes||[]).find(x=>String(x.id)===String(id));
-  return '<div class="quick-history"><b>'+esc(c?.nome||"Cliente")+'</b> '+historicoCliente(id)+'</div>';
- }).join("")||'<p class="small">Nenhum cliente com caçamba.</p>';
+ const grupos=[...(cache.cacambas||[])].sort((a,b)=>(Number(a.numero)||0)-(Number(b.numero)||0));
+ el.innerHTML=grupos.map(c=>'<div class="quick-history"><b>Caçamba '+esc(c.numero||"")+'</b> '+historicoCacamba(c)+'</div>').join("")||'<p class="small">Nenhuma caçamba cadastrada.</p>';
 }
 
 async function addMov(){
  if(!val("vc"))return alert("Selecione a caçamba.");
- const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:val("vcl")||null,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")}; 
- const anteriorCliente=row.cliente_id?(cache.cacambas||[]).find(c=>String(c.cliente_id)===String(row.cliente_id)&&String(c.id)!==String(row.cacamba_id)):null;
- const {data,error}=await sb.from("movimentacoes").insert(row).select().single();
+ const cacAtual=(cache.cacambas||[]).find(c=>String(c.id)===String(val("vc")));
+ const novoClienteId=val("vcl")||null;
+ const clienteAnteriorId=cacAtual?.cliente_id||null;
+ const clienteAnterior=(cache.clientes||[]).find(c=>String(c.id)===String(clienteAnteriorId))||null;
+ const clienteAtual=(cache.clientes||[]).find(c=>String(c.id)===String(novoClienteId))||null;
+ const row={tipo:val("vt"),cacamba_id:val("vc"),cliente_id:novoClienteId,caminhao_id:val("vcm")||null,motorista_id:val("vmo")||null,endereco:val("ve"),material:val("vma"),observacoes:val("vo")};
+ if(["Entrega","Troca","Transferência"].includes(row.tipo) && !row.cliente_id)return alert("Para entregar ou trocar a caçamba, selecione o cliente.");
+ const {error}=await sb.from("movimentacoes").insert(row).select().single();
  if(error)return alert(error.message);
  const updates={};
- if(["Entrega","Troca","Transferência"].includes(row.tipo)){updates.status="No cliente";updates.cliente_id=row.cliente_id;updates.endereco_atual=row.endereco;updates.caminhao_id=row.caminhao_id;updates.motorista_id=row.motorista_id;updates.material=row.material}
- if(["Retirada","Entrada no pátio"].includes(row.tipo)){updates.status="No pátio";updates.cliente_id=null;updates.endereco_atual=null;updates.caminhao_id=null;updates.motorista_id=null}
- if(row.tipo==="Saída do pátio")updates.status="Disponível";
- await sb.from("cacambas").update(updates).eq("id",row.cacamba_id);
- if(row.tipo==="Troca" && row.cliente_id) registrarHistoricoTroca(row.cliente_id,anteriorCliente,row);
- await loadAll();movimentacoes();alert("Movimentação registrada!");
+ if(["Entrega","Troca","Transferência"].includes(row.tipo)){
+   updates.status="No cliente";updates.cliente_id=row.cliente_id;updates.endereco_atual=row.endereco||null;updates.caminhao_id=row.caminhao_id;updates.motorista_id=row.motorista_id;updates.material=row.material||null;
+ }
+ if(["Retirada","Entrada no pátio"].includes(row.tipo)){
+   updates.status="No pátio";updates.cliente_id=null;updates.endereco_atual=null;updates.caminhao_id=null;updates.motorista_id=null;updates.data_colocacao=null;updates.material=null;
+ }
+ if(row.tipo==="Saída do pátio"){
+   updates.status="Disponível";updates.cliente_id=null;updates.endereco_atual=null;updates.caminhao_id=null;updates.motorista_id=null;updates.data_colocacao=null;updates.material=null;updates.patio=null;
+ }
+ const {data:updated,error:updateError}=await sb.from("cacambas").update(updates).eq("id",row.cacamba_id).select().single();
+ if(updateError)return alert(updateError.message);
+ if(["Entrega","Troca","Transferência"].includes(row.tipo) && String(clienteAnteriorId)!==String(row.cliente_id)){
+   registrarHistoricoTroca(row.cacamba_id,clienteAnterior,clienteAtual);
+   const hUpdate={cliente_anterior_id:clienteAnteriorId||null,cliente_anterior_nome:clienteAnterior?.nome||cacAtual?.cliente_anterior_nome||null,ultima_troca_at:new Date().toISOString()};
+   await sb.from("cacambas").update(hUpdate).eq("id",row.cacamba_id);
+ }
+ await loadAll();movimentacoes();cacambas();alert("Movimentação registrada!");
 }
 
 function manutencoes(){
