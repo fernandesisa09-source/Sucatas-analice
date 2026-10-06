@@ -1097,11 +1097,46 @@ function pesagemItensCliente(nome, arquivada=false){
  return pesagensLoad().filter(x=>pesagemClienteNome(x).toLowerCase()===alvo && !!x.fechada===!!arquivada);
 }
 function pesagemImprimirCliente(nomeCod, arquivada=false){
- const nome=decodeURIComponent(nomeCod||""); const items=pesagemItensCliente(nome,arquivada); if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
- const rows=items.map(x=>`<tr><td>TK-${String(x.numero_ticket||0).padStart(6,"0")}</td><td>${dataBR(x.data)}</td><td>${esc(x.hora_entrada||"—")}</td><td>${esc(x.hora_saida||"—")}</td><td>${esc(x.material||"")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join("");
- const w=window.open("","_blank","width=900,height=800"); if(!w)return alert("Permita a abertura da janela.");
- const bloco=`<div class="ticket"><h2>SUCATAS ANALICE</h2><div class="cliente">${esc(nome)}</div><table><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table></div>`;
- w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>@page{size:A4 portrait;margin:8mm}body{font-family:Arial;margin:0;color:#111}.ticket{height:132mm;border:1.5px solid #111;padding:7mm;position:relative}h2{text-align:center;margin:0 0 10px}.cliente{font-size:22px;font-weight:900;text-align:center;border:2px solid #111;padding:8px;margin-bottom:14px;text-transform:uppercase}table{width:100%;border-collapse:collapse}th,td{border:1px solid #aaa;padding:7px;font-size:11px}.assinaturas{position:absolute;left:7mm;right:7mm;bottom:8mm;display:flex;justify-content:space-between}.assinaturas span{width:45%;border-top:1px solid #111;text-align:center;font-size:10px;padding-top:3px}.corte{text-align:center;height:8mm;line-height:8mm;border-top:1px dashed #777;border-bottom:1px dashed #777;font-size:9px}</style></head><body>${bloco}<div class="corte"></div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+ const nome=decodeURIComponent(nomeCod||"");
+ const items=pesagemItensCliente(nome,arquivada);
+ if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
+ const operacoes=[...new Set(items.map(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"?"venda":"compra"))];
+ const operacao=operacoes.length===1?(operacoes[0]==="venda"?"VENDA":"COMPRA"):"COMPRA / VENDA";
+ const venda=operacoes.length===1 && operacoes[0]==="venda";
+ const rows=items.map(x=>{
+   const op=String(x.tipo_movimento||"compra").toLowerCase()==="venda"?"VENDA":"COMPRA";
+   return `<tr><td>TK-${String(x.numero_ticket||0).padStart(6,"0")}</td><td>${dataBR(x.data)}</td><td>${esc(x.hora_entrada||"—")}</td><td>${esc(x.hora_saida||"—")}</td><td>${esc(x.material||"—")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td><td><b>${op}</b></td></tr>`;
+ }).join("");
+ const obs=items.filter(x=>String(x.observacoes||"").trim()).map(x=>`TK-${String(x.numero_ticket||0).padStart(6,"0")}: ${esc(x.observacoes)}`).join("<br>");
+ const bloco=`<div class="ticket ${venda?"ticket-venda":"ticket-compra"} ${operacoes.length>1?"ticket-misto":""}>
+   <div class="cabecalho">SUCATAS ANALICE</div>
+   <div class="operacao">${operacao}</div>
+   <div class="titulo">COMPROVANTE DE PESAGEM</div>
+   <div class="cliente-destaque">${esc(nome)}</div>
+   <table><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th><th>Operação</th></tr></thead><tbody>${rows}</tbody></table>
+   ${obs?`<div class="observacao"><b>Observações:</b><br>${obs}</div>`:""}
+ </div>`;
+ const w=window.open("","_blank","width=900,height=800");
+ if(!w)return alert("Permita a abertura da janela.");
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Pesagem - ${esc(nome)}</title><style>
+ @page{size:A4 portrait;margin:4mm}
+ *{box-sizing:border-box}
+ html,body{margin:0;padding:0;width:210mm;min-height:297mm}
+ body{font-family:Arial,sans-serif;color:#111}
+ .ticket{height:112mm;max-height:112mm;overflow:hidden;border:1px solid #111;padding:4mm;position:relative;page-break-inside:avoid;break-inside:avoid;background:#fff}
+ .ticket-venda{border:2px solid #b83280;background:#fff4fb}.ticket-venda .cabecalho{color:#8f235f}.ticket-venda .operacao{background:#b83280;color:#fff;border-color:#b83280}
+ .ticket-compra .operacao{background:#55358a;color:#fff;border-color:#55358a}
+ .ticket-misto .operacao{background:#666;color:#fff;border-color:#666}
+ .cabecalho{text-align:center;font-size:17px;font-weight:800;white-space:nowrap}
+ .operacao{width:max-content;min-width:28mm;margin:2mm auto;padding:1.8mm 7mm;border:1.5px solid #111;border-radius:2mm;text-align:center;font-size:12px;font-weight:900;letter-spacing:.4px}
+ .titulo{text-align:center;font-size:10px;font-weight:700;margin:1mm 0 2.5mm}
+ .cliente-destaque{font-size:14px;line-height:1.05;font-weight:900;text-align:center;border:1px solid #111;padding:3mm;margin:2mm 0 3mm;text-transform:uppercase}
+ table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #aaa;padding:2.2px;font-size:7px;text-align:center;line-height:1.05;overflow:hidden}th{font-weight:800}td:nth-child(5){text-align:left}
+ .observacao{font-size:8px;line-height:1.1;margin-top:2.5mm;padding:2mm;border:1px solid #777;border-radius:1.5mm;max-height:14mm;overflow:hidden}
+ .corte{text-align:center;height:4mm;line-height:4mm;font-size:6.5px;border-top:1px dashed #777;border-bottom:1px dashed #777;page-break-inside:avoid;break-inside:avoid}
+ @media print{html,body{width:210mm;height:297mm}.ticket{height:112mm;max-height:112mm}}
+ </style></head><body>${bloco}<div class="corte"></div>${bloco}<script>window.onload=()=>window.print()<\/script></body></html>`);
+ w.document.close();
 }
 
 function pesagemWhatsApp(id){
