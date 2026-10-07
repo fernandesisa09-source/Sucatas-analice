@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Sucatas Analice — Controle de Caçambas</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;background:#f5f3f8;color:#4b4f52}
 header{background:linear-gradient(135deg,#55358a 0%,#4b2f7a 55%,#0a9a4a 100%);color:#fff;padding:18px;display:flex;align-items:center;gap:14px;box-shadow:0 3px 12px #55358a33}
@@ -303,7 +304,9 @@ async function openEditModal(table,id){
   ]},
   clientes:{title:"Editar cliente",fields:[
    ["nome","Nome","text"],["responsavel","Responsável","text"],["telefone","Telefone","text"],["email","E-mail","text"],
-   ["endereco","Endereço","text"],["numero","Número","text"],["bairro","Bairro","text"],["cidade","Cidade","text"],["uf","UF","text"],["cep","CEP","text"],["observacoes","Observações","textarea"]
+   ["endereco","Endereço","text"],["numero","Número","text"],["bairro","Bairro","text"],["cidade","Cidade","text"],["uf","UF","text"],["cep","CEP","text"],
+   ["pix_tipo","Tipo de chave PIX","choice",["CPF/CNPJ","E-mail","Telefone","Chave aleatória"]],["pix_chave","Chave PIX","text"],["pix_nome","Nome para o PIX","text"],["pix_cidade","Cidade para o PIX","text"],
+   ["observacoes","Observações","textarea"]
   ]},
   motoristas:{title:"Editar motorista",fields:[
    ["nome","Nome","text"],["telefone","Telefone","text"],["cnh","CNH","text"],["status","Status","choice",["Ativo","Inativo"]],["observacoes","Observações","textarea"]
@@ -1331,7 +1334,23 @@ async function financeiroSync(){
    Object.assign(f,patch);
  }
  const fresh=await sb.from("financeiro_pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
- financeiroCloud=fresh.error?lista:(fresh.data||[]);
+ let finalLista=fresh.error?lista:(fresh.data||[]);
+ // O Financeiro considera somente COMPRAS. Vendas nunca entram nas contas a pagar.
+ const pesMap=new Map((pesagensLoad()||[]).map(p=>[String(p.id),p]));
+ finalLista=finalLista.filter(f=>{
+   const p=pesMap.get(String(f.pesagem_id));
+   return !p || String(p.tipo_movimento||"compra").toLowerCase()!=="venda";
+ });
+ // Tudo que é anterior a hoje é histórico já pago: vai para Pagamentos realizados.
+ // Somente compras de hoje permanecem como pendentes.
+ const hojeLocal=String(today());
+ finalLista=finalLista.map(f=>{
+   if(f.status==="Pendente" && String(f.data||"")<hojeLocal){
+     return {...f,status:"Pago",forma_pagamento:f.forma_pagamento||"Pagamento anterior",pago_em:f.pago_em||new Date(String(f.data)+"T23:59:59").toISOString()};
+   }
+   return f;
+ });
+ financeiroCloud=finalLista;
  return financeiroCloud;
 }
 function financeiroGrupos(lista){
@@ -1364,22 +1383,68 @@ async function financeiroSalvarPrecoMaterial(id){
  for(const x of pend){const total=Number(x.liquido||0)*preco;await sb.from("financeiro_pesagens").update({preco_kg:preco,total,updated_at:new Date().toISOString()}).eq("id",x.id);}
  await financeiroRender();
 }
-async function financeiroPagarGrupo(ids,nome){
- const lista=String(ids||"").split(",").filter(Boolean);
- const rows=financeiroCloud.filter(x=>lista.includes(String(x.id))&&x.status==="Pendente");
+function financeiroPixCRC16(payload){let crc=0xFFFF;for(let i=0;i<payload.length;i++){crc^=payload.charCodeAt(i)<<8;for(let j=0;j<8;j++)crc=(crc&0x8000)?((crc<<1)^0x1021)&0xFFFF:(crc<<1)&0xFFFF;}return crc.toString(16).toUpperCase().padStart(4,"0");}
+function financeiroPixField(id,value){value=String(value||"");return String(id).padStart(2,"0")+String(value.length).padStart(2,"0")+value;}
+function financeiroPixPayload(chave,nome,cidade,valor){
+ const k=String(chave||"").trim(), n=String(nome||"Cliente").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^A-Za-z0-9 .&\\-]/g,"").slice(0,25)||"CLIENTE";
+ const c=String(cidade||"OSASCO").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").replace(/[^A-Za-z0-9 .&\\-]/g,"").slice(0,15)||"OSASCO";
+ if(!k)return "";
+ let mai=financeiroPixField(00,"br.gov.bcb.pix")+financeiroPixField(01,k);
+ let body=financeiroPixField(00,"01")+financeiroPixField(26,mai)+financeiroPixField(52,"0000")+financeiroPixField(53,"986");
+ if(Number(valor)>0)body+=financeiroPixField(54,Number(valor).toFixed(2));
+ body+=financeiroPixField(58,"BR")+financeiroPixField(59,n)+financeiroPixField(60,c)+financeiroPixField(62,financeiroPixField(05,"***"));
+ return body+"6304"+financeiroPixCRC16(body+"6304");
+}
+function financeiroClientePorNome(nome){const alvo=String(nome||"").trim().toLowerCase();return (cache.clientes||[]).find(c=>String(c.nome||"").trim().toLowerCase()===alvo)||null;}
+function financeiroAbrirPagamento(ids){
+ const lista=String(ids||"").split(",").filter(Boolean), rows=financeiroCloud.filter(x=>lista.includes(String(x.id))&&x.status==="Pendente");
  if(!rows.length)return alert("Não há valores pendentes para este cliente.");
- const semPreco=rows.filter(x=>!(Number(x.preco_kg)>0));
- if(semPreco.length)return alert("Informe o preço por kg de todos os materiais antes de pagar.");
- const total=rows.reduce((s,x)=>s+Number(x.total||0),0);
- const forma=prompt("Forma de pagamento para "+nome+"\\n\\nTotal: "+financeiroR$(total)+"\\n\\nDigite: PIX, Dinheiro, Transferência ou outra forma:","PIX");
- if(forma===null)return;
- if(!String(forma).trim())return alert("Informe a forma de pagamento.");
- if(!confirm("Confirmar pagamento de "+nome+" no valor de "+financeiroR$(total)+"?"))return;
- const agora=new Date().toISOString();
- const {error}=await sb.from("financeiro_pesagens").update({status:"Pago",pago_em:agora,forma_pagamento:String(forma).trim(),updated_at:agora}).in("id",lista);
- if(error)return alert("Não foi possível registrar o pagamento: "+error.message);
+ const semPreco=rows.filter(x=>!(Number(x.preco_kg)>0)); if(semPreco.length)return alert("Informe o preço por kg de todos os materiais antes de pagar.");
+ const total=rows.reduce((s,x)=>s+Number(x.total||0),0), nome=rows[0].pessoa||"Cliente", cli=financeiroClientePorNome(nome), chave=cli&&cli.pix_chave?cli.pix_chave:"", pixNome=(cli&&cli.pix_nome)||nome, pixCidade=(cli&&cli.pix_cidade)||((cli&&cli.cidade)||"OSASCO");
+ let box=document.getElementById("pixPagamentoModal"); if(box)box.remove();
+ box=document.createElement("div");box.id="pixPagamentoModal";box.style="position:fixed;inset:0;background:#0008;z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";
+ const payload=financeiroPixPayload(chave,pixNome,pixCidade,total);
+ box.innerHTML=`<div class="card" style="max-width:520px;width:100%;max-height:92vh;overflow:auto;text-align:center"><h2>💳 Pagamento — ${esc(nome)}</h2><div style="font-size:28px;font-weight:900;color:#55358a;margin:10px 0">${financeiroR$(total)}</div>${payload?`<div id="pixQr" style="display:flex;justify-content:center;margin:15px 0"></div><p class="small"><b>PIX para:</b> ${esc(pixNome)}<br><b>Chave:</b> ${esc(chave)}</p><textarea id="pixCopiaCola" readonly style="height:90px;font-size:11px">${esc(payload)}</textarea><button class="btn secondary" style="margin-top:8px" onclick="navigator.clipboard?.writeText(document.getElementById('pixCopiaCola').value);alert('PIX copia e cola copiado!')">📋 Copiar PIX</button>`:`<div class="card" style="background:#fff4d6;border:1px solid #e0b84c"><b>⚠️ Este cliente ainda não possui chave PIX cadastrada.</b><p class="small">Cadastre a chave PIX no cadastro do cliente para gerar o QR Code.</p></div>`}<div style="display:flex;gap:8px;justify-content:center;margin-top:18px"><button class="btn secondary" onclick="document.getElementById('pixPagamentoModal').remove()">Cancelar</button><button class="btn primary" onclick="financeiroConfirmarPagamento('${lista.join(',')}','${esc(nome).replace(/'/g,"\\'")}')">✅ Pagamento realizado</button></div></div>`;
+ document.body.appendChild(box);
+ if(payload&&window.QRCode)new QRCode(document.getElementById("pixQr"),{text:payload,width:220,height:220});
+}
+async function financeiroConfirmarPagamento(ids,nome){
+ const lista=String(ids||"").split(",").filter(Boolean), agora=new Date().toISOString();
+ if(!lista.length)return alert("Nenhuma conta foi selecionada para pagamento.");
+ if(!confirm("Confirmar que o pagamento de "+nome+" foi realizado?\n\nDepois da confirmação, estas pesagens serão fechadas e arquivadas para evitar um segundo pagamento."))return;
+
+ // Busca as contas antes de alterar para descobrir exatamente quais pesagens pertencem a este pagamento.
+ const {data:contas,error:contasError}=await sb.from("financeiro_pesagens").select("id,pesagem_id,status").in("id",lista);
+ if(contasError)return alert("Não foi possível localizar as contas: "+contasError.message);
+ const contasPendentes=(contas||[]).filter(x=>String(x.status)==="Pendente");
+ if(!contasPendentes.length){
+   document.getElementById("pixPagamentoModal")?.remove();
+   await financeiroRender();
+   return alert("Este pagamento já foi registrado anteriormente. Nenhuma nova cobrança foi feita.");
+ }
+ const pesagemIds=[...new Set(contasPendentes.map(x=>String(x.pesagem_id)).filter(Boolean))];
+
+ // Primeiro registra o pagamento no Financeiro.
+ const {error:pagError}=await sb.from("financeiro_pesagens").update({status:"Pago",pago_em:agora,forma_pagamento:"PIX",updated_at:agora}).in("id",contasPendentes.map(x=>x.id));
+ if(pagError)return alert("Não foi possível registrar o pagamento: "+pagError.message);
+
+ // Em seguida fecha as pesagens vinculadas. Elas deixam a lista de abertas e vão para o arquivo.
+ if(pesagemIds.length){
+   const {error:fechError}=await sb.from("pesagens").update({fechada:true,updated_at:agora}).in("id",pesagemIds);
+   if(fechError){
+     console.error("Pagamento salvo, mas não foi possível fechar as pesagens",fechError);
+     document.getElementById("pixPagamentoModal")?.remove();
+     await financeiroRender();
+     return alert("O pagamento foi registrado, mas não consegui fechar as pesagens automaticamente.\n\nAtualize a Pesagem e verifique as contas antes de pagar novamente.");
+   }
+ }
+
+ // Atualiza o estado local imediatamente, sem esperar o próximo refresh.
+ pesagemCloud=(pesagemCloud||[]).map(p=>pesagemIds.includes(String(p.id))?{...p,fechada:true,updated_at:agora}:p);
+ pesagemCloudReady=true;
+ document.getElementById("pixPagamentoModal")?.remove();
  await financeiroRender();
- alert("Pagamento registrado com sucesso!\\n\\nCliente: "+nome+"\\nTotal: "+financeiroR$(total));
+ alert("Pagamento registrado com sucesso!\n\nAs pesagens de "+nome+" foram fechadas e arquivadas. Elas não voltarão para Contas a pagar.");
 }
 async function financeiroDesfazerPagamento(id){
  if(!confirm("Voltar este pagamento para Pendente?"))return;
@@ -1404,7 +1469,7 @@ async function financeiroRender(){
  const alertaAtrasados=atrasados.length?`<div class="card" style="border-left:5px solid #c62828;background:#fff5f5"><h3 style="margin:0;color:#b71c1c">⚠️ Pagamentos em aberto há mais de 1 dia</h3><p style="margin:6px 0 0">${atrasados.length} lançamento(s) aguardando pagamento. Confira os clientes abaixo.</p><div class="small" style="margin-top:8px">${atrasados.map(x=>`<span style="display:inline-block;margin:3px 8px 3px 0;padding:5px 8px;border-radius:8px;background:#ffe0e0"><b>${esc(x.pessoa||"Cliente")}</b> — ${diasAberto(x)} dia(s) — ${financeiroR$(x.total)}</span>`).join("")}</div></div>`:"";
  const cards=`<div class="stats"><div class="card stat">💰 A pagar<b>${financeiroR$(totalPendente)}</b><span class="small">${grupos.length} cliente(s)</span></div><div class="card stat">⚠️ Em atraso<b>${financeiroR$(atrasados.reduce((s,x)=>s+Number(x.total||0),0))}</b><span class="small">${atrasados.length} lançamento(s)</span></div><div class="card stat">🧾 Hoje<b>${financeiroR$(pend.filter(x=>String(x.data||"")===hoje).reduce((s,x)=>s+Number(x.total||0),0))}</b><span class="small">Compras abertas de hoje</span></div><div class="card stat">📁 Já pagos<b>${financeiroR$(totalPago)}</b><span class="small">${pagos.length} lançamento(s)</span></div></div>${alertaAtrasados}`;
  const precoCard=`<div class="card"><details><summary style="cursor:pointer;font-weight:800">🏷️ Preços dos materiais</summary><p class="small">Defina aqui o preço por kg. As novas compras de pesagem entram automaticamente no financeiro com este preço.</p><div class="tablewrap"><table><tr><th>Material</th><th>Preço / kg</th><th>Ação</th></tr>${materiais.map(m=>`<tr><td><b>${esc(m.nome)}</b></td><td><input id="finmatpreco_${m.id}" inputmode="decimal" value="${brNum(m.preco||0)}"></td><td><button class="btn primary" onclick="financeiroSalvarPrecoMaterial('${m.id}')">💾 Salvar</button></td></tr>`).join("")}</table></div></details></div>`;
- const pendHtml=grupos.length?grupos.map(g=>{const ids=g.items.map(x=>x.id).join(",");const total=g.items.reduce((s,x)=>s+Number(x.total||0),0);return `<div class="card" style="border-left:5px solid #55358a"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0">👤 ${esc(g.nome)}</h3><span class="small">${g.items.length} pesagem(ns)</span></div><div style="font-size:22px;font-weight:900;color:#55358a">${financeiroR$(total)}</div></div><div class="tablewrap" style="margin-top:12px"><table><tr><th>Data</th><th>Material</th><th>Peso líquido</th><th>Preço / kg</th><th>Total</th></tr>${g.items.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.material)}</td><td><b>${brNum(x.liquido)} kg</b></td><td><input id="finpreco_${x.id}" inputmode="decimal" value="${x.preco_kg==null?"":brNum(x.preco_kg)}" placeholder="R$ / kg"></td><td><b>${financeiroR$(x.total)}</b></td></tr>`).join("")}</table></div><div class="actions" style="margin-top:10px"><button class="btn secondary" onclick="financeiroSalvarPrecos('${ids}')">💾 Salvar preços</button><button class="btn primary" onclick="financeiroPagarGrupo('${ids}',${esc(JSON.stringify(String(g.nome||"Cliente")))})">💳 Fazer pagamento — ${financeiroR$(total)}</button></div></div>`}).join(""):'<div class="card"><p class="small">Nenhum pagamento pendente. As compras registradas na Pesagem aparecerão aqui automaticamente.</p></div>';
+ const pendHtml=grupos.length?grupos.map(g=>{const ids=g.items.map(x=>x.id).join(",");const total=g.items.reduce((s,x)=>s+Number(x.total||0),0);return `<div class="card" style="border-left:5px solid #55358a"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0">👤 ${esc(g.nome)}</h3><span class="small">${g.items.length} pesagem(ns)</span></div><div style="font-size:22px;font-weight:900;color:#55358a">${financeiroR$(total)}</div></div><div class="tablewrap" style="margin-top:12px"><table><tr><th>Data</th><th>Material</th><th>Peso líquido</th><th>Preço / kg</th><th>Total</th></tr>${g.items.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.material)}</td><td><b>${brNum(x.liquido)} kg</b></td><td><input id="finpreco_${x.id}" inputmode="decimal" value="${x.preco_kg==null?"":brNum(x.preco_kg)}" placeholder="R$ / kg"></td><td><b>${financeiroR$(x.total)}</b></td></tr>`).join("")}</table></div><div class="actions" style="margin-top:10px"><button class="btn secondary" onclick="financeiroSalvarPrecos('${ids}')">💾 Salvar preços</button><button class="btn primary" onclick="financeiroAbrirPagamento('${ids}')">💳 Fazer pagamento — ${financeiroR$(total)}</button></div></div>`}).join(""):'<div class="card"><p class="small">Nenhum pagamento pendente. As compras registradas na Pesagem aparecerão aqui automaticamente.</p></div>';
  const pagoHtml=gruposPagos.length?gruposPagos.map(g=>{const total=g.items.reduce((s,x)=>s+Number(x.total||0),0);return `<details class="card"><summary style="cursor:pointer;font-weight:800">✅ ${esc(g.nome)} — ${financeiroR$(total)}</summary><div class="tablewrap" style="margin-top:12px"><table><tr><th>Data</th><th>Material</th><th>Peso líquido</th><th>Preço / kg</th><th>Total</th><th>Pagamento</th><th>Ação</th></tr>${g.items.map(x=>`<tr><td>${dataBR(x.data)}</td><td>${esc(x.material)}</td><td>${brNum(x.liquido)} kg</td><td>${financeiroR$(x.preco_kg)}</td><td><b>${financeiroR$(x.total)}</b></td><td>${esc(x.forma_pagamento||"—")}<br><span class="small">${x.pago_em?new Date(x.pago_em).toLocaleDateString("pt-BR"):""}</span></td><td><button class="btn secondary" onclick="financeiroDesfazerPagamento('${x.id}')">↩️</button></td></tr>`).join("")}</table></div></details>`}).join(""):'<div class="card"><p class="small">Nenhum pagamento registrado ainda.</p></div>';
  el.innerHTML=`<h2>💳 Financeiro <span class="small">☁️ Ligado à Pesagem</span> <button class="btn secondary" onclick="financeiroRender()">🔄 Atualizar</button></h2>${cards}${precoCard}<h3>💰 Contas a pagar</h3>${pendHtml}<h3>📁 Pagamentos realizados</h3>${pagoHtml}`;
 }
