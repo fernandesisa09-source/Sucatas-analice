@@ -1104,18 +1104,19 @@ function pesagemImprimirCliente(nomeCod, arquivada=false){
  const operacoes=[...new Set(items.map(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"?"venda":"compra"))];
  const operacao=operacoes.length===1?(operacoes[0]==="venda"?"VENDA":"COMPRA"):"COMPRA / VENDA";
  const classe=operacoes.length>1?"ticket-misto":(operacao==="VENDA"?"ticket-venda":"ticket-compra");
+ const numeroTicketGrupo=items[0]?.numero_ticket||0;
  const rows=items.map(x=>{
    const op=String(x.tipo_movimento||"compra").toLowerCase()==="venda"?"VENDA":"COMPRA";
-   return `<tr><td>TK-${String(x.numero_ticket||0).padStart(6,"0")}</td><td>${dataBR(x.data)}</td><td>${esc(x.hora_entrada||"—")}</td><td>${esc(x.hora_saida||"—")}</td><td>${esc(x.material||"—")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td><td><b>${op}</b></td></tr>`;
+   return `<tr><td>${dataBR(x.data)}</td><td>${esc(x.hora_entrada||"—")}</td><td>${esc(x.hora_saida||"—")}</td><td>${esc(x.material||"—")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td><td><b>${op}</b></td></tr>`;
  }).join("");
- const obs=items.filter(x=>String(x.observacoes||"").trim()).map(x=>`TK-${String(x.numero_ticket||0).padStart(6,"0")}: ${esc(x.observacoes)}`).join("<br>");
+ const obs=items.filter(x=>String(x.observacoes||"").trim()).map(x=>esc(x.observacoes)).join("<br>");
  const bloco=`<div class="ticket ${classe}">
    <div class="ticket-conteudo">
     <div class="cabecalho">SUCATAS ANALICE</div>
-    <div class="ticket-numero">COMPROVANTE DE PESAGEM</div>
+    <div class="ticket-numero">TICKET Nº TK-${String(numeroTicketGrupo).padStart(6,"0")} — COMPROVANTE DE PESAGEM</div>
     <div class="operacao">${operacao}</div>
     <div class="cliente-destaque">${esc(nome)}</div>
-    <table><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th><th>Operação</th></tr></thead><tbody>${rows}</tbody></table>
+    <table><thead><tr><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th><th>Operação</th></tr></thead><tbody>${rows}</tbody></table>
     ${obs?`<div class="observacao"><b>Observações:</b><br>${obs}</div>`:""}
    </div>
  </div>`;
