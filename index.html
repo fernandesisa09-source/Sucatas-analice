@@ -1103,19 +1103,21 @@ function pesagemImprimirCliente(nomeCod, arquivada=false){
  if(!items.length)return alert(arquivada?"Não há pesagens arquivadas para este cliente.":"Não há pesagens abertas para este cliente.");
  const operacoes=[...new Set(items.map(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"?"venda":"compra"))];
  const operacao=operacoes.length===1?(operacoes[0]==="venda"?"VENDA":"COMPRA"):"COMPRA / VENDA";
- const venda=operacoes.length===1 && operacoes[0]==="venda";
+ const classe=operacoes.length>1?"ticket-misto":(operacao==="VENDA"?"ticket-venda":"ticket-compra");
  const rows=items.map(x=>{
    const op=String(x.tipo_movimento||"compra").toLowerCase()==="venda"?"VENDA":"COMPRA";
    return `<tr><td>TK-${String(x.numero_ticket||0).padStart(6,"0")}</td><td>${dataBR(x.data)}</td><td>${esc(x.hora_entrada||"—")}</td><td>${esc(x.hora_saida||"—")}</td><td>${esc(x.material||"—")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td><td><b>${op}</b></td></tr>`;
  }).join("");
  const obs=items.filter(x=>String(x.observacoes||"").trim()).map(x=>`TK-${String(x.numero_ticket||0).padStart(6,"0")}: ${esc(x.observacoes)}`).join("<br>");
- const bloco=`<div class="ticket ${venda?"ticket-venda":"ticket-compra"} ${operacoes.length>1?"ticket-misto":""}>
-   <div class="cabecalho">SUCATAS ANALICE</div>
-   <div class="ticket-numero">COMPROVANTE DE PESAGEM</div>
-   <div class="operacao">${operacao}</div>
-   <div class="cliente-destaque">${esc(nome)}</div>
-   <table><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th><th>Operação</th></tr></thead><tbody>${rows}</tbody></table>
-   ${obs?`<div class="observacao"><b>Observações:</b><br>${obs}</div>`:""}
+ const bloco=`<div class="ticket ${classe}">
+   <div class="ticket-conteudo">
+    <div class="cabecalho">SUCATAS ANALICE</div>
+    <div class="ticket-numero">COMPROVANTE DE PESAGEM</div>
+    <div class="operacao">${operacao}</div>
+    <div class="cliente-destaque">${esc(nome)}</div>
+    <table><thead><tr><th>Ticket</th><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th><th>Operação</th></tr></thead><tbody>${rows}</tbody></table>
+    ${obs?`<div class="observacao"><b>Observações:</b><br>${obs}</div>`:""}
+   </div>
  </div>`;
  const w=window.open("","_blank","width=900,height=800");
  if(!w)return alert("Permita a abertura da janela.");
@@ -1124,22 +1126,22 @@ function pesagemImprimirCliente(nomeCod, arquivada=false){
  *{box-sizing:border-box}
  html,body{margin:0!important;padding:0!important;width:210mm!important;height:297mm!important;overflow:hidden!important}
  body{font-family:Arial,sans-serif;color:#111}
- .folha{width:210mm;height:297mm;padding:3mm 5mm 0;overflow:hidden}
- .ticket{height:103mm;max-height:103mm;overflow:hidden;border:1px solid #111;padding:3mm;position:relative;page-break-inside:avoid;break-inside:avoid;background:#fff;margin:0}
+ .folha{position:relative;width:210mm;height:297mm;overflow:hidden;padding:0;margin:0}
+ .ticket{position:absolute;left:5mm;width:200mm;height:140mm;max-height:140mm;overflow:hidden;border:1px solid #111;padding:4mm;background:#fff;margin:0}
+ .ticket:nth-child(1){top:3mm}.ticket:nth-child(2){top:149mm}
  .ticket-venda{border:2px solid #b83280;background:#fff4fb}.ticket-venda .cabecalho{color:#8f235f}.ticket-venda .operacao{background:#b83280;color:#fff;border-color:#b83280}
  .ticket-compra .operacao{background:#55358a;color:#fff;border-color:#55358a}.ticket-misto .operacao{background:#666;color:#fff;border-color:#666}
- .cabecalho{text-align:center;font-size:15px;font-weight:800;line-height:1;white-space:nowrap}
- .ticket-numero{text-align:center;font-size:7px;font-weight:800;margin-top:1mm}
- .operacao{width:max-content;min-width:24mm;margin:1.5mm auto;padding:1.4mm 6mm;border:1px solid #111;border-radius:1.5mm;text-align:center;font-size:10px;font-weight:900;letter-spacing:.3px}
- .cliente-destaque{font-size:12px;line-height:1;font-weight:900;text-align:center;border:1px solid #111;padding:2.5mm 2px;margin:2mm 0;text-transform:uppercase}
- table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #aaa;padding:1.4px;font-size:5.5px;text-align:center;line-height:1;overflow:hidden;white-space:nowrap}th{font-weight:800}td:nth-child(5){text-align:left;white-space:normal}
- .observacao{font-size:6.5px;line-height:1.05;margin-top:1.5mm;padding:1.5mm;border:1px solid #777;border-radius:1mm;max-height:10mm;overflow:hidden}
- .corte{height:3mm;line-height:3mm;text-align:center;font-size:5px;border-top:1px dashed #777;border-bottom:1px dashed #777;page-break-inside:avoid;break-inside:avoid;margin:0}
- @media print{html,body{width:210mm!important;height:297mm!important;overflow:hidden!important}.folha{width:210mm;height:297mm;overflow:hidden}.ticket{height:103mm;max-height:103mm}.corte{height:3mm;line-height:3mm}}
- </style></head><body><div class="folha">${bloco}<div class="corte"></div>${bloco}</div><script>window.onload=()=>window.print()<\/script></body></html>`);
+ .ticket-conteudo{position:absolute;left:4mm;right:4mm;top:4mm}
+ .cabecalho{text-align:center;font-size:16px;font-weight:800;line-height:1;margin:0}
+ .ticket-numero{text-align:center;font-size:7px;font-weight:800;margin-top:1.5mm}
+ .operacao{width:max-content;min-width:24mm;margin:2mm auto 2mm;padding:1.6mm 7mm;border:1px solid #111;border-radius:1.5mm;text-align:center;font-size:11px;font-weight:900;letter-spacing:.3px;line-height:1}
+ .cliente-destaque{font-size:13px;line-height:1.05;font-weight:900;text-align:center;border:1px solid #111;padding:2.5mm 2px;margin:2mm 0 3mm;text-transform:uppercase}
+ table{width:100%;border-collapse:collapse;table-layout:fixed;margin:0}th,td{border:1px solid #aaa;padding:2px;font-size:6.2px;text-align:center;line-height:1.05;overflow:hidden;white-space:nowrap}th{font-weight:800}td:nth-child(5){text-align:left;white-space:normal}
+ .observacao{font-size:7.5px;line-height:1.1;margin-top:2.5mm;padding:2mm;border:1px solid #777;border-radius:1mm;max-height:16mm;overflow:hidden}
+ @media print{html,body{width:210mm!important;height:297mm!important;overflow:hidden!important}.folha{width:210mm!important;height:297mm!important}.ticket{break-inside:avoid;page-break-inside:avoid}}
+ </style></head><body><div class="folha">${bloco}${bloco}</div><script>window.onload=()=>window.print()<\/script></body></html>`);
  w.document.close();
 }
-
 function pesagemWhatsApp(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
  const msg=[x.pessoa||"",dataBR(x.data||""),`Produto: ${x.material||"Não informado"}`,`Peso líquido: ${brNum(x.liquido)} kg`].filter(Boolean).join("\n");
