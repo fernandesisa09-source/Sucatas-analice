@@ -1471,8 +1471,22 @@ function financeiroImprimirFechamento(data){
 }
 function financeiroGrupos(lista){
  const mapa={};
- (lista||[]).forEach(x=>{const k=String(x.pessoa||"Cliente não informado").trim().toLowerCase();if(!mapa[k])mapa[k]={nome:x.pessoa||"Cliente não informado",items:[]};mapa[k].items.push(x)});
- return Object.values(mapa).sort((a,b)=>a.nome.localeCompare(b.nome));
+ (lista||[]).forEach(x=>{
+   const k=String(x.pessoa||"Cliente não informado").trim().toLowerCase();
+   if(!mapa[k])mapa[k]={nome:x.pessoa||"Cliente não informado",items:[]};
+   mapa[k].items.push(x);
+ });
+ const grupos=Object.values(mapa);
+ // Mantém exatamente a ordem em que as pesagens foram registradas:
+ // mais recente primeiro, como na tela de Pesagem.
+ grupos.forEach(g=>g.items.sort((a,b)=>{
+   const ca=new Date(a.created_at||0).getTime(), cb=new Date(b.created_at||0).getTime();
+   return cb-ca || String(b.id||"").localeCompare(String(a.id||""));
+ }));
+ return grupos.sort((a,b)=>{
+   const ca=new Date(a.items[0]?.created_at||0).getTime(), cb=new Date(b.items[0]?.created_at||0).getTime();
+   return cb-ca || String(b.items[0]?.id||"").localeCompare(String(a.items[0]?.id||""));
+ });
 }
 async function financeiroSalvarPrecos(ids){
  const lista=String(ids||"").split(",").map(x=>x.trim()).filter(Boolean);
