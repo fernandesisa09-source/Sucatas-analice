@@ -1341,15 +1341,29 @@ async function financeiroSync(){
    const p=pesMap.get(String(f.pesagem_id));
    return !p || String(p.tipo_movimento||"compra").toLowerCase()!=="venda";
  });
- // Tudo que é anterior a hoje é histórico já pago: vai para Pagamentos realizados.
- // Somente compras de hoje permanecem como pendentes.
+ // Tudo que é anterior a hoje é histórico já pago.
+ // Além de mostrar no arquivo, NORMALIZAMOS no banco: a conta vira Pago
+ // e a pesagem vinculada é fechada/arquivada. Isso impede que um histórico
+ // antigo volte a aparecer como cobrança depois de atualizar a página ou
+ // entrar por outro aparelho. Vendas continuam fora dessa rotina.
  const hojeLocal=String(today());
- finalLista=finalLista.map(f=>{
-   if(f.status==="Pendente" && String(f.data||"")<hojeLocal){
-     return {...f,status:"Pago",forma_pagamento:f.forma_pagamento||"Pagamento anterior",pago_em:f.pago_em||new Date(String(f.data)+"T23:59:59").toISOString()};
-   }
-   return f;
+ const historicas=finalLista.filter(f=>{
+   const p=pesMap.get(String(f.pesagem_id));
+   return f.status==="Pendente" && String(f.data||"")<hojeLocal && (!p || String(p.tipo_movimento||"compra").toLowerCase()!=="venda");
  });
+ if(historicas.length){
+   const agoraHist=new Date().toISOString();
+   const idsHist=historicas.map(f=>String(f.id));
+   const pesHist=[...new Set(historicas.map(f=>String(f.pesagem_id||"")).filter(Boolean))];
+   const pagoUpdate={status:"Pago",forma_pagamento:"Pagamento anterior",pago_em:agoraHist,updated_at:agoraHist};
+   const upFin=await sb.from("financeiro_pesagens").update(pagoUpdate).in("id",idsHist);
+   if(upFin.error){console.error("Não foi possível normalizar pagamentos antigos",upFin.error);}
+   if(pesHist.length){
+     const upPes=await sb.from("pesagens").update({fechada:true,updated_at:agoraHist}).in("id",pesHist);
+     if(upPes.error)console.error("Não foi possível arquivar pesagens antigas já pagas",upPes.error);
+   }
+   finalLista=finalLista.map(f=>idsHist.includes(String(f.id))?{...f,...pagoUpdate}:f);
+ }
  financeiroCloud=finalLista;
  return financeiroCloud;
 }
