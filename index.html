@@ -448,6 +448,7 @@ function hojeBR(){ return dataBR(new Date().toISOString()); }
 
 const AD_KEY="sucatas_analice_adiantamentos_v1";
 let adCloud=[];
+let adCloudReady=false;
 
 function adSaldo(a){
  return Math.max(0,Number(a.valor||0)-(a.abatimentos||[]).reduce((s,x)=>s+Number(x.valor||0),0));
@@ -479,10 +480,12 @@ function adDataBR(v){
 function adLocal(){
  try{return JSON.parse(localStorage.getItem(AD_KEY)||"[]")}catch(e){return[]}
 }
-async function adLoad(){
+async function adLoad(force=false){
+ if(adCloudReady&&!force)return adCloud;
  const {data,error}=await sb.from("adiantamentos").select("*").order("data",{ascending:false});
  if(error)throw error;
  adCloud=data||[];
+ adCloudReady=true;
 
  // Sincroniza registros antigos que ainda estejam somente neste aparelho.
  // Junta os registros locais com os que já existem na nuvem.
@@ -505,7 +508,9 @@ async function adLoad(){
    }
    localStorage.removeItem(AD_KEY);
  }
- return adCloud.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+ adCloud=adCloud.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+ adCloudReady=true;
+ return adCloud;
 }
 async function adAdd(){
  const pessoa=String(document.getElementById("adp")?.value||"").trim();
@@ -998,16 +1003,13 @@ async function pesagemSalvar(){
  const {data:saved,error}=await sb.from("pesagens").insert(row).select().single();
  if(error){console.error("Erro ao salvar pesagem",error,row);return alert("Não foi possível registrar a pesagem.\n\n"+error.message);}
  pesagemCloud=[saved,...pesagemCloud];pesagemCloudReady=true;
+ // Compra do dia entra no Financeiro ANTES de atualizar a tela de Pesagem.
+ // Assim, quando a usuária abrir o Financeiro, o lançamento já estará salvo.
+ try{await financeiroSincronizarPesagem(saved,userData.user.id,obs);}catch(e){console.error("Erro ao sincronizar financeiro",e);}
  try{await pesagemRender();}catch(e){console.error(e);}
- // Compra do dia entra imediatamente no Financeiro como pendente.
- if(tipo_movimento==="compra" && String(data)===String(today())){
-   try{
-     const prod=financeiroMaterialProduto(material);
-     const preco=prod&&Number(prod.preco)>0?Number(prod.preco):null;
-     const ins=await sb.from("financeiro_pesagens").insert({pesagem_id:saved.id,user_id:userData.user.id,pessoa, data, material, liquido:Number(liquido), preco_kg:preco, total:preco?Number(liquido)*preco:0, status:"Pendente", observacoes:obs||null}).select().single();
-     if(ins.error && ins.error.code!=="23505")console.error("Erro ao criar financeiro",ins.error);
-   }catch(e){console.error("Erro ao sincronizar financeiro",e);}
- }
+ try{
+   if(document.getElementById("financeiro")?.classList.contains("active")) await financeiroRender();
+ }catch(e){console.error(e);}
  alert("Pesagem registrada com sucesso!");
 }
 
@@ -1202,7 +1204,12 @@ async function pesagemSalvarAdicional(origId){
  const novo={data:String($("pam_data")?.value||today()),pessoa,material,entrada,saida,liquido,tipo_movimento,hora_entrada:$("pam_hora_entrada")?.value||null,hora_saida:$("pam_hora_saida")?.value||null,observacoes:String($("pam_obs")?.value||"").trim()};
  const {data,error}=await sb.from("pesagens").insert(novo).select().single();
  if(error)return alert("Não foi possível registrar a nova pesagem: "+error.message);
- pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;document.getElementById("pesagemAddModal")?.remove();await pesagemRender();alert("Nova pesagem registrada para "+pessoa+".");
+ pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;
+ try{await financeiroSincronizarPesagem(data, null, novo.observacoes);}catch(e){console.error("Erro ao sincronizar financeiro",e);}
+ document.getElementById("pesagemAddModal")?.remove();
+ await pesagemRender();
+ try{if(document.getElementById("financeiro")?.classList.contains("active")) await financeiroRender();}catch(e){console.error(e);}
+ alert("Nova pesagem registrada para "+pessoa+".");
 }
 
 function pesagemAbrirAdicionarCliente(nome){
@@ -1298,15 +1305,47 @@ function financeiroMaterialProduto(material){
  const alvo=String(material||"").trim().toLowerCase();
  return produtosLoad().find(p=>String(p.nome||"").trim().toLowerCase()===alvo)||null;
 }
-async function financeiroSync(){
- try{await pesagensCloudLoad();}catch(e){console.error(e)}
- try{await produtosCloudLoad();}catch(e){console.error(e)}
- const comprasTodas=(pesagensLoad()||[]).filter(x=>String(x.tipo_movimento||"compra").toLowerCase()!=="venda");
- // Somente pesagens de COMPRA do dia entram automaticamente no Financeiro.
- // Depois que entram, permanecem lá até o pagamento, mesmo quando a pesagem for fechada.
- const compras=comprasTodas.filter(x=>String(x.data||"")===String(today()) && !x.fechada);
+async function financeiroSincronizarPesagem(p, userId=null, observacaoExtra=null){
+ // Somente COMPRA do dia vai para o contas a pagar. Vendas ficam fora do Financeiro.
+ if(!p || String(p.tipo_movimento||"compra").toLowerCase()==="venda") return null;
+ if(String(p.data||"")!==String(today())) return null;
+ const uid=userId || p.user_id || (await sb.auth.getUser()).data?.user?.id;
+ if(!uid)return null;
+ const {data:existente,error:buscaError}=await sb.from("financeiro_pesagens").select("*").eq("pesagem_id",p.id).maybeSingle();
+ if(buscaError){console.error("financeiro busca pesagem",buscaError);return null;}
+ const prod=financeiroMaterialProduto(p.material);
+ const preco=existente?.preco_kg!=null?Number(existente.preco_kg):(prod&&Number(prod.preco)>0?Number(prod.preco):null);
+ const total=preco?Number(p.liquido||0)*preco:0;
+ const base={pesagem_id:p.id,user_id:uid,pessoa:p.pessoa||"Cliente não informado",data:p.data||today(),material:p.material||"Não informado",liquido:Number(p.liquido||0),preco_kg:preco,total,observacoes:observacaoExtra||p.observacoes||null,updated_at:new Date().toISOString()};
+ if(existente){
+   if(String(existente.status)==="Pendente"){
+     const up=await sb.from("financeiro_pesagens").update(base).eq("id",existente.id).select().single();
+     if(up.error)console.error("financeiro atualização",up.error);
+     return up.data||existente;
+   }
+   return existente;
+ }
+ const ins=await sb.from("financeiro_pesagens").insert({...base,status:"Pendente"}).select().single();
+ if(ins.error && ins.error.code!=="23505")console.error("Erro ao criar financeiro",ins.error);
+ return ins.data||null;
+}
+
+async function financeiroSync(force=false){
+ // Usa os dados que já estão em memória sempre que possível. Isso evita
+ // recarregar toda a Pesagem e todos os Produtos cada vez que o Financeiro abre.
+ if(!pesagemCloudReady){
+   try{await pesagensCloudLoad();}catch(e){console.error(e)}
+ }
+ if(!produtoCloudReady){
+   try{await produtosCloudLoad();}catch(e){console.error(e)}
+ }
+ const hojeLocal=String(today());
+ let compras=[];
+ if(pesagemCloudReady){
+   compras=(pesagensLoad()||[]).filter(x=>String(x.tipo_movimento||"compra").toLowerCase()!=="venda"&&String(x.data||"")===hojeLocal&&!x.fechada);
+ }
  const {data,error}=await sb.from("financeiro_pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
- if(error){console.error("financeiro_pesagens",error);financeiroCloud=[];return financeiroCloud;}
+ if(error){console.error("financeiro_pesagens",error);return financeiroCloud||[];}
  let lista=data||[];
  const byPesagem=new Map(lista.map(x=>[String(x.pesagem_id),x]));
  const faltantes=[];
@@ -1314,57 +1353,72 @@ async function financeiroSync(){
    if(byPesagem.has(String(p.id)))continue;
    const prod=financeiroMaterialProduto(p.material);
    const preco=prod&&Number(prod.preco)>0?Number(prod.preco):null;
-   faltantes.push({pesagem_id:p.id,pessoa:p.pessoa||"Cliente não informado",data:p.data||today(),material:p.material||"Não informado",liquido:Number(p.liquido||0),preco_kg:preco,total:preco?Number(p.liquido||0)*preco:0,status:"Pendente",observacoes:p.observacoes||null});
+   faltantes.push({pesagem_id:p.id,pessoa:p.pessoa||"Cliente não informado",data:p.data||hojeLocal,material:p.material||"Não informado",liquido:Number(p.liquido||0),preco_kg:preco,total:preco?Number(p.liquido||0)*preco:0,status:"Pendente",observacoes:p.observacoes||null});
  }
  if(faltantes.length){
    const ins=await sb.from("financeiro_pesagens").insert(faltantes).select();
    if(!ins.error)lista=[...(ins.data||[]),...lista]; else console.error("financeiro insert",ins.error);
  }
+ // Só atualiza lançamentos pendentes quando algum dado realmente mudou.
  const comprasMap=new Map(compras.map(x=>[String(x.id),x]));
+ const updates=[];
  for(const f of lista){
    if(f.status!=="Pendente")continue;
    const p=comprasMap.get(String(f.pesagem_id));
    if(!p)continue;
-   const patch={pessoa:p.pessoa||f.pessoa,data:p.data||f.data,material:p.material||f.material,liquido:Number(p.liquido||0),updated_at:new Date().toISOString()};
-   if(f.preco_kg===null || f.preco_kg===undefined){
-     const prod=financeiroMaterialProduto(p.material);
-     if(prod&&Number(prod.preco)>0){patch.preco_kg=Number(prod.preco);patch.total=Number(p.liquido||0)*Number(prod.preco);}
-   }else patch.total=Number(p.liquido||0)*Number(f.preco_kg||0);
-   await sb.from("financeiro_pesagens").update(patch).eq("id",f.id);
-   Object.assign(f,patch);
+   const patch={};
+   const pessoa=p.pessoa||f.pessoa;
+   const data=p.data||f.data;
+   const material=p.material||f.material;
+   const liquido=Number(p.liquido||0);
+   if(String(f.pessoa||"")!==String(pessoa||""))patch.pessoa=pessoa;
+   if(String(f.data||"")!==String(data||""))patch.data=data;
+   if(String(f.material||"")!==String(material||""))patch.material=material;
+   if(Number(f.liquido||0)!==liquido)patch.liquido=liquido;
+   let preco=f.preco_kg;
+   if(preco===null||preco===undefined){
+     const prod=financeiroMaterialProduto(material);
+     if(prod&&Number(prod.preco)>0){preco=Number(prod.preco);patch.preco_kg=preco;patch.total=liquido*preco;}
+   }else{
+     const total=liquido*Number(preco||0);
+     if(Number(f.total||0)!==total)patch.total=total;
+   }
+   if(Object.keys(patch).length){
+     patch.updated_at=new Date().toISOString();
+     updates.push({id:f.id,patch});
+     Object.assign(f,patch);
+   }
  }
- const fresh=await sb.from("financeiro_pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
- let finalLista=fresh.error?lista:(fresh.data||[]);
- // O Financeiro considera somente COMPRAS. Vendas nunca entram nas contas a pagar.
+ // Faz somente as atualizações necessárias. Antes, cada abertura do Financeiro
+ // atualizava novamente todos os lançamentos pendentes.
+ for(const u of updates){
+   const {error:e}=await sb.from("financeiro_pesagens").update(u.patch).eq("id",u.id);
+   if(e)console.error("financeiro update",e);
+ }
+ // Vendas nunca entram nas contas a pagar.
  const pesMap=new Map((pesagensLoad()||[]).map(p=>[String(p.id),p]));
- finalLista=finalLista.filter(f=>{
+ lista=lista.filter(f=>{
    const p=pesMap.get(String(f.pesagem_id));
-   return !p || String(p.tipo_movimento||"compra").toLowerCase()!=="venda";
+   return !p||String(p.tipo_movimento||"compra").toLowerCase()!=="venda";
  });
- // Tudo que é anterior a hoje é histórico já pago.
- // Além de mostrar no arquivo, NORMALIZAMOS no banco: a conta vira Pago
- // e a pesagem vinculada é fechada/arquivada. Isso impede que um histórico
- // antigo volte a aparecer como cobrança depois de atualizar a página ou
- // entrar por outro aparelho. Vendas continuam fora dessa rotina.
- const hojeLocal=String(today());
- const historicas=finalLista.filter(f=>{
-   const p=pesMap.get(String(f.pesagem_id));
-   return f.status==="Pendente" && String(f.data||"")<hojeLocal && (!p || String(p.tipo_movimento||"compra").toLowerCase()!=="venda");
- });
+ // Histórico anterior a hoje é tratado como pagamento anterior apenas quando
+ // ainda estiver pendente. Depois disso não repetimos a consulta/alteração em loop.
+ const historicas=lista.filter(f=>f.status==="Pendente"&&String(f.data||"")<hojeLocal&&(!pesMap.get(String(f.pesagem_id))||String(pesMap.get(String(f.pesagem_id)).tipo_movimento||"compra").toLowerCase()!=="venda"));
  if(historicas.length){
    const agoraHist=new Date().toISOString();
    const idsHist=historicas.map(f=>String(f.id));
    const pesHist=[...new Set(historicas.map(f=>String(f.pesagem_id||"")).filter(Boolean))];
    const pagoUpdate={status:"Pago",forma_pagamento:"Pagamento anterior",pago_em:agoraHist,updated_at:agoraHist};
    const upFin=await sb.from("financeiro_pesagens").update(pagoUpdate).in("id",idsHist);
-   if(upFin.error){console.error("Não foi possível normalizar pagamentos antigos",upFin.error);}
+   if(upFin.error)console.error("Não foi possível normalizar pagamentos antigos",upFin.error);
    if(pesHist.length){
      const upPes=await sb.from("pesagens").update({fechada:true,updated_at:agoraHist}).in("id",pesHist);
      if(upPes.error)console.error("Não foi possível arquivar pesagens antigas já pagas",upPes.error);
    }
-   finalLista=finalLista.map(f=>idsHist.includes(String(f.id))?{...f,...pagoUpdate}:f);
+   lista=lista.map(f=>idsHist.includes(String(f.id))?{...f,...pagoUpdate}:f);
+   if(pesagemCloudReady)pesagemCloud=(pesagemCloud||[]).map(p=>pesHist.includes(String(p.id))?{...p,fechada:true,updated_at:agoraHist}:p);
  }
- financeiroCloud=finalLista;
+ financeiroCloud=lista;
  return financeiroCloud;
 }
 async function financeiroFechamentoBuscar(data){
@@ -1457,7 +1511,23 @@ function financeiroPixPayload(chave,nome,cidade,valor){
  body+=financeiroPixField(58,"BR")+financeiroPixField(59,n)+financeiroPixField(60,c)+financeiroPixField(62,financeiroPixField(05,"***"));
  return body+"6304"+financeiroPixCRC16(body+"6304");
 }
-function financeiroClientePorNome(nome){const alvo=String(nome||"").trim().toLowerCase();return (cache.clientes||[]).find(c=>String(c.nome||"").trim().toLowerCase()===alvo)||null;}
+async function financeiroClientePorNome(nome){
+ const alvo=String(nome||"").trim();
+ const norm=v=>String(v||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim().toLowerCase();
+ let cli=(cache.clientes||[]).find(c=>norm(c.nome)===norm(alvo))||null;
+ // Garante que o Financeiro veja a chave recém-cadastrada, mesmo que o cache ainda esteja antigo.
+ if(!cli || !String(cli.pix_chave||"").trim()){
+   try{
+     const {data}=await sb.from("clientes").select("id,nome,cidade,pix_tipo,pix_chave,pix_nome,pix_cidade").ilike("nome",alvo).limit(1);
+     if(data&&data[0]){
+       cli=data[0];
+       const idx=(cache.clientes||[]).findIndex(c=>String(c.id)===String(cli.id));
+       if(idx>=0)cache.clientes[idx]={...cache.clientes[idx],...cli};
+     }
+   }catch(e){console.error("PIX cliente:",e)}
+ }
+ return cli;
+}
 async function financeiroAbrirPagamento(ids){
  const lista=String(ids||"").split(",").filter(Boolean), rows=financeiroCloud.filter(x=>lista.includes(String(x.id))&&x.status==="Pendente");
  if(!rows.length)return alert("Não há valores pendentes para este cliente.");
@@ -1465,7 +1535,7 @@ async function financeiroAbrirPagamento(ids){
  for(const d of datas){if(await financeiroDataFechada(d))return alert("O caixa de "+dataBR(d)+" já foi fechado. Reabra o caixa antes de fazer novas alterações.");}
  const semPreco=rows.filter(x=>!(Number(x.preco_kg)>0)); if(semPreco.length)return alert("Informe o preço por kg de todos os materiais antes de pagar.");
  try{await adLoad();}catch(e){console.error(e)}
- const total=rows.reduce((s,x)=>s+Number(x.total||0),0), nome=rows[0].pessoa||"Cliente", cli=financeiroClientePorNome(nome), chave=cli&&cli.pix_chave?cli.pix_chave:"", pixNome=(cli&&cli.pix_nome)||nome, pixCidade=(cli&&cli.pix_cidade)||((cli&&cli.cidade)||"OSASCO");
+ const total=rows.reduce((s,x)=>s+Number(x.total||0),0), nome=rows[0].pessoa||"Cliente", cli=await financeiroClientePorNome(nome), chave=cli&&cli.pix_chave?cli.pix_chave:"", pixNome=(cli&&cli.pix_nome)||nome, pixCidade=(cli&&cli.pix_cidade)||((cli&&cli.cidade)||"OSASCO");
  const adiantamentos=(adCloud||[]).filter(a=>String(a.pessoa||"").trim().toLowerCase()===String(nome).trim().toLowerCase()&&adSaldo(a)>0);
  let box=document.getElementById("pixPagamentoModal"); if(box)box.remove();
  box=document.createElement("div");box.id="pixPagamentoModal";box.dataset.valorCompra=String(total);box.dataset.pixChave=chave;box.dataset.pixNome=pixNome;box.dataset.pixCidade=pixCidade;box.style="position:fixed;inset:0;background:#0008;z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";
@@ -1547,7 +1617,7 @@ async function financeiroConfirmarPagamento(ids,nome){
  }
  pesagemCloud=(pesagemCloud||[]).map(p=>pesagemIds.includes(String(p.id))?{...p,fechada:true,updated_at:agora}:p);pesagemCloudReady=true;
  modal?.remove();
- try{await adLoad()}catch(e){}
+ try{await adLoad(true)}catch(e){}
  await financeiroRender();
  alert("Pagamento registrado com sucesso!\n\nValor bruto: "+financeiroR$(pagamentoTotal+desconto)+"\nAbatimento do adiantamento: "+financeiroR$(desconto)+"\nValor pago: "+financeiroR$(pagamentoTotal)+"\n\nAs pesagens foram fechadas e arquivadas.");
 }
@@ -1741,13 +1811,13 @@ function estadoCacambas(){
 function clientes(){
  $("clientes").innerHTML=`<h2>👥 Clientes</h2><div class="card"><h3>Novo cliente</h3><div class="grid">
  <div><label>Nome *</label><input id="cln"></div><div><label>Responsável</label><input id="clr"></div><div><label>Telefone</label><input id="clt"></div><div><label>E-mail</label><input id="cle"></div>
- <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
+ <div><label>Endereço</label><input id="clend"></div><div><label>Número</label><input id="clnum"></div><div><label>Bairro</label><input id="clb"></div><div><label>Cidade</label><input id="clc"></div><div><label>UF</label><input id="cluf"></div><div><label>CEP</label><input id="clcep"></div><div><label>Tipo de chave PIX</label><select id="clpix_tipo"><option value="">Selecione</option><option>CPF/CNPJ</option><option>E-mail</option><option>Telefone</option><option>Chave aleatória</option></select></div><div><label>Chave PIX</label><input id="clpix_chave" placeholder="CPF, e-mail, telefone ou chave aleatória"></div><div><label>Nome para o PIX</label><input id="clpix_nome" placeholder="Nome do titular"></div><div><label>Cidade para o PIX</label><input id="clpix_cidade" placeholder="Ex.: OSASCO"></div><div style="grid-column:1/-1"><label>Observações</label><textarea id="clobs" rows="3" placeholder="Ex.: preferência de horário, acesso ao local, condições comerciais..."></textarea></div>
  </div><br><button class="btn primary" onclick="addCliente()">Cadastrar cliente</button></div>
  <div class="card tablewrap"><table><tr><th>Nome</th><th>Responsável</th><th>Telefone</th><th>Cidade</th><th>Caçambas</th><th>Caçamba anterior / atual</th><th>Observações</th><th>Ação</th></tr>${cache.clientes.map(x=>`<tr><td>${esc(x.nome)}</td><td>${esc(x.responsavel)}</td><td>${esc(x.telefone)}</td><td>${esc(x.cidade)}</td><td><strong>${cache.cacambas.filter(c=>String(c.cliente_id||"")===String(x.id)).length}</strong></td><td>${historicoCliente(x.id)}</td><td>${esc(x.observacoes)}</td><td><button class="btn" onclick="editRecord('clientes','${x.id}')">✏️</button> <button class="btn danger" onclick="delRow('clientes','${x.id}',clientes)">🗑️</button><button class="btn secondary no-print" onclick="imprimirItem('clientes','${x.id}')">🖨️</button></td></tr>`).join("")}</table></div>`;
 }
 async function addCliente(){
  if(!val("cln"))return alert("Informe o nome do cliente.");
- await add("clientes",{nome:val("cln"),responsavel:val("clr"),telefone:val("clt"),email:val("cle"),endereco:val("clend"),numero:val("clnum"),bairro:val("clb"),cidade:val("clc"),uf:val("cluf"),cep:val("clcep"),observacoes:val("clobs"),ativo:true},clientes);
+ await add("clientes",{nome:val("cln"),responsavel:val("clr"),telefone:val("clt"),email:val("cle"),endereco:val("clend"),numero:val("clnum"),bairro:val("clb"),cidade:val("clc"),uf:val("cluf"),cep:val("clcep"),pix_tipo:val("clpix_tipo"),pix_chave:val("clpix_chave").trim(),pix_nome:val("clpix_nome").trim(),pix_cidade:val("clpix_cidade").trim(),observacoes:val("clobs"),ativo:true},clientes);
 }
 
 function motoristas(){
