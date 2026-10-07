@@ -1342,11 +1342,31 @@ async function financeiroSync(force=false){
  const hojeLocal=String(today());
  let compras=[];
  if(pesagemCloudReady){
-   compras=(pesagensLoad()||[]).filter(x=>String(x.tipo_movimento||"compra").toLowerCase()!=="venda"&&String(x.data||"")===hojeLocal&&!x.fechada);
+   compras=(pesagensLoad()||[]).filter(x=>{
+   const entrada=Number(x.entrada||0), saida=Number(x.saida||0), liquido=Number(x.liquido||0);
+   const completa=entrada>0&&saida>0&&liquido>0;
+   return String(x.tipo_movimento||"compra").toLowerCase()!=="venda"&&String(x.data||"")===hojeLocal&&!x.fechada&&completa;
+ });
+ // Pesagens ainda abertas/incompletas (somente entrada, sem saída ou sem líquido)
+ // nunca podem aparecer no Financeiro. Remove também eventual lançamento pendente
+ // que tenha sido criado antes desta validação.
+ const todasPesagens=pesagensLoad()||[];
+ const incompletas=todasPesagens.filter(x=>{
+   const entrada=Number(x.entrada||0), saida=Number(x.saida||0), liquido=Number(x.liquido||0);
+   return String(x.tipo_movimento||"compra").toLowerCase()!=="venda"&&String(x.data||"")===hojeLocal&&!x.fechada&&!(entrada>0&&saida>0&&liquido>0);
+ });
  }
  const {data,error}=await sb.from("financeiro_pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
  if(error){console.error("financeiro_pesagens",error);return financeiroCloud||[];}
  let lista=data||[];
+ const incompletasIds=new Set(incompletas.map(x=>String(x.id)));
+ const pendentesIncompletas=lista.filter(f=>f.status==="Pendente"&&incompletasIds.has(String(f.pesagem_id)));
+ if(pendentesIncompletas.length){
+   const idsIncomp=pendentesIncompletas.map(f=>String(f.id));
+   const delIncomp=await sb.from("financeiro_pesagens").delete().in("id",idsIncomp);
+   if(delIncomp.error)console.error("Não foi possível remover lançamentos de pesagens incompletas",delIncomp.error);
+   lista=lista.filter(f=>!idsIncomp.includes(String(f.id)));
+ }
  const byPesagem=new Map(lista.map(x=>[String(x.pesagem_id),x]));
  const faltantes=[];
  for(const p of compras){
