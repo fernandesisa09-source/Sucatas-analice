@@ -776,7 +776,23 @@ function pesagensLoad(){
 function pesagensSave(v){pesagemCloud=v||[];pesagemCloudReady=true;localStorage.setItem(PESAGEM_KEY,JSON.stringify(pesagemCloud))}
 function pesoNum(v){const s=String(v??"").trim().replace(/\./g,"").replace(",","."); const n=parseFloat(s); return Number.isFinite(n)?n:0}
 function moedaNum(v){return pesoNum(v)}
-function parseBR(v){return pesoNum(v)}
+function parseBR(v){
+ const s=String(v??"").trim().replace(/R\$\s?/gi,"").replace(/\s/g,"");
+ if(!s)return 0;
+ // Aceita tanto o formato brasileiro (51,99 / 1.251,99)
+ // quanto o formato com ponto decimal (51.99 / 1251.99).
+ const lastComma=s.lastIndexOf(","), lastDot=s.lastIndexOf(".");
+ let n;
+ if(lastComma>=0 && lastDot>=0){
+   n = lastComma>lastDot ? Number(s.replace(/\./g,"").replace(",",".")) : Number(s.replace(/,/g,""));
+ }else if(lastComma>=0){
+   n = Number(s.replace(/\./g,"").replace(",","."));
+ }else if(lastDot>=0){
+   const parts=s.split(".");
+   n = parts.length===2 && parts[1].length<=2 ? Number(s) : Number(s.replace(/\./g,""));
+ }else n=Number(s);
+ return Number.isFinite(n)?n:0;
+}
 function brNum(n,d=2){return Number(n||0).toLocaleString("pt-BR",{minimumFractionDigits:d,maximumFractionDigits:d})}
 function produtoSelecionado(){const id=$("pprod")?.value; return produtosLoad().find(x=>String(x.id)===String(id))||null}
 function produtoSelecionar(){const x=produtoSelecionado(); if(x){if($("pmat"))$("pmat").value=x.nome||"";pesagemCalcular()}}
@@ -1717,12 +1733,22 @@ async function financeiroAbrirPagamento(ids){
  const payload=financeiroPixPayload(chave,pixNome,pixCidade,total);
  box.innerHTML=`<div class="card" style="max-width:560px;width:100%;max-height:92vh;overflow:auto;text-align:center"><h2>💳 Pagamento — ${esc(nome)}</h2><div style="font-size:28px;font-weight:900;color:#55358a;margin:10px 0">${financeiroR$(total)}</div>
  <div class="card" style="text-align:left;margin:12px 0;border-left:5px solid #e0a000;background:#fffdf5"><h3 style="margin:0 0 8px">💰 Abater adiantamento</h3>
- ${adiantamentos.length?`<label>Adiantamento disponível</label><select id="finAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="">Não usar adiantamento</option>${adiantamentos.map(a=>`<option value="${a.id}" data-saldo="${adSaldo(a)}">${esc(a.pessoa)} — saldo ${adR$(adSaldo(a))} — ${adDataBR(a.data)}</option>`).join("")}</select><label style="margin-top:8px">Como deseja usar o adiantamento?</label><select id="finModoAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="zero">Não descontar nada</option><option value="livre">Descontar o valor que eu escolher</option><option value="todo">Descontar todo o saldo disponível</option></select><label style="margin-top:8px">Valor do desconto</label><input id="finDescontoAdiantamento" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="financeiroAtualizarDescontoPagamento(false)" onblur="financeiroAtualizarDescontoPagamento(true)"><div class="small" style="margin-top:6px">Digite livremente o valor do abatimento, inclusive centavos, por exemplo <b>51,99</b>. O sistema aceita qualquer valor até o saldo do adiantamento e o total da compra.</div>`:`<p class="small" style="margin:0">Nenhum adiantamento em aberto encontrado para este cliente.</p>`}
+ ${adiantamentos.length?`<label>Adiantamento disponível</label><select id="finAdiantamento" onchange="financeiroSelecionarAdiantamento()"><option value="">Não usar adiantamento</option>${adiantamentos.map(a=>`<option value="${a.id}" data-saldo="${adSaldo(a)}">${esc(a.pessoa)} — saldo ${adR$(adSaldo(a))} — ${adDataBR(a.data)}</option>`).join("")}</select><label style="margin-top:8px">Como deseja usar o adiantamento?</label><select id="finModoAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="zero">Não descontar nada</option><option value="livre">Descontar o valor que eu escolher</option><option value="todo">Descontar todo o saldo disponível</option></select><label style="margin-top:8px">Valor do desconto</label><input id="finDescontoAdiantamento" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="financeiroAtualizarDescontoPagamento(false)" onblur="financeiroAtualizarDescontoPagamento(true)"><div class="small" style="margin-top:6px">Digite livremente o valor do abatimento, inclusive centavos, por exemplo <b>51,99</b>. O sistema aceita qualquer valor até o saldo do adiantamento e o total da compra.</div>`:`<p class="small" style="margin:0">Nenhum adiantamento em aberto encontrado para este cliente.</p>`}
  <div style="margin-top:12px;padding-top:10px;border-top:1px solid #ddd"><div>Valor da compra: <b>${financeiroR$(total)}</b></div><div>Desconto por adiantamento: <b id="finDescontoPreview">R$ 0,00</b></div><div style="font-size:21px;margin-top:5px">💳 <b>Valor a pagar: <span id="finTotalPagar">${financeiroR$(total)}</span></b></div></div></div>
  ${payload?`<div id="pixQr" style="display:flex;justify-content:center;margin:15px 0"></div><p class="small"><b>PIX para:</b> ${esc(pixNome)}<br><b>Chave:</b> ${esc(chave)}</p><textarea id="pixCopiaCola" readonly style="height:90px;font-size:11px">${esc(financeiroPixPayload(chave,pixNome,pixCidade,total))}</textarea><button class="btn secondary" style="margin-top:8px" onclick="navigator.clipboard?.writeText(document.getElementById('pixCopiaCola').value);alert('PIX copia e cola copiado!')">📋 Copiar PIX</button>`:`<div class="card" style="background:#fff4d6;border:1px solid #e0b84c"><b>⚠️ Este cliente ainda não possui chave PIX cadastrada.</b><p class="small">Cadastre a chave PIX no cadastro do cliente para gerar o QR Code.</p></div>`}
  <div style="display:flex;gap:8px;justify-content:center;margin-top:18px"><button class="btn secondary" onclick="document.getElementById('pixPagamentoModal').remove()">Cancelar</button><button class="btn primary" onclick="financeiroConfirmarPagamento('${lista.join(',')}','${esc(nome).replace(/'/g,"\\'")}')">✅ Pagamento realizado</button></div></div>`;
  document.body.appendChild(box);
  if(payload&&window.QRCode)new QRCode(document.getElementById("pixQr"),{text:payload,width:220,height:220});
+}
+function financeiroSelecionarAdiantamento(){
+ const sel=document.getElementById("finAdiantamento");
+ const modo=document.getElementById("finModoAdiantamento");
+ const inp=document.getElementById("finDescontoAdiantamento");
+ if(sel?.value){
+   if(modo)modo.value="livre";
+   if(inp){inp.focus();inp.select();}
+ }
+ financeiroAtualizarDescontoPagamento(false);
 }
 function financeiroAtualizarDescontoPagamento(formatar=true){
  const sel=document.getElementById("finAdiantamento"), modo=document.getElementById("finModoAdiantamento"), inp=document.getElementById("finDescontoAdiantamento"), prev=document.getElementById("finDescontoPreview"), pagar=document.getElementById("finTotalPagar");
@@ -1735,7 +1761,10 @@ function financeiroAtualizarDescontoPagamento(formatar=true){
  const opt=sel.options[sel.selectedIndex]; const saldo=Number(opt?.dataset?.saldo||0);
  if(!sel.value || modo?.value==="zero"){desconto=0;inp.value="";}
  else if(modo?.value==="todo"){desconto=Math.min(saldo,valorCompra);inp.value=desconto?adNumeroBR(String(desconto).replace(".",",")):"0,00";}
- else {desconto=Math.min(Math.max(0,desconto),saldo,valorCompra);if(formatar)inp.value=desconto?adNumeroBR(String(desconto).replace(".",",")):"";}
+ else {
+   desconto=Math.min(Math.max(0,desconto),saldo,valorCompra);
+   if(formatar && desconto>0) inp.value=adNumeroBR(desconto);
+ }
  const novoTotal=Math.max(0,valorCompra-desconto);
  prev.textContent=financeiroR$(desconto);pagar.textContent=financeiroR$(novoTotal);
  const modalBox=document.getElementById("pixPagamentoModal");
@@ -1750,7 +1779,10 @@ async function financeiroConfirmarPagamento(ids,nome){
  if(!lista.length)return alert("Nenhuma conta foi selecionada para pagamento.");
  const modal=document.getElementById("pixPagamentoModal");
  const adiantamentoId=modal?.querySelector("#finAdiantamento")?.value||null;
- const descontoSolicitado=Math.max(0,parseBR(modal?.querySelector("#finDescontoAdiantamento")?.value||"0"));
+ const descontoTexto=modal?.querySelector("#finDescontoAdiantamento")?.value||"0";
+ const descontoSolicitado=Math.max(0,parseBR(descontoTexto));
+ const modoAd=modal?.querySelector("#finModoAdiantamento")?.value||"zero";
+ if(modoAd==="livre" && String(descontoTexto).trim() && descontoSolicitado<=0)return alert("Digite um valor de adiantamento válido, por exemplo 51,99.");
  if(!confirm("Confirmar que o pagamento de "+nome+" foi realizado?\n\nDepois da confirmação, estas pesagens serão fechadas e arquivadas."))return;
  const {data:contas,error:contasError}=await sb.from("financeiro_pesagens").select("id,pesagem_id,status,total").in("id",lista);
  if(contasError)return alert("Não foi possível localizar as contas: "+contasError.message);
