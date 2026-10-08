@@ -1203,9 +1203,18 @@ async function pesagemFinalizar(id){
 
 async function pesagemExcluir(id){
  if(!confirm("Excluir esta pesagem?"))return;
+ // Primeiro remove o lançamento financeiro vinculado, para que uma pesagem
+ // excluída nunca continue aparecendo em Contas a pagar/Pagamentos realizados.
+ const {error:finError}=await sb.from("financeiro_pesagens").delete().eq("pesagem_id",id);
+ if(finError){
+   console.error("Erro ao remover vínculo financeiro",finError);
+   return alert("Não foi possível excluir a pesagem do Financeiro: "+finError.message);
+ }
  const {error}=await sb.from("pesagens").delete().eq("id",id);
  if(error)return alert("Não foi possível excluir a pesagem: "+error.message);
- pesagemCloud=pesagemCloud.filter(x=>String(x.id)!==String(id));pesagemCloudReady=true;await pesagemRender();
+ pesagemCloud=pesagemCloud.filter(x=>String(x.id)!==String(id));pesagemCloudReady=true;
+ financeiroCloud=(financeiroCloud||[]).filter(x=>String(x.pesagem_id)!==String(id));
+ await pesagemRender();
 }
 
 async function pesagemExcluirCliente(nome,ids,arquivada=false){
@@ -1214,10 +1223,17 @@ async function pesagemExcluirCliente(nome,ids,arquivada=false){
  if(!qtd)return alert("Não há pesagens para excluir.");
  const tipo=arquivada?"arquivadas":"abertas";
  if(!confirm(`Excluir TODAS as ${qtd} pesagens ${tipo} de ${nome}?\n\nEssa ação não poderá ser desfeita.`))return;
+ // Remove também os lançamentos financeiros vinculados às pesagens excluídas.
+ const {error:finError}=await sb.from("financeiro_pesagens").delete().in("pesagem_id",ids);
+ if(finError){
+   console.error("Erro ao remover vínculos financeiros",finError);
+   return alert("Não foi possível excluir as pesagens do Financeiro: "+finError.message);
+ }
  const {error}=await sb.from("pesagens").delete().in("id",ids);
  if(error)return alert("Não foi possível excluir as pesagens: "+error.message);
  const set=new Set(ids.map(String));
  pesagemCloud=pesagemCloud.filter(x=>!set.has(String(x.id)));pesagemCloudReady=true;
+ financeiroCloud=(financeiroCloud||[]).filter(x=>!set.has(String(x.pesagem_id)));
  await pesagemRender();
  alert(`${qtd} pesagem(ns) de ${nome} excluída(s) com sucesso.`);
 }
@@ -1739,7 +1755,7 @@ async function financeiroAbrirPagamento(ids){
  box.innerHTML=`<div class="card" style="max-width:560px;width:100%;max-height:92vh;overflow:auto;text-align:center"><h2>💳 Pagamento — ${esc(nome)}</h2><div style="font-size:28px;font-weight:900;color:#55358a;margin:10px 0">${financeiroR$(total)}</div>
  <div class="card" style="text-align:left;margin:12px 0;border-left:5px solid #e0a000;background:#fffdf5"><h3 style="margin:0 0 8px">💰 Abater adiantamento</h3>
  ${adiantamentos.length?`<label>Adiantamento disponível</label><select id="finAdiantamento" onchange="financeiroSelecionarAdiantamento()"><option value="">Não usar adiantamento</option>${adiantamentos.map(a=>`<option value="${a.id}" data-saldo="${adSaldo(a)}">${esc(a.pessoa)} — saldo ${adR$(adSaldo(a))} — ${adDataBR(a.data)}</option>`).join("")}</select><label style="margin-top:8px">Como deseja usar o adiantamento?</label><select id="finModoAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="zero">Não descontar nada</option><option value="livre">Descontar o valor que eu escolher</option><option value="todo">Descontar todo o saldo disponível</option></select><label style="margin-top:8px">Valor do desconto</label><input id="finDescontoAdiantamento" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="financeiroAtualizarDescontoPagamento(false)" onblur="financeiroAtualizarDescontoPagamento(true)"><div class="small" style="margin-top:6px">Digite livremente o valor do abatimento, inclusive centavos, por exemplo <b>51,99</b>. O sistema aceita qualquer valor até o saldo do adiantamento e o total da compra.</div>`:`<p class="small" style="margin:0">Nenhum adiantamento em aberto encontrado para este cliente.</p>`}
- <div style="margin-top:12px;padding-top:10px;border-top:1px solid #ddd"><div>Valor da compra: <b>${financeiroR$(total)}</b></div><div>Desconto por adiantamento: <b id="finDescontoPreview">R$ 0,00</b></div><div style="font-size:21px;margin-top:5px">💳 <b>Valor a pagar: <span id="finTotalPagar">${financeiroR$(total)}</span></b></div></div></div>
+ <div style="margin-top:12px;padding-top:10px;border-top:1px solid #ddd"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div>Valor total: <b>${financeiroR$(total)}</b></div><button type="button" class="btn secondary" style="white-space:nowrap" onclick="financeiroEnviarResumoWhatsApp('${esc(nome).replace(/'/g,"\'")}')">📲 Ticket WhatsApp</button></div><div style="margin-top:7px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div>Saldo do adiantamento: <b id="finSaldoAdiantamento">R$ 0,00</b></div><span class="small">O saldo restante será calculado pelo desconto.</span></div><div style="margin-top:5px">Desconto por adiantamento: <b id="finDescontoPreview">R$ 0,00</b></div><div style="margin-top:8px;font-size:21px">💳 <b>Valor a pagar: <span id="finTotalPagar">${financeiroR$(total)}</span></b></div></div></div>
  ${payload?`<div id="pixQr" style="display:flex;justify-content:center;margin:15px 0"></div><p class="small"><b>PIX para:</b> ${esc(pixNome)}<br><b>Chave:</b> ${esc(chave)}</p><textarea id="pixCopiaCola" readonly style="height:90px;font-size:11px">${esc(financeiroPixPayload(chave,pixNome,pixCidade,total))}</textarea><button class="btn secondary" style="margin-top:8px" onclick="navigator.clipboard?.writeText(document.getElementById('pixCopiaCola').value);alert('PIX copia e cola copiado!')">📋 Copiar PIX</button>`:`<div class="card" style="background:#fff4d6;border:1px solid #e0b84c"><b>⚠️ Este cliente ainda não possui chave PIX cadastrada.</b><p class="small">Cadastre a chave PIX no cadastro do cliente para gerar o QR Code.</p></div>`}
  <div style="display:flex;gap:8px;justify-content:center;margin-top:18px"><button class="btn secondary" onclick="document.getElementById('pixPagamentoModal').remove()">Cancelar</button><button class="btn primary" onclick="financeiroConfirmarPagamento('${lista.join(',')}','${esc(nome).replace(/'/g,"\\'")}')">✅ Pagamento realizado</button></div></div>`;
  document.body.appendChild(box);
@@ -1771,7 +1787,9 @@ function financeiroAtualizarDescontoPagamento(formatar=true){
    if(formatar && desconto>0) inp.value=financeiroNumeroBR(desconto);
  }
  const novoTotal=Math.max(0,valorCompra-desconto);
+ const saldoRestante=Math.max(0,saldo-desconto);
  prev.textContent=financeiroR$(desconto);pagar.textContent=financeiroR$(novoTotal);
+ const saldoEl=document.getElementById("finSaldoAdiantamento");if(saldoEl)saldoEl.textContent=financeiroR$(saldoRestante);
  const modalBox=document.getElementById("pixPagamentoModal");
  const chave=modalBox?.dataset?.pixChave||"", pixNome=modalBox?.dataset?.pixNome||"Cliente", pixCidade=modalBox?.dataset?.pixCidade||"OSASCO";
  const novoPayload=financeiroPixPayload(chave,pixNome,pixCidade,novoTotal);
@@ -1836,23 +1854,41 @@ async function financeiroConfirmarPagamento(ids,nome){
  alert("Pagamento registrado com sucesso!\n\nValor bruto: "+financeiroR$(pagamentoTotal+desconto)+"\nAbatimento do adiantamento: "+financeiroR$(desconto)+"\nValor pago: "+financeiroR$(pagamentoTotal)+"\n\nAs pesagens foram fechadas e arquivadas.");
 }
 
+function financeiroEnviarResumoWhatsApp(nome){
+ const modal=document.getElementById("pixPagamentoModal");
+ if(!modal)return alert("Abra o pagamento do cliente para enviar o resumo.");
+ const valorCompra=Number(modal.dataset.valorCompra||0);
+ const sel=modal.querySelector("#finAdiantamento");
+ const opt=sel?.options?.[sel.selectedIndex];
+ const saldoDisponivel=Number(opt?.dataset?.saldo||0);
+ const desconto=Math.min(Math.max(0,parseBR(modal.querySelector("#finDescontoAdiantamento")?.value||"0")),saldoDisponivel,valorCompra);
+ const saldoRestante=Math.max(0,saldoDisponivel-desconto);
+ const valorPagar=Math.max(0,valorCompra-desconto);
+ const texto=`💰 *RESUMO DA COMPRA — SUCATAS ANALICE*\n\n*Cliente:* ${nome}\n\n*Valor total:* ${financeiroR$(valorCompra)}\n*Saldo do adiantamento:* ${financeiroR$(saldoDisponivel)}\n*Desconto utilizado:* ${financeiroR$(desconto)}\n*Saldo restante do adiantamento:* ${financeiroR$(saldoRestante)}\n\n💳 *Valor a pagar:* ${financeiroR$(valorPagar)}\n\nEste é apenas o resumo dos valores.`;
+ window.open("https://wa.me/?text="+encodeURIComponent(texto),"_blank");
+}
 function financeiroWhatsAppPagamento(ids,nomeCodificado){
  const nome=decodeURIComponent(String(nomeCodificado||"Cliente"));
  const lista=String(ids||"").split(",").filter(Boolean);
  const rows=(financeiroCloud||[]).filter(x=>lista.includes(String(x.id))&&String(x.status)==="Pago");
  if(!rows.length)return alert("Nenhum pagamento realizado foi encontrado para enviar.");
+ const pesagens=pesagensLoad()||[];
  const bruto=rows.reduce((s,x)=>s+Number(x.total||0),0);
  const desconto=rows.reduce((s,x)=>s+Number(x.desconto_adiantamento||0),0);
  const pago=rows.reduce((s,x)=>s+Number(x.total_pago!=null?x.total_pago:Math.max(0,Number(x.total||0)-Number(x.desconto_adiantamento||0))),0);
- const linhas=rows.map(x=>{
-   const p=(pesagensLoad()||[]).find(p=>String(p.id)===String(x.pesagem_id))||{};
-   return `• ${dataBR(x.data)} | ${tipoOperacaoLabel(p.tipo_movimento)} | ${x.material||"Não informado"} | ${brNum(x.liquido)} kg | ${financeiroR$(x.total_pago!=null?x.total_pago:Math.max(0,Number(x.total||0)-Number(x.desconto_adiantamento||0)))}`;
- }).join("\\n");
- const datas=[...new Set(rows.map(x=>String(x.data||"")))];
+ const pesoTotal=rows.reduce((s,x)=>s+Number(x.liquido||0),0);
+ const linhas=rows.map((x,i)=>{
+   const p=pesagens.find(p=>String(p.id)===String(x.pesagem_id))||{};
+   const preco=Number(x.preco_kg||0);
+   const totalItem=Number(x.total||0);
+   return `*${i+1}. TICKET ${String(p.numero_ticket||0).padStart(6,"0")}*\n📅 Data: ${dataBR(x.data)}\n📦 Material: ${x.material||p.material||"Não informado"}\n⚖️ Peso líquido: ${brNum(x.liquido)} kg\n💰 Valor do material: ${financeiroR$(preco)} / kg\n💵 Total da pesagem: ${financeiroR$(totalItem)}`;
+ }).join("\n\n");
+ const datas=[...new Set(rows.map(x=>String(x.data||"")))].sort();
  const periodo=datas.length===1?dataBR(datas[0]):`${dataBR(datas[0])} a ${dataBR(datas[datas.length-1])}`;
- const texto=`🧾 *COMPROVANTE DE PAGAMENTO — SUCATAS ANALICE*\\n\\n*Cliente:* ${nome}\\n*Período:* ${periodo}\\n\\n*Pesagens:*\\n${linhas}\\n\\n*Total bruto:* ${financeiroR$(bruto)}\\n*Desconto de adiantamento:* ${financeiroR$(desconto)}\\n*TOTAL PAGO:* ${financeiroR$(pago)}\\n\\n✅ Pagamento realizado.`;
+ const texto=`🧾 *TICKET DE PAGAMENTO — SUCATAS ANALICE*\n\n*Cliente:* ${nome}\n*Período:* ${periodo}\n\n${linhas}\n\n━━━━━━━━━━━━━━━━━━━━\n⚖️ *PESO LÍQUIDO TOTAL:* ${brNum(pesoTotal)} kg\n💰 *VALOR TOTAL:* ${financeiroR$(bruto)}\n💳 *DESCONTO DE ADIANTAMENTO:* ${financeiroR$(desconto)}\n💵 *TOTAL PAGO:* ${financeiroR$(pago)}\n━━━━━━━━━━━━━━━━━━━━\n\n✅ Pagamento realizado.`;
  window.open("https://wa.me/?text="+encodeURIComponent(texto),"_blank");
 }
+
 async function financeiroDesfazerPagamento(id){
  const row=financeiroCloud.find(x=>String(x.id)===String(id));
  if(row && await financeiroDataFechada(String(row.data||today())))return alert("O caixa desse dia está fechado. Reabra o caixa antes de desfazer o pagamento.");
