@@ -892,7 +892,7 @@ async function produtoSalvar(){
  const {data,error}=await sb.from("produtos_pesagem").insert({nome,preco:0}).select().single();
  if(error)return alert("Não foi possível salvar o produto: "+error.message);
  produtoCloud=[data,...produtoCloud];produtoCloudReady=true;localStorage.setItem(PRODUTO_KEY,JSON.stringify(produtoCloud));
- $("produtoModal")?.remove();await pesagemRender();alert("Produto cadastrado com sucesso!");
+ $("produtoModal")?.remove();await pesagemRender();
 }
 async function produtoEditar(id){
  const x=produtosLoad().find(a=>String(a.id)===String(id));if(!x)return;
@@ -928,6 +928,8 @@ async function pesagemRender(){
  const clientesArquivados=agrupar(arquivadas);
  const vendasAbertas=agrupar(abertas.filter(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"));
  const vendasArquivadas=agrupar(arquivadas.filter(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"));
+ const cacambasAbertas=agrupar(abertas.filter(x=>normalizarTipoOperacao(x.tipo_movimento)==="cacamba"));
+ const cacambasArquivadas=agrupar(arquivadas.filter(x=>normalizarTipoOperacao(x.tipo_movimento)==="cacamba"));
  const pesagemSvg={
   edit:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3Z"/><path d="m13.5 6.5 4 4"/></svg>`,
   print:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v6H6z"/></svg>`,
@@ -944,8 +946,8 @@ async function pesagemRender(){
    const idsArg=JSON.stringify(g.items.map(x=>String(x.id)));
    const resumo=`${g.items.length} ${g.items.length===1?'pesagem':'pesagens'} · ${brNum(total)} kg`;
    const addBtn=!arquivada?`<button type="button" class="pesagem-acao pesagem-add-material" title="Incluir mais uma pesagem para esta pessoa" aria-label="Incluir mais uma pesagem para esta pessoa" onclick='pesagemAbrirAdicionarCliente(${pesagemJsAttr(nomeArg)})'>＋</button>`:"";
-   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar pesagens no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${addBtn}${!arquivada?acao('check','Arquivar todas as pesagens deste cliente',`pesagemArquivarCliente(${nomeArg})`):''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
-   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><b>${tipoOperacaoLabel(x.tipo_movimento)}</b></td><td>${esc(x.hora_entrada||'—')}</td><td>${esc(x.hora_saida||'—')}</td><td><span class="pesagem-material-nome">${esc(x.material||'—')}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}${(!arquivada && normalizarTipoOperacao(x.tipo_movimento)!=='venda' && Number(x.entrada||0)>0 && Number(x.saida||0)>0 && Number(x.liquido||0)>0 && !x.finalizada)?`<button type="button" class="pesagem-acao" title="Finalizar pesagem e enviar ao Financeiro" aria-label="Finalizar pesagem e enviar ao Financeiro" onclick="pesagemFinalizar('${x.id}')"><span style="font-size:16px">💰</span></button>`:''}${x.finalizada&&!x.fechada?`<span title="Pesagem finalizada e enviada ao Financeiro" style="display:inline-flex;align-items:center;justify-content:center;font-size:15px;padding:3px 5px">✅</span>`:''}${acao('trash','Excluir somente esta pesagem',`pesagemExcluir('${x.id}')`,'excluir')}</div></td></tr>`).join('');
+   const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar pesagens no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${addBtn}${!arquivada?`<button type="button" class="pesagem-acao" title="Fechar este cliente e enviar as pesagens completas ao Financeiro" aria-label="Fechar este cliente e enviar as pesagens completas ao Financeiro" onclick='pesagemFinalizarCliente(${pesagemJsAttr(nomeArg)})'><span style="font-size:16px">💰</span></button>`:''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
+   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><b>${tipoOperacaoLabel(x.tipo_movimento)}</b></td><td>${esc(x.hora_entrada||'—')}</td><td>${esc(x.hora_saida||'—')}</td><td><span class="pesagem-material-nome">${esc(x.material||'—')}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}${x.finalizada&&!x.fechada?`<span title="Pesagem finalizada e enviada ao Financeiro" style="display:inline-flex;align-items:center;justify-content:center;font-size:15px;padding:3px 5px">✅</span>`:''}${acao('trash','Excluir somente esta pesagem',`pesagemExcluir('${x.id}')`,'excluir')}</div></td></tr>`).join('');
    return `<tr class="pesagem-cliente-head"><td colspan="10"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Ticket</th><th>Data</th><th>Operação</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Peso entrada</th><th>Peso saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
  };
  const materiais=produtosLoad();
@@ -954,7 +956,11 @@ async function pesagemRender(){
   <h3 style="margin-top:0">📝 Nova pesagem</h3>
   <div class="grid">
    <div><label>Data</label><input id="pdata" type="date" value="${today()}"></div>
-   <div><label>Cliente / Pessoa</label><input id="ppessoa" placeholder="Nome da pessoa"></div>
+   <div><label>Cliente / Pessoa</label>
+<input id="ppessoa" list="pesagemClientesList" autocomplete="off" placeholder="Selecione ou digite o nome do cliente">
+<datalist id="pesagemClientesList">${(cache.clientes||[]).filter(c=>c.ativo!==false).sort((a,b)=>String(a.nome||"").localeCompare(String(b.nome||""),"pt-BR")).map(c=>`<option value="${esc(c.nome||"")}"></option>`).join("")}</datalist>
+<div class="small" style="margin-top:5px">Os nomes vêm da aba Clientes.</div>
+</div>
    <div><label>Horário de entrada</label><input id="phora_entrada" type="time" value="${horaAtual()}"></div>
    <div><label>Horário de saída</label><input id="phora_saida" type="time"></div>
    <div><label>Tipo de operação</label><select id="pmov" onchange="pesagemCalcular()"><option value="compra">Compra — entrada maior que saída</option><option value="venda">Venda — permite entrada maior ou menor que saída</option><option value="cacamba">Caçambas — operação de caçamba</option></select></div>
@@ -982,6 +988,12 @@ async function pesagemRender(){
   <h3 style="margin-top:0">📁 Pesagens concluídas / arquivadas</h3>
   <p class="small">As pesagens concluídas ficam aqui e não aparecem na lista principal.</p>
   ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join('')}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
+ </div>
+ <div class="card" style="border-left:5px solid #2e7d32;background:linear-gradient(180deg,#f3fff5,#fff)">
+  <h3 style="margin-top:0;color:#2e7d32">📁 Caçambas</h3>
+  <p class="small">As pesagens da operação <b>CAÇAMBAS</b> ficam aqui depois que o cliente é fechado.</p>
+  ${cacambasAbertas.length?`<details open><summary style="cursor:pointer;font-weight:800;color:#2e7d32">🗑️ Caçambas em aberto (${cacambasAbertas.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${cacambasAbertas.map(g=>linhas(g,false)).join('')}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem de caçamba em aberto.</p>"}
+  ${cacambasArquivadas.length?`<details><summary style="cursor:pointer;font-weight:800;color:#2e7d32">📦 Caçambas fechadas (${cacambasArquivadas.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${cacambasArquivadas.map(g=>linhas(g,true)).join('')}</tbody></table></div></details>`:""}
  </div>
  <div class="card" style="border-left:5px solid #b83280;background:linear-gradient(180deg,#fff7fc,#fff)">
   <h3 style="margin-top:0;color:#8f235f">📁 Vendas</h3>
@@ -1014,10 +1026,6 @@ async function pesagemSalvar(){
  pesagemCloud=[saved,...pesagemCloud];pesagemCloudReady=true;
  // A pesagem só entra no Financeiro quando o balanceiro clicar em "Finalizar pesagem".
  try{await pesagemRender();}catch(e){console.error(e);}
- try{
-   if(document.getElementById("financeiro")?.classList.contains("active")) await financeiroRender();
- }catch(e){console.error(e);}
- alert("Pesagem registrada com sucesso!");
 }
 
 function pesagemEditar(id){
@@ -1044,7 +1052,7 @@ function pesagemEditar(id){
 }
 async function pesagemSalvarEdicao(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id));if(!x)return;
- const entrada=parseBR($("pe_entrada").value||"0"),saida=parseBR($("pe_saida").value||"0"),tipo_movimento=String($("pe_mov")?.value||"compra").toLowerCase()==="venda"?"venda":"compra",liquido=pesagemLiquidoCalcular(entrada,saida,tipo_movimento);
+ const entrada=parseBR($("pe_entrada").value||"0"),saida=parseBR($("pe_saida").value||"0"),tipo_movimento=normalizarTipoOperacao($("pe_mov")?.value||"compra"),liquido=pesagemLiquidoCalcular(entrada,saida,tipo_movimento);
  if(entrada<=0||saida<0||liquido<=0)return alert("Confira os pesos.");
  if(tipo_movimento==="compra" && entrada<saida)return alert("Na compra, o peso de entrada deve ser maior ou igual ao peso de saída. Se for uma venda, selecione Venda.");
  const novo={data:$("pe_data").value||today(),pessoa:$("pe_pessoa").value.trim(),hora_entrada:$("pe_hora_entrada")?.value||null,hora_saida:$("pe_hora_saida")?.value||null,tipo_movimento,material:$("pe_material").value.trim(),entrada,saida,liquido,observacoes:$("pe_obs").value.trim(),updated_at:new Date().toISOString()};
@@ -1052,7 +1060,51 @@ async function pesagemSalvarEdicao(id){
  const {data,error}=await sb.from("pesagens").update(novo).eq("id",id).select().single();
  if(error)return alert("Não foi possível atualizar a pesagem: "+error.message);
  pesagemCloud=pesagemCloud.map(a=>String(a.id)===String(id)?data:a);pesagemCloudReady=true;
- $("pesagemEditModal")?.remove();await pesagemRender();alert("Pesagem atualizada.");
+ $("pesagemEditModal")?.remove();await pesagemRender();
+}
+
+async function pesagemFinalizarCliente(nome){
+ const items=pesagemAgruparCliente(nome);
+ if(!items.length)return alert("Não há pesagens abertas para este cliente.");
+ const completas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&Number(x.entrada||0)>0&&Number(x.saida||0)>0&&Number(x.liquido||0)>0&&!x.finalizada);
+ const jaFinalizadas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&x.finalizada&&!x.fechada);
+ const incompletas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&!(Number(x.entrada||0)>0&&Number(x.saida||0)>0&&Number(x.liquido||0)>0));
+ const vendas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)==="venda");
+ if(!completas.length && !jaFinalizadas.length){
+   let msg="Não há pesagens completas para enviar ao Financeiro.";
+   if(incompletas.length)msg+=`\n\n${incompletas.length} pesagem(ns) ainda estão sem peso de saída ou peso líquido.`;
+   if(vendas.length)msg+=`\n${vendas.length} venda(s) ficaram fora do Financeiro.`;
+   return alert(msg);
+ }
+ const agora=new Date().toISOString();
+ const todas=[...completas,...jaFinalizadas];
+ const idsNovas=completas.map(x=>String(x.id));
+ if(idsNovas.length){
+   const {data,error}=await sb.from("pesagens").update({finalizada:true,updated_at:agora}).in("id",idsNovas).select();
+   if(error)return alert("Não foi possível finalizar as pesagens: "+error.message);
+   pesagemCloud=pesagemCloud.map(a=>idsNovas.includes(String(a.id))?(data||[]).find(d=>String(d.id)===String(a.id))||{...a,finalizada:true,updated_at:agora}:a);
+ }
+ let falhas=0;
+ const idsCacambas=[];
+ for(const x of todas){
+   const atual=pesagensLoad().find(p=>String(p.id)===String(x.id))||x;
+   try{
+     const r=await financeiroSincronizarPesagem({...atual,finalizada:true});
+     if(!r)falhas++;
+     else if(normalizarTipoOperacao(atual.tipo_movimento)==="cacamba")idsCacambas.push(String(atual.id));
+   }catch(e){console.error("Financeiro após fechamento do cliente",e);falhas++;}
+ }
+ if(idsCacambas.length && !falhas){
+   const {data,error}=await sb.from("pesagens").update({fechada:true,updated_at:agora}).in("id",idsCacambas).select();
+   if(error){console.error("Arquivamento das caçambas",error);falhas++;}
+   else{
+     const mapa=new Map((data||[]).map(x=>[String(x.id),x]));
+     pesagemCloud=pesagemCloud.map(x=>mapa.has(String(x.id))?mapa.get(String(x.id)):x);
+   }
+ }
+ pesagemCloudReady=true;
+ await pesagemRender();
+ if(falhas)console.error(`Fechamento de ${nome}: ${falhas} operação(ões) não foram sincronizadas.`);
 }
 
 async function pesagemFinalizar(id){
@@ -1229,11 +1281,8 @@ async function pesagemSalvarAdicional(origId){
  const {data,error}=await sb.from("pesagens").insert(novo).select().single();
  if(error)return alert("Não foi possível registrar a nova pesagem: "+error.message);
  pesagemCloud=[data,...pesagemCloud];pesagemCloudReady=true;
- try{await financeiroSincronizarPesagem(data, null, novo.observacoes);}catch(e){console.error("Erro ao sincronizar financeiro",e);}
  document.getElementById("pesagemAddModal")?.remove();
  await pesagemRender();
- try{if(document.getElementById("financeiro")?.classList.contains("active")) await financeiroRender();}catch(e){console.error(e);}
- alert("Nova pesagem registrada para "+pessoa+".");
 }
 
 function pesagemAbrirAdicionarCliente(nome){
@@ -1286,7 +1335,6 @@ async function pesagemArquivarCliente(nome){
  pesagemCloud=pesagemCloud.map(x=>ids.includes(String(x.id))?{...x,fechada:true}:x);
  pesagemCloudReady=true;
  await pesagemRender();
- alert("Pesagens de "+nome+" arquivadas com sucesso!");
 }
 function pesagemFecharModal(nome){
  const items=pesagemAgruparCliente(nome);
@@ -1306,7 +1354,7 @@ async function pesagemFecharDefinitivo(nome,ids){
  const {error}=await sb.from("pesagens").update({fechada:true,updated_at:new Date().toISOString()}).in("id",ids);
  if(error)return alert("Não foi possível fechar a pesagem: "+error.message);
  pesagemCloud=pesagemCloud.map(x=>ids.map(String).includes(String(x.id))?{...x,fechada:true}:x);pesagemCloudReady=true;
- await pesagemRender();alert("Pesagem do cliente fechada com sucesso.");
+ await pesagemRender();
 }
 
 function pesagemWhatsAppCliente(nome, arquivada=false){
