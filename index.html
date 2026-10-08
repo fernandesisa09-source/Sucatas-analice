@@ -2069,19 +2069,21 @@ async function financeiroRender(){
  const pend=lista.filter(x=>x.status==="Pendente");
  const pagos=lista.filter(x=>x.status==="Pago");
  const pesagens=pesagensLoad()||[];
- const totalPendente=pend.reduce((s,x)=>s+Number(x.total||0),0);
+ const hoje=String(today());
+ const pendHoje=pend.filter(x=>String(x.data||"")===hoje);
+ const totalPendente=pendHoje.reduce((s,x)=>s+Number(x.total||0),0);
  const totalPendenteCacambas=pend.filter(x=>{const p=pesagens.find(p=>String(p.id)===String(x.pesagem_id));return normalizarTipoOperacao(p?.tipo_movimento)==="cacamba";}).reduce((s,x)=>s+Number(x.total||0),0);
- const totalCompra=lista.filter(x=>{const p=pesagens.find(p=>String(p.id)===String(x.pesagem_id));return normalizarTipoOperacao(p?.tipo_movimento)==="compra";}).reduce((s,x)=>s+Number(x.total_pago!=null&&x.status==="Pago"?x.total_pago:x.total||0),0);
+ const comprasHoje=lista.filter(x=>{const p=pesagens.find(p=>String(p.id)===String(x.pesagem_id));return String(x.data||"")===hoje&&normalizarTipoOperacao(p?.tipo_movimento)==="compra";});
+ const totalCompra=comprasHoje.reduce((s,x)=>s+Number(x.total_pago!=null&&x.status==="Pago"?x.total_pago:x.total||0),0);
  const totalPago=pagos.reduce((s,x)=>s+Number(x.total_pago!=null?x.total_pago:x.total||0),0);
  const grupos=financeiroGrupos(pend);
  const gruposPagos=financeiroGrupos(pagos);
  const materiais=produtosLoad();
- const hoje=String(today());
  const atrasados=pend.filter(x=>String(x.data||"")<hoje);
  const diasAberto=x=>{const a=new Date(String(x.data||hoje)+"T00:00:00");const b=new Date(hoje+"T00:00:00");return Math.max(0,Math.floor((b-a)/86400000));};
  const alertaAtrasados=atrasados.length?`<div class="card" style="border-left:5px solid #c62828;background:#fff5f5"><h3 style="margin:0;color:#b71c1c">⚠️ Pagamentos em aberto há mais de 1 dia</h3><p style="margin:6px 0 0">${atrasados.length} lançamento(s) aguardando pagamento. Confira os clientes abaixo.</p><div class="small" style="margin-top:8px">${atrasados.map(x=>`<span style="display:inline-block;margin:3px 8px 3px 0;padding:5px 8px;border-radius:8px;background:#ffe0e0"><b>${esc(x.pessoa||"Cliente")}</b> — ${diasAberto(x)} dia(s) — ${financeiroR$(x.total)}</span>`).join("")}</div></div>`:"";
  const cards=`<div class="financeiro-cards">
-  <div class="financeiro-card compras"><div class="fc-titulo">🛒 Compras</div><div class="fc-sub">Total das compras — operação COMPRA</div><div class="fc-valor">${financeiroR$(totalCompra)}</div><div class="small">${lista.filter(x=>{const p=pesagens.find(p=>String(p.id)===String(x.pesagem_id));return normalizarTipoOperacao(p?.tipo_movimento)==="compra";}).length} lançamento(s)</div></div>
+  <div class="financeiro-card compras"><div class="fc-titulo">🛒 Compras</div><div class="fc-sub">Total das compras — operação COMPRA</div><div class="fc-valor">${financeiroR$(totalCompra)}</div><div class="small">${comprasHoje.length} lançamento(s)</div></div>
   <div class="financeiro-card pagar"><div class="fc-titulo">💰 A pagar</div><div class="fc-sub">Total em aberto</div><div class="fc-valor">${financeiroR$(totalPendente)}</div><div class="small">${grupos.length} cliente(s)</div></div>
   <div class="financeiro-card cacambas"><div class="fc-titulo">🗑️ A pagar — Caçambas</div><div class="fc-sub">Somente operação CAÇAMBAS</div><div class="fc-valor">${financeiroR$(totalPendenteCacambas)}</div><div class="small">${pend.filter(x=>{const p=pesagens.find(p=>String(p.id)===String(x.pesagem_id));return normalizarTipoOperacao(p?.tipo_movimento)==="cacamba";}).length} lançamento(s)</div></div>
   <div class="financeiro-card atraso"><div class="fc-titulo">⚠️ Em atraso</div><div class="fc-sub">Total em atraso</div><div class="fc-valor">${financeiroR$(atrasados.reduce((s,x)=>s+Number(x.total||0),0))}</div><div class="small">${atrasados.length} lançamento(s)</div></div>
