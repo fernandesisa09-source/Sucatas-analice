@@ -932,6 +932,24 @@ async function pesagemRender(){
  iniciarPesagemRealtime();
  const el=$("pesagem"); if(!el)return;
  const lista=pesagensLoad();
+ // Busca os valores do Financeiro para o balanceiro conseguir conferir quanto cada pesagem representa.
+ // O valor é apenas informativo na tela; nunca é colocado no ticket de impressão.
+ const valorFinanceiroPorPesagem={};
+ try{
+   const idsFinanceiro=lista.map(x=>String(x.id)).filter(Boolean);
+   if(idsFinanceiro.length){
+     const {data:fv}=await sb.from("financeiro_pesagens").select("pesagem_id,total,preco_kg,total_pago,status").in("pesagem_id",idsFinanceiro);
+     (fv||[]).forEach(f=>{valorFinanceiroPorPesagem[String(f.pesagem_id)]=f;});
+   }
+ }catch(e){console.warn("Valores do Financeiro na Pesagem:",e)}
+ const produtosTela=produtosLoad();
+ const valorPesagemTela=(x)=>{
+   const f=valorFinanceiroPorPesagem[String(x.id)];
+   if(f && (f.total!==null && f.total!==undefined) && Number(f.preco_kg||0)>0) return Number(f.total||0);
+   const prod=produtosTela.find(m=>String(m.nome||"").trim().toLowerCase()===String(x.material||"").trim().toLowerCase());
+   const preco=Number(prod?.preco||0);
+   return preco>0?Number(x.liquido||0)*preco:0;
+ };
  const abertas=lista.filter(x=>!x.fechada);
  const arquivadas=lista.filter(x=>!!x.fechada);
  const agrupar=(arr)=>{
@@ -956,9 +974,15 @@ async function pesagemRender(){
  };
  const registrosPorDia=agruparPorDia(arquivadas);
  const vendasAbertas=agrupar(abertas.filter(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"));
- const vendasArquivadas=agrupar(arquivadas.filter(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"));
+ const vendasArquivadas=agruparPorDia(arquivadas.filter(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"));
  const cacambasAbertas=agrupar(abertas.filter(x=>normalizarTipoOperacao(x.tipo_movimento)==="cacamba"));
- const cacambasArquivadas=agrupar(arquivadas.filter(x=>normalizarTipoOperacao(x.tipo_movimento)==="cacamba"));
+ const cacambasArquivadas=agruparPorDia(arquivadas.filter(x=>normalizarTipoOperacao(x.tipo_movimento)==="cacamba"));
+ const blocoArquivadasPorDia=(grupos,cor)=>grupos.map(g=>{
+   const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
+   const valorTotal=g.items.reduce((s,x)=>s+valorPesagemTela(x),0);
+   const diaId=JSON.stringify(g.data);
+   return `<details><summary style="cursor:pointer;font-weight:800;color:${cor}">📅 ${dataBR(g.data)} — ${g.items.length} ticket(s) · ${brNum(total)} kg · <span style="color:#2e7d32">R$ ${brNum(valorTotal)}</span></summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido (kg)</th><th>Valor</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="pesagem-valor-cell"><strong>${valorPesagemTela(x)>0?financeiroR$(valorPesagemTela(x)):'—'}</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}</div></td></tr>`).join('')}</tbody></table></div></details>`;
+ }).join('');
  const pesagemSvg={
   edit:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3Z"/><path d="m13.5 6.5 4 4"/></svg>`,
   print:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V4h12v5"/><path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v6H6z"/></svg>`,
@@ -970,14 +994,15 @@ async function pesagemRender(){
  const acao=(icon,title,on,extra="")=>`<button type="button" class="pesagem-acao ${extra}" title="${title}" aria-label="${title}" onclick='${pesagemJsAttr(on)}'>${pesagemSvg[icon]}</button>`;
  const linhas=(g,arquivada=false)=>{
    const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
+   const valorTotal=g.items.reduce((s,x)=>s+valorPesagemTela(x),0);
    const nomeArg=JSON.stringify(g.nome);
    const nomeCod=JSON.stringify(encodeURIComponent(g.nome));
    const idsArg=JSON.stringify(g.items.map(x=>String(x.id)));
-   const resumo=`${g.items.length} ${g.items.length===1?'pesagem':'pesagens'} · ${brNum(total)} kg`;
+   const resumo=`${g.items.length} ${g.items.length===1?'pesagem':'pesagens'} · ${brNum(total)} kg · <b style="color:#2e7d32">${valorTotal>0?financeiroR$(valorTotal):'Valor a calcular'}</b>`;
    const addBtn=!arquivada?`<button type="button" class="pesagem-acao pesagem-add-material" title="Incluir mais uma pesagem para esta pessoa" aria-label="Incluir mais uma pesagem para esta pessoa" onclick='pesagemAbrirAdicionarCliente(${pesagemJsAttr(nomeArg)})'>＋</button>`:"";
    const botoesGrupo=`${acao('print','Imprimir todas as pesagens deste cliente',`pesagemImprimirCliente(${nomeCod},${arquivada})`)}${acao('whatsapp','Enviar pesagens no WhatsApp',`pesagemWhatsAppCliente(${nomeArg},${arquivada})`)}${addBtn}${!arquivada?`<button type="button" class="pesagem-acao" title="Fechar este cliente e enviar as pesagens completas ao Financeiro" aria-label="Fechar este cliente e enviar as pesagens completas ao Financeiro" onclick='pesagemFinalizarCliente(${pesagemJsAttr(nomeArg)})'><span style="font-size:16px">💰</span></button>`:''}${acao('trash',arquivada?'Excluir todas as pesagens arquivadas deste cliente':'Excluir todas as pesagens deste cliente',`pesagemExcluirCliente(${nomeArg},${idsArg},${arquivada})`,'excluir')}`;
-   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><b>${tipoOperacaoLabel(x.tipo_movimento)}</b></td><td>${esc(x.hora_entrada||'—')}</td><td>${esc(x.hora_saida||'—')}</td><td><span class="pesagem-material-nome">${esc(x.material||'—')}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}${x.finalizada&&!x.fechada?`<span title="Pesagem finalizada e enviada ao Financeiro" style="display:inline-flex;align-items:center;justify-content:center;font-size:15px;padding:3px 5px">✅</span>`:''}${acao('trash','Excluir somente esta pesagem',`pesagemExcluir('${x.id}')`,'excluir')}</div></td></tr>`).join('');
-   return `<tr class="pesagem-cliente-head"><td colspan="10"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Ticket</th><th>Data</th><th>Operação</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Peso entrada</th><th>Peso saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
+   const rows=g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><span class="pesagem-date">${dataBR(x.data)}</span></td><td><b>${tipoOperacaoLabel(x.tipo_movimento)}</b></td><td>${esc(x.hora_entrada||'—')}</td><td>${esc(x.hora_saida||'—')}</td><td><span class="pesagem-material-nome">${esc(x.material||'—')}</span></td><td class="pesagem-peso-cell"><strong>${brNum(x.entrada)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.saida)} kg</strong></td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="pesagem-valor-cell"><strong>${valorPesagemTela(x)>0?financeiroR$(valorPesagemTela(x)):'—'}</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('edit','Editar somente esta pesagem',`pesagemEditar('${x.id}')`)}${x.finalizada&&!x.fechada?`<span title="Pesagem finalizada e enviada ao Financeiro" style="display:inline-flex;align-items:center;justify-content:center;font-size:15px;padding:3px 5px">✅</span>`:''}${acao('trash','Excluir somente esta pesagem',`pesagemExcluir('${x.id}')`,'excluir')}</div></td></tr>`).join('');
+   return `<tr class="pesagem-cliente-head"><td colspan="11"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Ticket</th><th>Data</th><th>Operação</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Peso entrada</th><th>Peso saída</th><th>Peso líquido</th><th>Valor</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
  };
  const materiais=produtosLoad();
  el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button id="btnAtualizarPesagem" class="btn secondary" onclick="pesagemAtualizar()">🔄 Atualizar</button></h2>
@@ -1026,13 +1051,13 @@ async function pesagemRender(){
   <h3 style="margin-top:0;color:#2e7d32">📁 Caçambas</h3>
   <p class="small">As pesagens da operação <b>CAÇAMBAS</b> ficam aqui depois que o cliente é fechado.</p>
   ${cacambasAbertas.length?`<details open><summary style="cursor:pointer;font-weight:800;color:#2e7d32">🗑️ Caçambas em aberto (${cacambasAbertas.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${cacambasAbertas.map(g=>linhas(g,false)).join('')}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem de caçamba em aberto.</p>"}
-  ${cacambasArquivadas.length?`<details><summary style="cursor:pointer;font-weight:800;color:#2e7d32">📦 Caçambas fechadas (${cacambasArquivadas.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${cacambasArquivadas.map(g=>linhas(g,true)).join('')}</tbody></table></div></details>`:""}
+  ${cacambasArquivadas.length?`<details><summary style="cursor:pointer;font-weight:800;color:#2e7d32">📦 Caçambas fechadas — por dia (${cacambasArquivadas.length} dia(s))</summary><div style="margin-top:12px">${blocoArquivadasPorDia(cacambasArquivadas,"#2e7d32")}</div></details>`:""}
  </div>
  <div class="card" style="border-left:5px solid #b83280;background:linear-gradient(180deg,#fff7fc,#fff)">
   <h3 style="margin-top:0;color:#8f235f">📁 Vendas</h3>
   <p class="small">Pasta separada para as pesagens registradas como <b>VENDA</b>. O ticket de venda tem identificação e cor próprias.</p>
   ${vendasAbertas.length?`<details open><summary style="cursor:pointer;font-weight:800;color:#8f235f">📂 Vendas em aberto (${vendasAbertas.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${vendasAbertas.map(g=>linhas(g,false)).join('')}</tbody></table></div></details>`:"<p class='small'>Nenhuma venda em aberto.</p>"}
-  ${vendasArquivadas.length?`<details><summary style="cursor:pointer;font-weight:800;color:#8f235f">📦 Vendas arquivadas (${vendasArquivadas.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${vendasArquivadas.map(g=>linhas(g,true)).join('')}</tbody></table></div></details>`:""}
+  ${vendasArquivadas.length?`<details><summary style="cursor:pointer;font-weight:800;color:#8f235f">📦 Vendas arquivadas — por dia (${vendasArquivadas.length} dia(s))</summary><div style="margin-top:12px">${blocoArquivadasPorDia(vendasArquivadas,"#8f235f")}</div></details>`:""}
  </div>`;
 }
 
@@ -1692,14 +1717,14 @@ async function financeiroAbrirPagamento(ids){
  const payload=financeiroPixPayload(chave,pixNome,pixCidade,total);
  box.innerHTML=`<div class="card" style="max-width:560px;width:100%;max-height:92vh;overflow:auto;text-align:center"><h2>💳 Pagamento — ${esc(nome)}</h2><div style="font-size:28px;font-weight:900;color:#55358a;margin:10px 0">${financeiroR$(total)}</div>
  <div class="card" style="text-align:left;margin:12px 0;border-left:5px solid #e0a000;background:#fffdf5"><h3 style="margin:0 0 8px">💰 Abater adiantamento</h3>
- ${adiantamentos.length?`<label>Adiantamento disponível</label><select id="finAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="">Não usar adiantamento</option>${adiantamentos.map(a=>`<option value="${a.id}" data-saldo="${adSaldo(a)}">${esc(a.pessoa)} — saldo ${adR$(adSaldo(a))} — ${adDataBR(a.data)}</option>`).join("")}</select><label style="margin-top:8px">Como deseja usar o adiantamento?</label><select id="finModoAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="zero">Não descontar nada</option><option value="livre">Descontar o valor que eu escolher</option><option value="todo">Descontar todo o saldo disponível</option></select><label style="margin-top:8px">Valor do desconto</label><input id="finDescontoAdiantamento" inputmode="decimal" placeholder="0,00" oninput="financeiroAtualizarDescontoPagamento()"><div class="small" style="margin-top:6px">Você pode escolher R$ 0,00, informar qualquer valor até o saldo disponível ou usar todo o saldo. O restante continua disponível para a próxima compra.</div>`:`<p class="small" style="margin:0">Nenhum adiantamento em aberto encontrado para este cliente.</p>`}
+ ${adiantamentos.length?`<label>Adiantamento disponível</label><select id="finAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="">Não usar adiantamento</option>${adiantamentos.map(a=>`<option value="${a.id}" data-saldo="${adSaldo(a)}">${esc(a.pessoa)} — saldo ${adR$(adSaldo(a))} — ${adDataBR(a.data)}</option>`).join("")}</select><label style="margin-top:8px">Como deseja usar o adiantamento?</label><select id="finModoAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="zero">Não descontar nada</option><option value="livre">Descontar o valor que eu escolher</option><option value="todo">Descontar todo o saldo disponível</option></select><label style="margin-top:8px">Valor do desconto</label><input id="finDescontoAdiantamento" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="financeiroAtualizarDescontoPagamento(false)" onblur="financeiroAtualizarDescontoPagamento(true)"><div class="small" style="margin-top:6px">Digite livremente o valor do abatimento, inclusive centavos, por exemplo <b>51,99</b>. O sistema aceita qualquer valor até o saldo do adiantamento e o total da compra.</div>`:`<p class="small" style="margin:0">Nenhum adiantamento em aberto encontrado para este cliente.</p>`}
  <div style="margin-top:12px;padding-top:10px;border-top:1px solid #ddd"><div>Valor da compra: <b>${financeiroR$(total)}</b></div><div>Desconto por adiantamento: <b id="finDescontoPreview">R$ 0,00</b></div><div style="font-size:21px;margin-top:5px">💳 <b>Valor a pagar: <span id="finTotalPagar">${financeiroR$(total)}</span></b></div></div></div>
  ${payload?`<div id="pixQr" style="display:flex;justify-content:center;margin:15px 0"></div><p class="small"><b>PIX para:</b> ${esc(pixNome)}<br><b>Chave:</b> ${esc(chave)}</p><textarea id="pixCopiaCola" readonly style="height:90px;font-size:11px">${esc(financeiroPixPayload(chave,pixNome,pixCidade,total))}</textarea><button class="btn secondary" style="margin-top:8px" onclick="navigator.clipboard?.writeText(document.getElementById('pixCopiaCola').value);alert('PIX copia e cola copiado!')">📋 Copiar PIX</button>`:`<div class="card" style="background:#fff4d6;border:1px solid #e0b84c"><b>⚠️ Este cliente ainda não possui chave PIX cadastrada.</b><p class="small">Cadastre a chave PIX no cadastro do cliente para gerar o QR Code.</p></div>`}
  <div style="display:flex;gap:8px;justify-content:center;margin-top:18px"><button class="btn secondary" onclick="document.getElementById('pixPagamentoModal').remove()">Cancelar</button><button class="btn primary" onclick="financeiroConfirmarPagamento('${lista.join(',')}','${esc(nome).replace(/'/g,"\\'")}')">✅ Pagamento realizado</button></div></div>`;
  document.body.appendChild(box);
  if(payload&&window.QRCode)new QRCode(document.getElementById("pixQr"),{text:payload,width:220,height:220});
 }
-function financeiroAtualizarDescontoPagamento(){
+function financeiroAtualizarDescontoPagamento(formatar=true){
  const sel=document.getElementById("finAdiantamento"), modo=document.getElementById("finModoAdiantamento"), inp=document.getElementById("finDescontoAdiantamento"), prev=document.getElementById("finDescontoPreview"), pagar=document.getElementById("finTotalPagar");
  if(!sel||!inp||!prev||!pagar)return;
  const rows=(financeiroCloud||[]).filter(x=>String(x.id) && x.status==="Pendente" && document.getElementById("pixPagamentoModal"));
@@ -1710,7 +1735,7 @@ function financeiroAtualizarDescontoPagamento(){
  const opt=sel.options[sel.selectedIndex]; const saldo=Number(opt?.dataset?.saldo||0);
  if(!sel.value || modo?.value==="zero"){desconto=0;inp.value="";}
  else if(modo?.value==="todo"){desconto=Math.min(saldo,valorCompra);inp.value=desconto?adNumeroBR(String(desconto).replace(".",",")):"0,00";}
- else {desconto=Math.min(Math.max(0,desconto),saldo,valorCompra);inp.value=desconto?adNumeroBR(String(desconto).replace(".",",")):"";}
+ else {desconto=Math.min(Math.max(0,desconto),saldo,valorCompra);if(formatar)inp.value=desconto?adNumeroBR(String(desconto).replace(".",",")):"";}
  const novoTotal=Math.max(0,valorCompra-desconto);
  prev.textContent=financeiroR$(desconto);pagar.textContent=financeiroR$(novoTotal);
  const modalBox=document.getElementById("pixPagamentoModal");
