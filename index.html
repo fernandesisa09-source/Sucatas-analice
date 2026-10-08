@@ -910,6 +910,22 @@ async function produtoExcluir(id){
  produtoCloud=produtoCloud.filter(x=>String(x.id)!==String(id));produtoCloudReady=true;await pesagemRender();
 }
 
+async function pesagemAtualizar(){
+ const btn=$("btnAtualizarPesagem");
+ if(btn){btn.disabled=true;btn.textContent="⏳ Atualizando...";}
+ try{
+   await pesagensCloudLoad();
+   await produtosCloudLoad();
+   await pesagemRender();
+ }catch(e){
+   console.error("Atualização da Pesagem",e);
+   alert("Não foi possível atualizar as pesagens agora. Tente novamente.");
+ }finally{
+   const b=$("btnAtualizarPesagem");
+   if(b){b.disabled=false;b.textContent="🔄 Atualizar";}
+ }
+}
+
 async function pesagemRender(){
  try{await pesagensCloudLoad();}catch(e){console.error(e)}
  try{await produtosCloudLoad();}catch(e){console.error(e)}
@@ -925,7 +941,20 @@ async function pesagemRender(){
    return Object.values(grupos).sort((a,b)=>{const ca=new Date(a.items[0]?.created_at||0).getTime(),cb=new Date(b.items[0]?.created_at||0).getTime();return cb-ca || String(b.nome).localeCompare(String(a.nome))}); // mais recente primeiro
  };
  const clientes=agrupar(abertas);
- const clientesArquivados=agrupar(arquivadas);
+ const agruparPorDia=(arr)=>{
+   const mapa={};
+   (arr||[]).forEach(x=>{
+     const dia=String(x.data||"").trim()||today();
+     if(!mapa[dia])mapa[dia]={data:dia,items:[]};
+     mapa[dia].items.push(x);
+   });
+   Object.values(mapa).forEach(g=>g.items.sort((a,b)=>{
+     const ca=new Date(a.created_at||0).getTime(),cb=new Date(b.created_at||0).getTime();
+     return cb-ca || Number(b.numero_ticket||0)-Number(a.numero_ticket||0);
+   }));
+   return Object.values(mapa).sort((a,b)=>String(b.data).localeCompare(String(a.data)));
+ };
+ const registrosPorDia=agruparPorDia(arquivadas);
  const vendasAbertas=agrupar(abertas.filter(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"));
  const vendasArquivadas=agrupar(arquivadas.filter(x=>String(x.tipo_movimento||"compra").toLowerCase()==="venda"));
  const cacambasAbertas=agrupar(abertas.filter(x=>normalizarTipoOperacao(x.tipo_movimento)==="cacamba"));
@@ -951,7 +980,7 @@ async function pesagemRender(){
    return `<tr class="pesagem-cliente-head"><td colspan="10"><details class="pesagem-cliente-details"><summary><div class="pesagem-cliente-bar"><div class="pesagem-cliente-nome"><span class="pesagem-user-dot">●</span><b>${esc(g.nome)}</b></div><div class="pesagem-cliente-resumo"><span>${resumo}</span><span class="pesagem-chevron">⌄</span></div><div class="pesagem-acoes pesagem-acoes-grupo no-print">${botoesGrupo}</div></div></summary><div class="pesagem-detalhes-box"><table class="pesagem-subtabela"><thead><tr><th>Ticket</th><th>Data</th><th>Operação</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Peso entrada</th><th>Peso saída</th><th>Peso líquido</th><th class="no-print">Editar</th></tr></thead><tbody>${rows}</tbody></table></div></details></td></tr>`;
  };
  const materiais=produtosLoad();
- el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button class="btn secondary" onclick="pesagemRender()">🔄 Atualizar</button></h2>
+ el.innerHTML=`<h2><button class="btn primary" onclick="pesagemFecharCliente()">🧾 Fechar pesagem do cliente</button> ⚖️ Pesagem e Impressão <span class="small" style="font-weight:600">☁️ Sincronizada entre aparelhos</span> <button id="btnAtualizarPesagem" class="btn secondary" onclick="pesagemAtualizar()">🔄 Atualizar</button></h2>
  <div class="card" style="border-left:5px solid #55358a">
   <h3 style="margin-top:0">📝 Nova pesagem</h3>
   <div class="grid">
@@ -984,10 +1013,14 @@ async function pesagemRender(){
   <h3 style="margin-top:0">📋 Pesagens registradas</h3>
   ${clientes.length?`<div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientes.map(g=>linhas(g,false)).join('')}</tbody></table></div>`:"<p class='small'>Nenhuma pesagem registrada em aberto.</p>"}
  </div>
- <div class="card">
-  <h3 style="margin-top:0">📁 Pesagens concluídas / arquivadas</h3>
-  <p class="small">As pesagens concluídas ficam aqui e não aparecem na lista principal.</p>
-  ${clientesArquivados.length?`<details><summary style="cursor:pointer;font-weight:800">📂 Abrir pesagens arquivadas (${clientesArquivados.length} cliente(s))</summary><div style="overflow:auto;margin-top:12px"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Data</th><th>Pessoa</th><th>Material</th><th>Peso líquido (kg)</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${clientesArquivados.map(g=>linhas(g,true)).join('')}</tbody></table></div></details>`:"<p class='small'>Nenhuma pesagem arquivada.</p>"}
+ <div class="card" style="border-left:5px solid #55358a;background:linear-gradient(180deg,#faf8ff,#fff)">
+  <h3 style="margin-top:0">📁 Registro de Pesagens — por dia</h3>
+  <p class="small">Os tickets enviados ao Financeiro ficam arquivados aqui separados pela <b>data da pesagem</b>, e não mais agrupados por cliente.</p>
+  ${registrosPorDia.length?registrosPorDia.map(g=>{
+    const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
+    const diaId=JSON.stringify(g.data);
+    return `<details><summary style="cursor:pointer;font-weight:800">📅 ${dataBR(g.data)} — ${g.items.length} ticket(s) · ${brNum(total)} kg</summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido</th><th>Observação</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td>${esc(x.observacoes||'—')}</td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}</div></td></tr>`).join('')}</tbody></table></div></details>`;
+  }).join(''):`<p class='small'>Nenhum ticket arquivado.</p>`}
  </div>
  <div class="card" style="border-left:5px solid #2e7d32;background:linear-gradient(180deg,#f3fff5,#fff)">
   <h3 style="margin-top:0;color:#2e7d32">📁 Caçambas</h3>
@@ -1066,45 +1099,44 @@ async function pesagemSalvarEdicao(id){
 async function pesagemFinalizarCliente(nome){
  const items=pesagemAgruparCliente(nome);
  if(!items.length)return alert("Não há pesagens abertas para este cliente.");
- const completas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&Number(x.entrada||0)>0&&Number(x.saida||0)>0&&Number(x.liquido||0)>0&&!x.finalizada);
- const jaFinalizadas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&x.finalizada&&!x.fechada);
+ const completas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&Number(x.entrada||0)>0&&Number(x.saida||0)>0&&Number(x.liquido||0)>0);
  const incompletas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&!(Number(x.entrada||0)>0&&Number(x.saida||0)>0&&Number(x.liquido||0)>0));
  const vendas=items.filter(x=>normalizarTipoOperacao(x.tipo_movimento)==="venda");
- if(!completas.length && !jaFinalizadas.length){
+ if(!completas.length){
    let msg="Não há pesagens completas para enviar ao Financeiro.";
    if(incompletas.length)msg+=`\n\n${incompletas.length} pesagem(ns) ainda estão sem peso de saída ou peso líquido.`;
    if(vendas.length)msg+=`\n${vendas.length} venda(s) ficaram fora do Financeiro.`;
    return alert(msg);
  }
  const agora=new Date().toISOString();
- const todas=[...completas,...jaFinalizadas];
- const idsNovas=completas.map(x=>String(x.id));
- if(idsNovas.length){
-   const {data,error}=await sb.from("pesagens").update({finalizada:true,updated_at:agora}).in("id",idsNovas).select();
-   if(error)return alert("Não foi possível finalizar as pesagens: "+error.message);
-   pesagemCloud=pesagemCloud.map(a=>idsNovas.includes(String(a.id))?(data||[]).find(d=>String(d.id)===String(a.id))||{...a,finalizada:true,updated_at:agora}:a);
- }
+ const ids=completas.map(x=>String(x.id));
+ const {data:finalizadas,error:finError}=await sb.from("pesagens").update({finalizada:true,updated_at:agora}).in("id",ids).select();
+ if(finError)return alert("Não foi possível enviar as pesagens do cliente ao Financeiro: "+finError.message);
+ const mapaFinal=new Map((finalizadas||[]).map(x=>[String(x.id),x]));
+ pesagemCloud=pesagemCloud.map(x=>mapaFinal.has(String(x.id))?mapaFinal.get(String(x.id)):x);
+ pesagemCloudReady=true;
  let falhas=0;
- const idsCacambas=[];
- for(const x of todas){
-   const atual=pesagensLoad().find(p=>String(p.id)===String(x.id))||x;
+ const idsEnviadas=[];
+ for(const x of completas){
+   const atual=mapaFinal.get(String(x.id))||x;
    try{
      const r=await financeiroSincronizarPesagem({...atual,finalizada:true});
-     if(!r)falhas++;
-     else if(normalizarTipoOperacao(atual.tipo_movimento)==="cacamba")idsCacambas.push(String(atual.id));
-   }catch(e){console.error("Financeiro após fechamento do cliente",e);falhas++;}
+     if(r)idsEnviadas.push(String(atual.id)); else falhas++;
+   }catch(e){console.error("Financeiro após envio por cliente",e);falhas++;}
  }
- if(idsCacambas.length && !falhas){
-   const {data,error}=await sb.from("pesagens").update({fechada:true,updated_at:agora}).in("id",idsCacambas).select();
-   if(error){console.error("Arquivamento das caçambas",error);falhas++;}
-   else{
-     const mapa=new Map((data||[]).map(x=>[String(x.id),x]));
-     pesagemCloud=pesagemCloud.map(x=>mapa.has(String(x.id))?mapa.get(String(x.id)):x);
-   }
+ if(falhas){
+   await pesagemRender();
+   return alert(`O cliente ${nome} foi processado, mas ${falhas} pesagem(ns) não foram enviadas ao Financeiro. Elas permanecerão abertas para nova tentativa.`);
+ }
+ // Enviado com sucesso: arquiva os tickets. O Registro de Pesagens será agrupado somente por data.
+ if(idsEnviadas.length){
+   const {data:arquivadas,error:arqError}=await sb.from("pesagens").update({fechada:true,updated_at:agora}).in("id",idsEnviadas).select();
+   if(arqError)return alert("As pesagens foram enviadas ao Financeiro, mas não foi possível arquivar os tickets: "+arqError.message);
+   const mapaArq=new Map((arquivadas||[]).map(x=>[String(x.id),x]));
+   pesagemCloud=pesagemCloud.map(x=>mapaArq.has(String(x.id))?mapaArq.get(String(x.id)):x);
  }
  pesagemCloudReady=true;
  await pesagemRender();
- if(falhas)console.error(`Fechamento de ${nome}: ${falhas} operação(ões) não foram sincronizadas.`);
 }
 
 async function pesagemFinalizar(id){
@@ -1193,6 +1225,16 @@ function pesagemItensCliente(nome, arquivada=false){
  const alvo=String(nome||"").trim().toLowerCase();
  return pesagensLoad().filter(x=>pesagemClienteNome(x).toLowerCase()===alvo && !!x.fechada===!!arquivada);
 }
+function pesagemImprimirDia(data){
+ const items=pesagensLoad().filter(x=>!!x.fechada&&String(x.data||"")===String(data||""));
+ if(!items.length)return alert("Não há tickets arquivados nesta data.");
+ const rows=items.map(x=>`<tr><td>TK-${String(x.numero_ticket||0).padStart(6,'0')}</td><td>${esc(pesagemClienteNome(x))}</td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td></tr>`).join('');
+ const w=window.open("","_blank","width=1000,height=800");
+ if(!w)return alert("Permita a abertura da janela.");
+ w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Registro de Pesagens - ${dataBR(data)}</title><style>body{font-family:Arial,sans-serif;color:#222;padding:20px}h1{color:#55358a}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:7px;text-align:center;font-size:12px}th{background:#f1edf7}@media print{body{padding:8mm}}</style></head><body><h1>SUCATAS ANALICE</h1><h2>Registro de Pesagens — ${dataBR(data)}</h2><table><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Entrada</th><th>Saída</th><th>Líquido</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
+ w.document.close();
+}
+
 function pesagemImprimirCliente(nomeCod, arquivada=false){
  const nome=decodeURIComponent(nomeCod||"");
  const items=pesagemItensCliente(nome,arquivada);
