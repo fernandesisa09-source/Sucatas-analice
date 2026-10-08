@@ -1240,6 +1240,12 @@ async function pesagemExcluirCliente(nome,ids,arquivada=false){
 
 function pesagemImprimir(id){
  const x=pesagensLoad().find(a=>String(a.id)===String(id)); if(!x)return alert("Pesagem não encontrada.");
+ const bruto=Number(x.liquido||0);
+ const entradaDesconto=window.prompt("Desconto de kg\n\nDigite quantos kg devem ser descontados deste ticket.\nSe não houver desconto, deixe 0 ou cancele.","0");
+ if(entradaDesconto===null)return;
+ const desconto=Math.max(0,Number(String(entradaDesconto).replace(',','.'))||0);
+ if(desconto>bruto)return alert("O desconto não pode ser maior que o peso líquido.");
+ const liquidoFinal=Math.max(0,bruto-desconto);
  const br=v=>brNum(v); const data=dataBR(x.data||"");
  const operacao=tipoOperacaoLabel(x.tipo_movimento);
  const venda=operacao==="VENDA";
@@ -1255,7 +1261,8 @@ function pesagemImprimir(id){
    <div class="linha"><b>Material:</b> ${esc(x.material||"—")}</div>
    <div class="linha"><b>Peso entrada:</b> ${br(x.entrada)} kg</div>
    <div class="linha"><b>Peso saída/tara:</b> ${br(x.saida)} kg</div>
-   <div class="linha destaque"><b>Peso líquido:</b> ${br(x.liquido)} kg</div>
+   <div class="linha destaque"><b>Peso líquido:</b> ${br(bruto)} kg</div>
+   ${desconto>0?`<div class="linha"><b>Desconto:</b> ${br(desconto)} kg</div><div class="linha destaque"><b>Peso líquido final:</b> ${br(liquidoFinal)} kg</div>`:""}
    ${x.observacoes?`<div class="observacao"><b>Observação:</b> ${esc(x.observacoes)}</div>`:""}
  </div>`;
  const w=window.open("","_blank","width=800,height=900"); if(!w)return alert("Permita a abertura da janela de impressão.");
@@ -1305,6 +1312,12 @@ function pesagemImprimirCliente(nomeCod, arquivada=false){
  const operacao=operacoes.length===1?tipoOperacaoLabel(operacoes[0]):operacoes.map(tipoOperacaoLabel).join(" / ");
  const classe=operacoes.length>1?"ticket-misto":(operacao==="VENDA"?"ticket-venda":(operacao==="CAÇAMBAS"?"ticket-cacamba":"ticket-compra"));
  const numeroTicketGrupo=items[0]?.numero_ticket||0;
+ const pesoBrutoGrupo=items.reduce((s,x)=>s+Number(x.liquido||0),0);
+ const entradaDescontoGrupo=window.prompt("Desconto de kg no ticket\n\nDigite quantos kg devem ser descontados do total deste ticket.","0");
+ if(entradaDescontoGrupo===null)return;
+ const descontoGrupo=Math.max(0,Number(String(entradaDescontoGrupo).replace(',','.'))||0);
+ if(descontoGrupo>pesoBrutoGrupo)return alert("O desconto não pode ser maior que o peso líquido total.");
+ const pesoFinalGrupo=Math.max(0,pesoBrutoGrupo-descontoGrupo);
  const rows=items.map(x=>{
    const op=String(x.tipo_movimento||"compra").toLowerCase()==="venda"?"VENDA":"COMPRA";
    return `<tr><td>${dataBR(x.data)}</td><td>${esc(x.hora_entrada||"—")}</td><td>${esc(x.hora_saida||"—")}</td><td>${esc(x.material||"—")}</td><td>${brNum(x.entrada)} kg</td><td>${brNum(x.saida)} kg</td><td><b>${brNum(x.liquido)} kg</b></td><td><b>${op}</b></td></tr>`;
@@ -1317,6 +1330,7 @@ function pesagemImprimirCliente(nomeCod, arquivada=false){
     <div class="operacao">${operacao}</div>
     <div class="cliente-destaque">${esc(nome)}</div>
     <table><thead><tr><th>Data</th><th>Entrada</th><th>Saída</th><th>Material</th><th>Entrada kg</th><th>Saída kg</th><th>Líquido</th><th>Operação</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="resumo-peso"><b>Peso líquido total:</b> ${brNum(pesoBrutoGrupo)} kg${descontoGrupo>0?` &nbsp; | &nbsp; <b>Desconto:</b> ${brNum(descontoGrupo)} kg &nbsp; | &nbsp; <b>Peso líquido final:</b> ${brNum(pesoFinalGrupo)} kg`:''}</div>
     ${obs?`<div class="observacao"><b>Observações:</b><br>${obs}</div>`:""}
    </div>
  </div>`;
@@ -1338,7 +1352,7 @@ function pesagemImprimirCliente(nomeCod, arquivada=false){
  .operacao{width:max-content;min-width:28mm;margin:2mm auto 2mm;padding:2mm 8mm;border:1px solid #111;border-radius:1.5mm;text-align:center;font-size:14px;font-weight:900;letter-spacing:.3px;line-height:1}
  .cliente-destaque{font-size:17px;line-height:1.05;font-weight:900;text-align:center;border:1px solid #111;padding:3mm 2px;margin:2mm 0 3mm;text-transform:uppercase}
  table{width:100%;border-collapse:collapse;table-layout:fixed;margin:0}th,td{border:1px solid #777;padding:3px 2px;font-size:9.2px;text-align:center;line-height:1.08;overflow:hidden;white-space:nowrap}th{font-weight:900}td:nth-child(5){text-align:left;white-space:normal}
- .observacao{font-size:10px;line-height:1.12;margin-top:2.5mm;padding:2.5mm;border:1px solid #777;border-radius:1mm;max-height:18mm;overflow:hidden}
+ .resumo-peso{font-size:11px;line-height:1.15;margin-top:3mm;padding:2.5mm;border:1.2px solid #111;border-radius:1mm;text-align:center} .observacao{font-size:10px;line-height:1.12;margin-top:2.5mm;padding:2.5mm;border:1px solid #777;border-radius:1mm;max-height:18mm;overflow:hidden}
  @media print{html,body{width:210mm!important;height:297mm!important;overflow:hidden!important}.folha{width:210mm!important;height:297mm!important}.ticket{break-inside:avoid;page-break-inside:avoid}}
  </style></head><body><div class="folha">${bloco}${bloco}</div><script>window.onload=()=>window.print()<\/script></body></html>`);
  w.document.close();
