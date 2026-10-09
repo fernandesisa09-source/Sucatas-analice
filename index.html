@@ -1496,9 +1496,9 @@ function financeiroMaterialProduto(material){
  return produtosLoad().find(p=>String(p.nome||"").trim().toLowerCase()===alvo)||null;
 }
 async function financeiroSincronizarPesagem(p, userId=null, observacaoExtra=null){
- // Envio manual por cliente inclui todas as pesagens completas que ainda estão abertas, mesmo de dias anteriores.
- // A sincronização automática continua limitada às pesagens do dia; vendas ficam fora do Financeiro.
+ // Somente COMPRA do dia vai para o contas a pagar. Vendas ficam fora do Financeiro.
  if(!p || String(p.tipo_movimento||"compra").toLowerCase()==="venda") return null;
+ if(String(p.data||"")!==String(today())) return null;
  if(p.finalizada!==true)return null;
  const uid=userId || p.user_id || (await sb.auth.getUser()).data?.user?.id;
  if(!uid)return null;
@@ -1625,12 +1625,7 @@ async function financeiroSync(force=false){
  });
  // Histórico anterior a hoje é tratado como pagamento anterior apenas quando
  // ainda estiver pendente. Depois disso não repetimos a consulta/alteração em loop.
- const historicas=lista.filter(f=>{
-   if(f.status!=="Pendente"||String(f.data||"")>=hojeLocal)return false;
-   const p=pesMap.get(String(f.pesagem_id));
-   if(p && p.finalizada===true)return false; // preserva pesagens antigas que foram enviadas manualmente em conjunto e ainda aguardam pagamento
-   return !p || String(p.tipo_movimento||"compra").toLowerCase()!=="venda";
- });
+ const historicas=lista.filter(f=>f.status==="Pendente"&&String(f.data||"")<hojeLocal&&(!pesMap.get(String(f.pesagem_id))||String(pesMap.get(String(f.pesagem_id)).tipo_movimento||"compra").toLowerCase()!=="venda"));
  if(historicas.length){
    const agoraHist=new Date().toISOString();
    const idsHist=historicas.map(f=>String(f.id));
