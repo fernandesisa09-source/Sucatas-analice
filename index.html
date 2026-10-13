@@ -1262,8 +1262,8 @@ async function pesagemFinalizarCliente(nome, idsFiltro=null){
  }
  const agora=new Date().toISOString();
  const ids=completas.map(x=>String(x.id));
- const numeroGrupo=completas.find(x=>Number(x.numero_ticket||0)>0)?.numero_ticket;
- const patchFinal={finalizada:true,fluxo_pesagem:"financeiro",updated_at:agora,...(numeroGrupo?{numero_ticket:numeroGrupo}:{})};
+ // Não sobrescrever o número individual dos tickets: numero_ticket tem restrição UNIQUE no banco.
+ const patchFinal={finalizada:true,fluxo_pesagem:"financeiro",updated_at:agora};
  const {data:finalizadas,error:finError}=await sb.from("pesagens").update(patchFinal).in("id",ids).select();
  if(finError)return alert("Não foi possível enviar as pesagens do cliente ao Financeiro: "+finError.message);
  const mapaFinal=new Map((finalizadas||[]).map(x=>[String(x.id),x]));
