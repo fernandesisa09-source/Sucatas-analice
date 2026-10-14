@@ -424,23 +424,31 @@ async function saveEditModal(){
  if(table==="cacambas" && mudouCliente && next.cliente_id){
    next.cliente_anterior_id=oldClienteId||null;next.cliente_anterior_nome=clienteAnterior?.nome||null;next.ultima_troca_at=new Date().toISOString();
  }
- const {data:updated,error}=await sb.from(table).update(next).eq("id",id).select().single();
- if(error)return alert(error.message);
- if(table==="cacambas" && mudouCliente){
-   registrarHistoricoTroca(id,clienteAnterior,clienteAtual);
+ const saveBtn=document.querySelector("#editModal .edit-actions .primary");
+ if(saveBtn){saveBtn.disabled=true;saveBtn.textContent="Salvando…";}
+ try{
+   const {data:updated,error}=await sb.from(table).update(next).eq("id",id).select().single();
+   if(error){alert("Não foi possível salvar: "+error.message);return;}
+   if(table==="cacambas" && mudouCliente){
+     try{registrarHistoricoTroca(id,clienteAnterior,clienteAtual);}catch(histErr){console.warn("Histórico local da caçamba não pôde ser atualizado",histErr);}
+   }
+   closeEditModal();
+   try{await loadAll();}catch(loadErr){console.error("Falha ao atualizar dados após salvar",loadErr);}
+   if(table==="cacambas")cacambas();
+   else if(table==="clientes")clientes();
+   else if(table==="motoristas")motoristas();
+   else if(table==="caminhoes")caminhoes();
+   else if(table==="ordens_servico")ordens();
+   else if(table==="movimentacoes")movimentacoes();
+   else if(table==="manutencoes")manutencoes();
+   else if(table==="estado")estadoCacambas();
+   alert("Registro atualizado com sucesso!");
+ }catch(err){
+   console.error("Erro ao salvar registro",err);
+   alert("Ocorreu um erro ao atualizar. Confira a conexão e tente novamente. "+(err?.message||""));
+ }finally{
+   if(saveBtn){saveBtn.disabled=false;saveBtn.textContent="💾 Salvar alterações";}
  }
-
- closeEditModal();
- await loadAll();
- if(table==="cacambas")cacambas();
- else if(table==="clientes")clientes();
- else if(table==="motoristas")motoristas();
- else if(table==="caminhoes")caminhoes();
- else if(table==="ordens_servico")ordens();
- else if(table==="movimentacoes")movimentacoes();
- else if(table==="manutencoes")manutencoes();
- else if(table==="estado")estadoCacambas();
- alert("Registro atualizado com sucesso!");
 }
 
 async function delRow(table,id,after){if(!confirm("Excluir este registro?"))return;const {error}=await sb.from(table).delete().eq("id",id);if(error)alert(error.message);else{await loadAll();after?.()}}
@@ -1030,7 +1038,7 @@ async function pesagemRender(){
    const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
    const valorTotal=g.items.reduce((s,x)=>s+valorPesagemTela(x),0);
    const diaId=JSON.stringify(g.data);
-   return `<details><summary style="cursor:pointer;font-weight:800;color:${cor}">📅 ${dataBR(g.data)} — ${new Set(g.items.map(x=>String(x.numero_ticket||x.id))).size} ticket(s) · ${brNum(total)} kg · <span style="color:#2e7d32">R$ ${brNum(valorTotal)}</span></summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido (kg)</th><th>Valor</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="pesagem-valor-cell"><strong>${valorPesagemTela(x)>0?financeiroR$(valorPesagemTela(x)):'—'}</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}</div></td></tr>`).join('')}</tbody></table></div></details>`;
+   return `<details><summary style="cursor:pointer;font-weight:800;color:${cor}">📅 ${dataBR(g.data)} — ${new Set(g.items.map(x=>String(x.numero_ticket||x.id))).size} ticket(s) · ${brNum(total)} kg · <span style="color:#2e7d32">R$ ${brNum(valorTotal)}</span></summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido (kg)</th><th>Valor</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="pesagem-valor-cell"><strong>${valorPesagemTela(x)>0?financeiroR$(valorPesagemTela(x)):'—'}</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}<button type="button" class="pesagem-acao" title="Reabrir esta pesagem" aria-label="Reabrir pesagem" onclick="pesagemReabrirRegistrada('${x.id}')">↩</button></div></td></tr>`).join('')}</tbody></table></div></details>`;
  }).join('');
  const pesagemSvg={
   edit:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3Z"/><path d="m13.5 6.5 4 4"/></svg>`,
@@ -1097,7 +1105,7 @@ async function pesagemRender(){
   ${registrosPorDia.length?registrosPorDia.map(g=>{
     const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
     const diaId=JSON.stringify(g.data);
-    return `<details><summary style="cursor:pointer;font-weight:800">📅 ${dataBR(g.data)} — ${new Set(g.items.map(x=>String(x.numero_ticket||x.id))).size} ticket(s) · ${brNum(total)} kg</summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido</th><th>Observação</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td>${esc(x.observacoes||'—')}</td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}</div></td></tr>`).join('')}</tbody></table></div></details>`;
+    return `<details><summary style="cursor:pointer;font-weight:800">📅 ${dataBR(g.data)} — ${new Set(g.items.map(x=>String(x.numero_ticket||x.id))).size} ticket(s) · ${brNum(total)} kg</summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido</th><th>Observação</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td>${esc(x.observacoes||'—')}</td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}<button type="button" class="pesagem-acao" title="Reabrir esta pesagem" aria-label="Reabrir pesagem" onclick="pesagemReabrirRegistrada('${x.id}')">↩ Reabrir</button></div></td></tr>`).join('')}</tbody></table></div></details>`;
   }).join(''):`<p class='small'>Nenhum ticket arquivado.</p>`}
  </div>
  <div class="card" style="border-left:5px solid #2e7d32;background:linear-gradient(180deg,#f3fff5,#fff)">
@@ -1176,7 +1184,7 @@ async function pesagemInserirComDestino(row,fluxo,origem=null){
  const grupoFinal=fluxo==="complementar"?(grupoId||String(saved.id)):grupoId;
  const patchNovo={};
  if(grupoFinal && String(saved.grupo_ticket_id||"")!==String(grupoFinal))patchNovo.grupo_ticket_id=grupoFinal;
- if(ticketNumero && Number(saved.numero_ticket||0)!==Number(ticketNumero))patchNovo.numero_ticket=ticketNumero;
+ // Cada registro mantém seu próprio número de ticket exclusivo.
  if(Object.keys(patchNovo).length){
    const up=await sb.from("pesagens").update(patchNovo).eq("id",saved.id).select().single();
    if(up.error)return alert("A pesagem foi salva, mas o ticket precisa ser conferido: "+up.error.message);
@@ -1184,15 +1192,15 @@ async function pesagemInserirComDestino(row,fluxo,origem=null){
  }
  const idsRelacionados=[...new Set([...relacionadas.map(x=>String(x.id)),String(novo.id)])];
  if(fluxo==="complementar"){
-   const upd=await sb.from("pesagens").update({fluxo_pesagem:"complementar",grupo_ticket_id:grupoFinal,fechada:false,finalizada:false,...(ticketNumero?{numero_ticket:ticketNumero}:{})}).in("id",idsRelacionados);
+   const upd=await sb.from("pesagens").update({fluxo_pesagem:"complementar",grupo_ticket_id:grupoFinal,fechada:false,finalizada:false,}).in("id",idsRelacionados);
    if(upd.error)return alert("A pesagem foi salva, mas não consegui completar o agrupamento. Ela continua salva e pode ser corrigida: "+upd.error.message);
  }else if(fluxo==="registro"){
    const idsDia=[...new Set([...relacionadas.filter(x=>!x.fechada&&x.finalizada!==true).map(x=>String(x.id)),...sameDay.filter(x=>!x.fechada&&x.finalizada!==true).map(x=>String(x.id)),String(novo.id)])];
-   const upd=await sb.from("pesagens").update({fluxo_pesagem:"registro",fechada:true,finalizada:false,...(ticketNumero?{numero_ticket:ticketNumero}:{})}).in("id",idsDia);
+   const upd=await sb.from("pesagens").update({fluxo_pesagem:"registro",fechada:true,finalizada:false,}).in("id",idsDia);
    if(upd.error)return alert("A pesagem foi salva, mas não consegui arquivá-la. Ela continua salva em aberto: "+upd.error.message);
  }else if(fluxo==="financeiro"){
    const idsDia=[...new Set([...relacionadas.map(x=>String(x.id)),...sameDay.filter(x=>!x.fechada&&x.finalizada!==true).map(x=>String(x.id)),String(novo.id)])];
-   const upd=await sb.from("pesagens").update({fluxo_pesagem:"financeiro",finalizada:true,fechada:false,...(ticketNumero?{numero_ticket:ticketNumero}:{})}).in("id",idsDia);
+   const upd=await sb.from("pesagens").update({fluxo_pesagem:"financeiro",finalizada:true,fechada:false,}).in("id",idsDia);
    if(upd.error)return alert("A pesagem foi salva, mas não consegui prepará-la para o Financeiro. Ela continua salva em aberto: "+upd.error.message);
    await pesagensCloudLoad();
    await pesagemFinalizarCliente(pessoa,idsDia);
@@ -1254,7 +1262,7 @@ async function pesagemFinalizarCliente(nome, idsFiltro=null){
  }
  const agora=new Date().toISOString();
  const ids=completas.map(x=>String(x.id));
- // Preserve cada número de ticket individual. Não copie o primeiro ticket para todas as pesagens: numero_ticket tem restrição UNIQUE no banco.
+ // Não reutilizar o número de um ticket em outras pesagens: o banco exige numero_ticket único.
  const patchFinal={finalizada:true,fluxo_pesagem:"financeiro",updated_at:agora};
  const {data:finalizadas,error:finError}=await sb.from("pesagens").update(patchFinal).in("id",ids).select();
  if(finError)return alert("Não foi possível enviar as pesagens do cliente ao Financeiro: "+finError.message);
@@ -1293,7 +1301,7 @@ async function pesagemMarcarComplementacao(nome,ids){
  if(items.some(x=>x.finalizada===true))return alert("Este ticket já foi enviado ao Financeiro. Desfaça o envio antes de colocá-lo em complementação.");
  const grupo=items.find(x=>x.grupo_ticket_id)?.grupo_ticket_id||String(items[0].id);
  const numero=items.find(x=>Number(x.numero_ticket||0)>0)?.numero_ticket;
- const {error}=await sb.from("pesagens").update({fluxo_pesagem:"complementar",grupo_ticket_id:grupo,fechada:false,finalizada:false,...(numero?{numero_ticket:numero}:{})}).in("id",permitidos);
+ const {error}=await sb.from("pesagens").update({fluxo_pesagem:"complementar",grupo_ticket_id:grupo,fechada:false,finalizada:false,}).in("id",permitidos);
  if(error)return alert("Não foi possível agrupar a pesagem: "+error.message);
  await pesagensCloudLoad();await pesagemRender();
  alert("Ticket marcado como Aguardando complementação. As próximas pesagens só entrarão neste ticket se forem adicionadas por ele.");
@@ -1305,9 +1313,22 @@ async function pesagemArquivarGrupo(nome,ids){
  if(items.some(x=>x.finalizada===true))return alert("Este ticket já foi enviado ao Financeiro. Não será arquivado como simples registro.");
  if(!confirm("Finalizar este ticket e enviar para Registros, sem criar pagamento no Financeiro?"))return;
  const numero=items.find(x=>Number(x.numero_ticket||0)>0)?.numero_ticket;
- const {error}=await sb.from("pesagens").update({fluxo_pesagem:"registro",fechada:true,finalizada:false,updated_at:new Date().toISOString(),...(numero?{numero_ticket:numero}:{})}).in("id",permitidos);
+ const {error}=await sb.from("pesagens").update({fluxo_pesagem:"registro",fechada:true,finalizada:false,updated_at:new Date().toISOString(),}).in("id",permitidos);
  if(error)return alert("Não foi possível arquivar o ticket: "+error.message);
  await pesagensCloudLoad();await pesagemRender();
+}
+
+async function pesagemReabrirRegistrada(id){
+ const x=pesagensLoad().find(a=>String(a.id)===String(id));
+ if(!x)return alert("Não encontrei esta pesagem.");
+ if(!confirm("Reabrir esta pesagem? Ela voltará para Pesagens em Aberto, mantendo cliente, material, pesos e número do ticket. Se já estiver no Financeiro, confira o lançamento para evitar pagamento duplicado."))return;
+ const patch={finalizada:false,fechada:false,fluxo_pesagem:"aberta",updated_at:new Date().toISOString()};
+ const {data,error}=await sb.from("pesagens").update(patch).eq("id",id).select().single();
+ if(error)return alert("Não foi possível reabrir a pesagem: "+error.message);
+ pesagemCloud=pesagemCloud.map(a=>String(a.id)===String(id)?data:a);pesagemCloudReady=true;
+ await pesagensCloudLoad();
+ await pesagemRender();
+ alert("Pesagem reaberta e devolvida para Pesagens em Aberto. Os dados e o número do ticket foram mantidos.");
 }
 
 async function pesagemFinalizar(id){
@@ -2175,8 +2196,9 @@ async function financeiroRender(){
  const precoCard=`<div class="card"><details><summary style="cursor:pointer;font-weight:800">🏷️ Preços dos materiais</summary><p class="small">Defina aqui o preço por kg. As novas compras de pesagem entram automaticamente no financeiro com este preço.</p><div class="tablewrap"><table><tr><th>Material</th><th>Preço / kg</th><th>Ação</th></tr>${materiais.map(m=>`<tr><td><b>${esc(m.nome)}</b></td><td><input id="finmatpreco_${m.id}" inputmode="decimal" value="${brNum(m.preco||0)}"></td><td><button class="btn primary" onclick="financeiroSalvarPrecoMaterial('${m.id}')">💾 Salvar</button></td></tr>`).join("")}</table></div></details></div>`;
  const pendHtml=grupos.length?grupos.map(g=>{const ids=g.items.map(x=>x.id).join(",");const total=g.items.reduce((s,x)=>s+Number(x.total||0),0);return `<div class="card" style="border-left:5px solid #55358a"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap"><div><h3 style="margin:0">👤 ${esc(g.nome)}</h3><span class="small">${g.items.length} pesagem(ns)</span></div><div style="font-size:22px;font-weight:900;color:#55358a">${financeiroR$(total)}</div></div><div class="tablewrap" style="margin-top:12px"><table><tr><th>Data</th><th>Operação</th><th>Material</th><th>Peso líquido</th><th>Preço / kg</th><th>Total</th><th>Observação</th></tr>${g.items.map(x=>`<tr><td>${dataBR(x.data)}</td><td><b>${tipoOperacaoLabel((pesagensLoad().find(p=>String(p.id)===String(x.pesagem_id))||{}).tipo_movimento)}</b></td><td>${esc(x.material)}</td><td><b>${brNum(x.liquido)} kg</b></td><td><input id="finpreco_${x.id}" inputmode="decimal" value="${x.preco_kg==null?"":brNum(x.preco_kg)}" placeholder="R$ / kg"></td><td><b>${financeiroR$(x.total)}</b></td><td>${esc(x.observacoes||"—")}</td></tr>`).join("")}</table></div><div class="actions" style="margin-top:10px"><button class="btn secondary" onclick="financeiroSalvarPrecos('${ids}')">💾 Salvar preços</button><button class="btn secondary" onclick="financeiroEnviarTicketFinanceiro('${ids}','${encodeURIComponent(g.nome||"Cliente")}')">📲 Ticket WhatsApp</button><button class="btn primary" onclick="financeiroAbrirPagamento('${ids}')">💳 Fazer pagamento — ${financeiroR$(total)}</button><button class="btn danger" onclick="financeiroExcluirPendentes('${ids}')">🗑️ Excluir em aberto</button></div></div>`}).join(""):'<div class="card"><p class="small">Nenhum pagamento pendente. As compras registradas na Pesagem aparecerão aqui automaticamente.</p></div>';
  const pagoHtml=gruposPagos.length?gruposPagos.map(g=>{const ids=g.items.map(x=>x.id).join(",");const nomeCod=encodeURIComponent(g.nome||"Cliente");const total=g.items.reduce((s,x)=>s+Number(x.total_pago||Math.max(0,Number(x.total||0)-Number(x.desconto_adiantamento||0))),0);return `<details class="card"><summary style="cursor:pointer;font-weight:800">✅ ${esc(g.nome)} — ${financeiroR$(total)}</summary><div class="actions" style="margin-top:10px"><button class="btn secondary" onclick="financeiroWhatsAppPagamento('${ids}','${nomeCod}')">📲 Enviar soma como ticket pelo WhatsApp</button></div><div class="tablewrap" style="margin-top:12px"><table><tr><th>Data</th><th>Operação</th><th>Material</th><th>Peso líquido</th><th>Preço / kg</th><th>Total bruto</th><th>Desconto</th><th>Total pago</th><th>Pagamento</th><th>Observação</th><th>Ação</th></tr>${g.items.map(x=>`<tr><td>${dataBR(x.data)}</td><td><b>${tipoOperacaoLabel((pesagensLoad().find(p=>String(p.id)===String(x.pesagem_id))||{}).tipo_movimento)}</b></td><td>${esc(x.material)}</td><td>${brNum(x.liquido)} kg</td><td>${financeiroR$(x.preco_kg)}</td><td>${financeiroR$(x.total)}</td><td>${financeiroR$(x.desconto_adiantamento||0)}</td><td><b>${financeiroR$(x.total_pago||Math.max(0,Number(x.total||0)-Number(x.desconto_adiantamento||0)))}</b></td><td>${esc(x.forma_pagamento||"—")}<br><span class="small">${x.pago_em?new Date(x.pago_em).toLocaleDateString("pt-BR"):""}</span></td><td>${esc(x.observacoes||"—")}</td><td><div class="actions" style="gap:6px"><button class="btn secondary" onclick="financeiroDesfazerPagamento('${x.id}')">↩️</button><button class="btn danger" onclick="financeiroExcluirPagamento('${x.id}')">🗑️ Excluir</button></div></td></tr>`).join("")}</table></div></details>`}).join(""):'<div class="card"><p class="small">Nenhum pagamento registrado ainda.</p></div>';
- const linhasRelatorio=pend.map(x=>{const p=pesagensLoad().find(p=>String(p.id)===String(x.pesagem_id))||{};return `<tr><td>${esc(x.pessoa||"Cliente")}</td><td>${String(p.numero_ticket||"—")}</td><td>${dataBR(x.data)}</td><td>${esc(x.material||p.material||"—")}</td><td style="text-align:right">${brNum(x.liquido)} kg</td><td style="text-align:right">${financeiroR$(x.preco_kg||0)}</td><td style="text-align:right">${financeiroR$(x.total||0)}</td><td><span class="fin-status">Em aberto</span></td><td class="no-print"><button class="btn secondary" onclick="financeiroAbrirPagamento('${x.id}')" title="Abrir pagamento">💳</button> <button class="btn danger" onclick="financeiroExcluirPendente('${x.id}')" title="Excluir lançamento">🗑️</button></td></tr>`}).join("");
- const tabelaRelatorio=`<div class="fin-table-card"><h3>💰 Contas a pagar</h3><div class="fin-tools"><div class="fin-tools-left"><input class="fin-search" id="finPesquisarTabela" placeholder="🔎 Pesquisar cliente ou material..." oninput="financeiroFiltrarTabela(this.value)"><select id="finFiltroStatus" onchange="financeiroFiltrarTabela(document.getElementById('finPesquisarTabela')?.value||'')" style="max-width:190px"><option value="todos">Todos os status</option><option value="pendente">Em aberto</option></select></div><div class="fin-tools-right"><button class="btn primary no-print" onclick="financeiroBaixarRelatorioImagem()">🖼️ Relatório (imagem)</button><button class="btn secondary no-print" onclick="financeiroImprimirRelatorio()">🖨️ Imprimir</button><button class="btn fin-btn-whatsapp no-print" onclick="financeiroEnviarRelatorioImagem()">🟢 Enviar por WhatsApp</button></div></div><div class="tablewrap"><table id="finTabelaContas"><thead><tr><th>Cliente</th><th>Ticket</th><th>Data</th><th>Material</th><th>Peso Líquido (kg)</th><th>Valor/kg</th><th>Total</th><th>Status</th><th class="no-print">Ações</th></tr></thead><tbody>${linhasRelatorio||'<tr><td colspan="9" style="text-align:center;padding:25px">Nenhum pagamento em aberto.</td></tr>'}</tbody><tfoot><tr class="fin-total-row"><td colspan="4">TOTAL EM ABERTO</td><td style="text-align:right">${brNum(pend.reduce((s,x)=>s+Number(x.liquido||0),0))} kg</td><td></td><td style="text-align:right">${financeiroR$(totalPendente)}</td><td colspan="2"></td></tr></tfoot></table></div><p class="small" style="margin:10px 0 0">${pend.length} lançamento(s) em aberto · ${grupos.length} cliente(s)</p></div>`;
+ const gruposRelatorio=financeiroGrupos(pend);
+ const linhasRelatorio=gruposRelatorio.map(g=>{const ids=g.items.map(x=>x.id).join(",");const peso=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);const total=g.items.reduce((s,x)=>s+Number(x.total||0),0);const materiais=[...new Set(g.items.map(x=>String(x.material||"Material não informado")))].join(", ");const datas=[...new Set(g.items.map(x=>String(x.data||"")))].filter(Boolean).sort();return `<tr><td><b>${esc(g.nome)}</b><br><span class="small">${g.items.length} pesagem(ns)</span></td><td>${datas.length?dataBR(datas[0])+(datas.length>1?" a "+dataBR(datas[datas.length-1]):""):"—"}</td><td>${esc(materiais)}</td><td style="text-align:right">${brNum(peso)} kg</td><td style="text-align:right"><b>${financeiroR$(total)}</b></td><td><span class="fin-status">Em aberto</span></td><td class="no-print"><button class="btn primary" onclick="financeiroAbrirPagamento('${ids}')" title="Pagar todas as pesagens deste cliente">💳 Pagar total</button> <button class="btn secondary" onclick="financeiroEnviarTicketFinanceiro('${ids}','${encodeURIComponent(g.nome||"Cliente")}')" title="Enviar resumo ao WhatsApp">📲</button></td></tr>`}).join("");
+ const tabelaRelatorio=`<div class="fin-table-card"><h3>💰 Contas a pagar</h3><div class="fin-tools"><div class="fin-tools-left"><input class="fin-search" id="finPesquisarTabela" placeholder="🔎 Pesquisar cliente ou material..." oninput="financeiroFiltrarTabela(this.value)"><select id="finFiltroStatus" onchange="financeiroFiltrarTabela(document.getElementById('finPesquisarTabela')?.value||'')" style="max-width:190px"><option value="todos">Todos os status</option><option value="pendente">Em aberto</option></select></div><div class="fin-tools-right"><button class="btn primary no-print" onclick="financeiroBaixarRelatorioImagem()">🖼️ Relatório (imagem)</button><button class="btn secondary no-print" onclick="financeiroImprimirRelatorio()">🖨️ Imprimir</button><button class="btn fin-btn-whatsapp no-print" onclick="financeiroEnviarRelatorioImagem()">🟢 Enviar por WhatsApp</button></div></div><details class="fin-contas-minimizar"><summary style="cursor:pointer;font-weight:800;padding:10px 12px;background:#f1edf9;border-radius:10px;margin:8px 0">➕ Mostrar / minimizar lançamentos detalhados</summary><div class="tablewrap"><table id="finTabelaContas"><thead><tr><th>Cliente</th><th>Período</th><th>Materiais</th><th>Peso total</th><th>Valor total</th><th>Status</th><th class="no-print">Ações</th></tr></thead><tbody>${linhasRelatorio||'<tr><td colspan="7" style="text-align:center;padding:25px">Nenhum pagamento em aberto.</td></tr>'}</tbody><tfoot><tr class="fin-total-row"><td colspan="3">TOTAL EM ABERTO — ${gruposRelatorio.length} cliente(s)</td><td style="text-align:right">${brNum(pend.reduce((s,x)=>s+Number(x.liquido||0),0))} kg</td><td style="text-align:right">${financeiroR$(totalPendente)}</td><td colspan="2"></td></tr></tfoot></table></div></details><p class="small" style="margin:10px 0 0">${gruposRelatorio.length} cliente(s) em aberto · ${pend.length} pesagem(ns) agrupadas</p></div>`;
  el.innerHTML=`<div class="fin-head"><div><h2>📊 Financeiro</h2><div class="small">☁️ Ligado à Pesagem · dados e registros preservados</div></div><div class="fin-head-tools"><button class="btn secondary" onclick="financeiroRender()">🔄 Atualizar</button><button class="btn secondary no-print" onclick="financeiroImprimirRelatorio()">🖨️ Imprimir</button><button class="btn fin-btn-whatsapp no-print" onclick="financeiroEnviarRelatorioImagem()">🟢 Enviar por WhatsApp</button></div></div>${cards}${fechamentoCard}${precoCard}${tabelaRelatorio}<h3 style="color:#20154b;margin-top:22px">👥 Pagamento agrupado por cliente</h3><p class="small">Mantenha o fluxo atual: ajuste os preços e pague todas as pesagens selecionadas do cliente juntas.</p>${pendHtml}<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-weight:900;font-size:18px">📁 Pagamentos realizados <span class="small">— clique para visualizar</span></summary><div style="margin-top:12px">${pagoHtml}</div></details>`;
 }
 
