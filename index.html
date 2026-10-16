@@ -2668,14 +2668,43 @@ async function addOS(){
 
 async function estoque(){
  const el=$("estoque");if(!el)return;
- el.innerHTML='<h2>📦 Estoque por material</h2><div class="card"><p class="small">Entradas são compras; saídas são vendas. Cada pesagem é contada uma única vez pelo ID. O histórico de movimentações foi preservado.</p><p>Carregando...</p></div>';
+ el.innerHTML='<h2>📦 Estoque por material</h2><div class="card"><p class="small">O estoque mostra as movimentações de hoje. O fechamento é salvo na nuvem para aparecer nos dispositivos que usam a mesma conta.</p><p>Carregando...</p></div>';
  try{await pesagensCloudLoad();}catch(e){console.error(e);}
- const unicas=new Map();pesagensLoad().forEach(x=>{if(x&&x.id!=null&&!unicas.has(String(x.id)))unicas.set(String(x.id),x);});
+ const {data:userData,error:userError}=await sb.auth.getUser();
+ if(userError||!userData?.user?.id){el.innerHTML='<h2>📦 Estoque por material</h2><div class="card">Faça login novamente para consultar o estoque compartilhado.</div>';return;}
+ const uid=userData.user.id;
+ let fechamento=null;
+ try{
+   const {data,error}=await sb.from("estoque_fechamentos").select("fechado_em").eq("user_id",uid).maybeSingle();
+   if(error)throw error;
+   fechamento=data?.fechado_em||null;
+ }catch(e){console.error(e);el.innerHTML='<h2>📦 Estoque por material</h2><div class="card">Não foi possível carregar o fechamento compartilhado: '+esc(e.message||"erro")+'.</div>';return;}
+ const hoje=typeof dataHojeISO==="function"?dataHojeISO():new Date().toISOString().slice(0,10);
+ const corte=fechamento?Date.parse(fechamento):0;
+ const unicas=new Map();
+ pesagensLoad().forEach(x=>{
+   if(!x||x.id==null||unicas.has(String(x.id)))return;
+   const data=String(x.data||x.data_pesagem||x.created_at||"").slice(0,10);
+   if(data!==hoje)return;
+   const criado=Date.parse(x.created_at||x.criado_em||"")||0;
+   if(corte&&criado&&criado<=corte)return;
+   unicas.set(String(x.id),x);
+ });
  const mapa={};
  Array.from(unicas.values()).forEach(x=>{const material=String(x.material||'').trim()||'Material não informado';const tipo=normalizarTipoOperacao(x.tipo_movimento);if(tipo!=='compra'&&tipo!=='venda')return;const kg=Math.max(0,Number(x.liquido||0));if(!kg)return;const k=material.toLocaleLowerCase('pt-BR');if(!mapa[k])mapa[k]={material,entradas:0,saidas:0,ncompras:0,nvendas:0};if(tipo==='compra'){mapa[k].entradas+=kg;mapa[k].ncompras++;}else{mapa[k].saidas+=kg;mapa[k].nvendas++;}});
  const dados=Object.values(mapa).sort((a,b)=>a.material.localeCompare(b.material,'pt-BR'));
  const ent=dados.reduce((a,x)=>a+x.entradas,0),sai=dados.reduce((a,x)=>a+x.saidas,0);
- el.innerHTML='<h2>📦 Estoque por material</h2><div class="stats"><div class="card stat">⬆️ Entradas — compras<b>'+brNum(ent)+' kg</b></div><div class="card stat">⬇️ Saídas — vendas<b>'+brNum(sai)+' kg</b></div><div class="card stat">📦 Saldo estimado<b>'+brNum(ent-sai)+' kg</b></div></div><div class="card tablewrap">'+(dados.length?'<table><thead><tr><th>Material</th><th>Entradas (compras)</th><th>Saídas (vendas)</th><th>Saldo (kg)</th><th>Nº compras</th><th>Nº vendas</th></tr></thead><tbody>'+dados.map(x=>'<tr><td><b>'+esc(x.material)+'</b></td><td>'+brNum(x.entradas)+' kg</td><td>'+brNum(x.saidas)+' kg</td><td><b>'+brNum(x.entradas-x.saidas)+' kg</b></td><td>'+x.ncompras+'</td><td>'+x.nvendas+'</td></tr>').join('')+'</tbody></table>':'<p class="small">Ainda não há pesagens de compra ou venda para calcular o estoque.</p>')+'</div>';
+ el.innerHTML='<h2>📦 Estoque por material</h2><div class="card"><p class="small">Período: '+hoje+'. Entradas são compras e saídas são vendas. Cada pesagem é contada uma única vez pelo ID. O histórico completo permanece preservado.</p><p class="small">Último fechamento: '+(fechamento?new Date(fechamento).toLocaleString("pt-BR"):"Ainda não fechado hoje")+'</p><button class="btn primary" onclick="fecharEstoqueCompartilhado()">🔒 Fechar estoque e iniciar nova contagem</button></div><div class="stats"><div class="card stat">⬆️ Entradas — compras<b>'+brNum(ent)+' kg</b></div><div class="card stat">⬇️ Saídas — vendas<b>'+brNum(sai)+' kg</b></div><div class="card stat">📦 Saldo estimado<b>'+brNum(ent-sai)+' kg</b></div></div><div class="card tablewrap">'+(dados.length?'<table><thead><tr><th>Material</th><th>Entradas (compras)</th><th>Saídas (vendas)</th><th>Saldo (kg)</th><th>Nº compras</th><th>Nº vendas</th></tr></thead><tbody>'+dados.map(x=>'<tr><td><b>'+esc(x.material)+'</b></td><td>'+brNum(x.entradas)+' kg</td><td>'+brNum(x.saidas)+' kg</td><td><b>'+brNum(x.entradas-x.saidas)+' kg</b></td><td>'+x.ncompras+'</td><td>'+x.nvendas+'</td></tr>').join('')+'</tbody></table>':'<p class="small">Ainda não há pesagens de compra ou venda para a nova contagem de hoje.</p>')+'</div>';
+}
+async function fecharEstoqueCompartilhado(){
+ if(!confirm("Fechar a contagem atual e iniciar outra? Nenhuma pesagem nem registro financeiro será apagado. O fechamento será compartilhado pela nuvem para esta conta."))return;
+ const {data:userData,error:userError}=await sb.auth.getUser();
+ if(userError||!userData?.user?.id)return alert("Sua sessão expirou. Entre novamente e tente fechar o estoque.");
+ const fechado_em=new Date().toISOString();
+ const {error}=await sb.from("estoque_fechamentos").upsert({user_id:userData.user.id,fechado_em,updated_at:fechado_em},{onConflict:"user_id"});
+ if(error)return alert("Não foi possível salvar o fechamento compartilhado: "+error.message);
+ alert("Estoque fechado. A nova contagem começou. O histórico foi preservado e o fechamento ficou salvo na nuvem.");
+ await estoque();
 }
 
 function movimentacoes(){
