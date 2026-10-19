@@ -1822,27 +1822,38 @@ function financeiroGrupos(lista){
 async function financeiroSalvarPrecos(ids){
  const lista=String(ids||"").split(",").map(x=>x.trim()).filter(Boolean);
  if(!lista.length)return;
+ let salvos=0;
  for(const id of lista){
    const el=$("finpreco_"+id); if(!el)continue;
-   const preco=Math.max(0,parseBR(el.value||"0"));
+   const texto=String(el.value||"").trim();
+   if(!texto)return alert("Preencha o preço por kg antes de salvar.");
+   const preco=parseBR(texto);
+   if(!Number.isFinite(preco)||preco<0)return alert("Informe um preço válido, por exemplo 2,50.");
    const row=financeiroCloud.find(x=>String(x.id)===String(id)); if(!row)continue;
    const total=Number(row.liquido||0)*preco;
-   const {error}=await sb.from("financeiro_pesagens").update({preco_kg:preco,total,updated_at:new Date().toISOString()}).eq("id",id);
+   const {data,error}=await sb.from("financeiro_pesagens").update({preco_kg:preco,total,updated_at:new Date().toISOString()}).eq("id",id).select("id,preco_kg,total").maybeSingle();
    if(error)return alert("Não foi possível salvar o preço: "+error.message);
-   row.preco_kg=preco;row.total=total;
+   if(!data)return alert("O banco não confirmou a alteração do preço. Confira sua conexão e as permissões do Financeiro.");
+   row.preco_kg=preco;row.total=total;salvos++;
  }
  await financeiroRender();
+ if(salvos)alert(salvos===1?"Preço salvo com sucesso!":"Preços salvos com sucesso!");
 }
 async function financeiroSalvarPrecoMaterial(id){
  const el=$("finmatpreco_"+id);if(!el)return;
- const preco=Math.max(0,parseBR(el.value||"0"));
- const {data,error}=await sb.from("produtos_pesagem").update({preco,updated_at:new Date().toISOString()}).eq("id",id).select().single();
+ const texto=String(el.value||"").trim();
+ if(!texto)return alert("Preencha o preço por kg antes de salvar.");
+ const preco=parseBR(texto);
+ if(!Number.isFinite(preco)||preco<0)return alert("Informe um preço válido, por exemplo 2,50.");
+ const {data,error}=await sb.from("produtos_pesagem").update({preco,updated_at:new Date().toISOString()}).eq("id",id).select().maybeSingle();
  if(error)return alert("Não foi possível salvar o preço do material: "+error.message);
+ if(!data)return alert("O banco não confirmou a alteração. Confira sua conexão e as permissões para editar materiais.");
  produtoCloud=produtoCloud.map(x=>String(x.id)===String(id)?data:x);produtoCloudReady=true;
  const material=String(data.nome||"").trim().toLowerCase();
  const pend=financeiroCloud.filter(x=>x.status==="Pendente"&&String(x.material||"").trim().toLowerCase()===material&&(x.preco_kg===null||x.preco_kg===undefined));
- for(const x of pend){const total=Number(x.liquido||0)*preco;await sb.from("financeiro_pesagens").update({preco_kg:preco,total,updated_at:new Date().toISOString()}).eq("id",x.id);}
+ for(const x of pend){const total=Number(x.liquido||0)*preco;const r=await sb.from("financeiro_pesagens").update({preco_kg:preco,total,updated_at:new Date().toISOString()}).eq("id",x.id);if(r.error)console.error("Atualização de preço de lançamento pendente",r.error);else{x.preco_kg=preco;x.total=total;}}
  await financeiroRender();
+ alert("Preço do material salvo com sucesso!");
 }
 function financeiroPixCRC16(payload){let crc=0xFFFF;for(let i=0;i<payload.length;i++){crc^=payload.charCodeAt(i)<<8;for(let j=0;j<8;j++)crc=(crc&0x8000)?((crc<<1)^0x1021)&0xFFFF:(crc<<1)&0xFFFF;}return crc.toString(16).toUpperCase().padStart(4,"0");}
 function financeiroPixField(id,value){value=String(value||"");return String(id).padStart(2,"0")+String(value.length).padStart(2,"0")+value;}
@@ -2180,7 +2191,12 @@ function iniciarFinanceiroRealtime(){
  // Se uma alteração chegar enquanto havia um campo em edição, atualiza quando ele perder o foco.
  document.addEventListener("focusout",(e)=>{
    const tela=$("financeiro");
-   if(tela&&tela.classList.contains("active")&&e.target&&tela.contains(e.target)&&["INPUT","SELECT","TEXTAREA"].includes(e.target.tagName))agendarAtualizacao();
+   if(!tela||!tela.classList.contains("active")||!e.target||!tela.contains(e.target)||!["INPUT","SELECT","TEXTAREA"].includes(e.target.tagName))return;
+   // Não renderiza novamente ao sair dos campos de preço: isso poderia apagar
+   // o valor digitado antes de o clique no botão Salvar concluir.
+   const id=String(e.target.id||"");
+   if(id.startsWith("finpreco_")||id.startsWith("finmatpreco_"))return;
+   agendarAtualizacao();
  });
 }
 
