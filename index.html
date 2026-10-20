@@ -1040,7 +1040,7 @@ async function pesagemRender(){
    const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
    const valorTotal=g.items.reduce((s,x)=>s+valorPesagemTela(x),0);
    const diaId=JSON.stringify(g.data);
-   return `<details><summary style="cursor:pointer;font-weight:800;color:${cor}">📅 ${dataBR(g.data)} — ${new Set(g.items.map(x=>String(x.numero_ticket||x.id))).size} ticket(s) · ${brNum(total)} kg · <span style="color:#2e7d32">R$ ${brNum(valorTotal)}</span></summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido (kg)</th><th>Valor</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="pesagem-valor-cell"><strong>${valorPesagemTela(x)>0?financeiroR$(valorPesagemTela(x)):'—'}</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}</div></td></tr>`).join('')}</tbody></table></div></details>`;
+   return `<details><summary style="cursor:pointer;font-weight:800;color:${cor}">📅 ${dataBR(g.data)} — ${new Set(g.items.map(x=>String(x.numero_ticket||x.id))).size} ticket(s) · ${brNum(total)} kg · <span style="color:#2e7d32">R$ ${brNum(valorTotal)}</span></summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido (kg)</th><th>Valor</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td class="pesagem-valor-cell"><strong>${valorPesagemTela(x)>0?financeiroR$(valorPesagemTela(x)):'—'}</strong></td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}<button type="button" class="btn secondary" title="Reabrir esta pesagem" onclick="pesagemReabrir('${x.id}')">🔓 Reabrir</button></div></td></tr>`).join('')}</tbody></table></div></details>`;
  }).join('');
  const pesagemSvg={
   edit:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.12 2.12 0 0 0-3-3L5 17v3Z"/><path d="m13.5 6.5 4 4"/></svg>`,
@@ -1108,7 +1108,7 @@ async function pesagemRender(){
   ${registrosPorDia.length?registrosPorDia.map(g=>{
     const total=g.items.reduce((s,x)=>s+Number(x.liquido||0),0);
     const diaId=JSON.stringify(g.data);
-    return `<details><summary style="cursor:pointer;font-weight:800">📅 ${dataBR(g.data)} — ${new Set(g.items.map(x=>String(x.numero_ticket||x.id))).size} ticket(s) · ${brNum(total)} kg</summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido</th><th>Observação</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td>${esc(x.observacoes||'—')}</td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}</div></td></tr>`).join('')}</tbody></table></div></details>`;
+    return `<details><summary style="cursor:pointer;font-weight:800">📅 ${dataBR(g.data)} — ${new Set(g.items.map(x=>String(x.numero_ticket||x.id))).size} ticket(s) · ${brNum(total)} kg</summary><div style="display:flex;justify-content:flex-end;margin:10px 0"><button class="btn secondary" onclick='pesagemImprimirDia(${diaId})'>🖨️ Imprimir o dia</button></div><div style="overflow:auto"><table class="pesagem-tabela"><thead><tr><th>Ticket</th><th>Cliente</th><th>Operação</th><th>Material</th><th>Peso líquido</th><th>Observação</th><th class="no-print pesagem-acoes-col">Ações</th></tr></thead><tbody>${g.items.map(x=>`<tr class="pesagem-item-row"><td><b>TK-${String(x.numero_ticket||0).padStart(6,'0')}</b></td><td><b>${esc(pesagemClienteNome(x))}</b></td><td>${esc(tipoOperacaoLabel(x.tipo_movimento))}</td><td>${esc(x.material||'—')}</td><td class="pesagem-peso-cell"><strong>${brNum(x.liquido)} kg</strong></td><td>${esc(x.observacoes||'—')}</td><td class="no-print"><div class="pesagem-acoes">${acao('print','Imprimir este ticket',`pesagemImprimir('${x.id}')`)}<button type="button" class="btn secondary" title="Reabrir esta pesagem" onclick="pesagemReabrir('${x.id}')">🔓 Reabrir</button></div></td></tr>`).join('')}</tbody></table></div></details>`;
   }).join(''):`<p class='small'>Nenhum ticket arquivado.</p>`}
  </div>
  <div class="card" style="border-left:5px solid #2e7d32;background:linear-gradient(180deg,#f3fff5,#fff)">
@@ -1305,6 +1305,18 @@ async function pesagemMarcarComplementacao(nome,ids){
  await pesagensCloudLoad();await pesagemRender();
  alert("Ticket marcado como Aguardando complementação. As próximas pesagens só entrarão neste ticket se forem adicionadas por ele.");
 }
+async function pesagemReabrir(id){
+ const item=pesagensLoad().find(x=>String(x.id)===String(id));
+ if(!item)return alert("Não encontrei esta pesagem.");
+ if(item.finalizada===true && String(item.fluxo_pesagem||"")==="financeiro")return alert("Esta pesagem está vinculada ao Financeiro. Para evitar divergência de pagamento, reabra pelo Financeiro primeiro.");
+ if(!confirm("Reabrir esta pesagem e devolvê-la à lista de Pesagens em aberto?"))return;
+ const {error}=await sb.from("pesagens").update({fechada:false,finalizada:false,fluxo_pesagem:"aberto",updated_at:new Date().toISOString()}).eq("id",id);
+ if(error)return alert("Não foi possível reabrir a pesagem: "+error.message);
+ await pesagensCloudLoad();
+ await pesagemRender();
+ alert("Pesagem reaberta e devolvida à lista de Pesagens.");
+}
+
 async function pesagemArquivarGrupo(nome,ids){
  const permitidos=(Array.isArray(ids)?ids:[]).map(String);
  const items=pesagensLoad().filter(x=>permitidos.includes(String(x.id))&&!x.fechada);
