@@ -1274,14 +1274,21 @@ async function pesagemFinalizarCliente(nome, idsFiltro=null){
  const mapaFinal=new Map((finalizadas||[]).map(x=>[String(x.id),x]));
  pesagemCloud=pesagemCloud.map(x=>mapaFinal.has(String(x.id))?mapaFinal.get(String(x.id)):x);
  pesagemCloudReady=true;
+ // Sincroniza em pequenos lotes paralelos para evitar esperar cada pesagem individualmente.
+ // A função de sincronização verifica o lançamento existente antes de criar, evitando duplicidades.
  let falhas=0;
  const idsEnviadas=[];
- for(const x of completas){
-   const atual=mapaFinal.get(String(x.id))||x;
-   try{
-     const r=await financeiroSincronizarPesagem({...atual,finalizada:true});
-     if(r)idsEnviadas.push(String(atual.id)); else falhas++;
-   }catch(e){console.error("Financeiro após envio por cliente",e);falhas++;}
+ const lote=6;
+ for(let i=0;i<completas.length;i+=lote){
+   const grupo=completas.slice(i,i+lote);
+   const resultados=await Promise.allSettled(grupo.map(async x=>{
+     const atual=mapaFinal.get(String(x.id))||x;
+     return {id:String(atual.id),resultado:await financeiroSincronizarPesagem({...atual,finalizada:true})};
+   }));
+   for(const r of resultados){
+     if(r.status==="fulfilled"&&r.value.resultado)idsEnviadas.push(r.value.id);
+     else {falhas++;if(r.status==="rejected")console.error("Financeiro após envio por cliente",r.reason);}
+   }
  }
  if(falhas){
    await pesagemRender();
@@ -1669,7 +1676,8 @@ async function financeiroSync(force=false){
  // Usa os dados que já estão em memória sempre que possível. Isso evita
  // recarregar toda a Pesagem e todos os Produtos cada vez que o Financeiro abre.
  if(!pesagemCloudReady){
-   try{await pesagensCloudLoad();}catch(e){console.error(e)}
+   try{await pesagensCloudLoad();}catch(e){console.error("Falha ao carregar pesagens antes da sincronização financeira",e);return financeiroCloud||[];}
+   if(!pesagemCloudReady)return financeiroCloud||[];
  }
  if(!produtoCloudReady){
    try{await produtosCloudLoad();}catch(e){console.error(e)}
@@ -1695,17 +1703,11 @@ async function financeiroSync(force=false){
  const {data,error}=await sb.from("financeiro_pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
  if(error){console.error("financeiro_pesagens",error);return financeiroCloud||[];}
  let lista=data||[];
- // Não removemos lançamentos financeiros já existentes automaticamente; isso preserva o histórico.
- // Limpeza de segurança: se uma pesagem foi excluída, seu lançamento financeiro
- // também desaparece, inclusive se a exclusão ocorreu por outro caminho da Pesagem.
- const idsPesagensAtuais=new Set((pesagensLoad()||[]).map(p=>String(p.id)));
- const financeiroOrfaos=lista.filter(f=>f.pesagem_id && !idsPesagensAtuais.has(String(f.pesagem_id)));
- if(financeiroOrfaos.length){
-   const idsOrfaos=financeiroOrfaos.map(f=>String(f.id));
-   const delOrfaos=await sb.from("financeiro_pesagens").delete().in("id",idsOrfaos);
-   if(delOrfaos.error) console.error("Não foi possível limpar pagamentos de pesagens excluídas",delOrfaos.error);
-   else lista=lista.filter(f=>!idsOrfaos.includes(String(f.id)));
- }
+ // Proteção do histórico: nunca apagar lançamentos financeiros com base apenas
+ // na lista de pesagens em memória. O cache pode estar incompleto durante o
+ // carregamento/realtime; uma ausência local NÃO significa exclusão no banco.
+ // Exclusões devem ocorrer somente pela ação explícita de excluir pesagem,
+ // que remove o vínculo financeiro e a pesagem no mesmo fluxo.
  const byPesagem=new Map(lista.map(x=>[String(x.pesagem_id),x]));
  const faltantes=[];
  for(const p of compras){
@@ -1750,9 +1752,13 @@ async function financeiroSync(force=false){
  }
  // Faz somente as atualizações necessárias. Antes, cada abertura do Financeiro
  // atualizava novamente todos os lançamentos pendentes.
- for(const u of updates){
-   const {error:e}=await sb.from("financeiro_pesagens").update(u.patch).eq("id",u.id);
-   if(e)console.error("financeiro update",e);
+ // Atualiza apenas os lançamentos que mudaram, em paralelo, para reduzir a espera ao abrir o Financeiro.
+ if(updates.length){
+   const resultados=await Promise.allSettled(updates.map(u=>sb.from("financeiro_pesagens").update(u.patch).eq("id",u.id)));
+   resultados.forEach((r,i)=>{
+     if(r.status==="rejected")console.error("financeiro update",r.reason);
+     else if(r.value?.error)console.error("financeiro update",r.value.error);
+   });
  }
  // Vendas nunca entram nas contas a pagar.
  const pesMap=new Map((pesagensLoad()||[]).map(p=>[String(p.id),p]));
@@ -1905,13 +1911,16 @@ async function financeiroAbrirPagamento(ids){
  try{await adLoad();}catch(e){console.error(e)}
  const total=rows.reduce((s,x)=>s+Number(x.total||0),0), nome=rows[0].pessoa||"Cliente", cli=await financeiroClientePorNome(nome), chave=cli&&cli.pix_chave?cli.pix_chave:"", pixNome=(cli&&cli.pix_nome)||nome, pixCidade=(cli&&cli.pix_cidade)||((cli&&cli.cidade)||"OSASCO");
  const adiantamentos=(adCloud||[]).filter(a=>String(a.pessoa||"").trim().toLowerCase()===String(nome).trim().toLowerCase()&&adSaldo(a)>0);
+ const pesagensConferencia=pesagensLoad()||[];
+ const conferencia=rows.map((r,i)=>{const p=pesagensConferencia.find(x=>String(x.id)===String(r.pesagem_id))||{};return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid #eee;text-align:left"><span><b>${i+1}. Ticket ${String(p.numero_ticket||"—").padStart(6,"0")}</b><br><span class="small">${esc(r.material||p.material||"Material")} · ${brNum(r.liquido)} kg · ${financeiroR$(r.preco_kg)}/kg</span></span><b>${financeiroR$(r.total)}</b></div>`}).join("");
  let box=document.getElementById("pixPagamentoModal"); if(box)box.remove();
  box=document.createElement("div");box.id="pixPagamentoModal";box.dataset.valorCompra=String(total);box.dataset.pixChave=chave;box.dataset.pixNome=pixNome;box.dataset.pixCidade=pixCidade;box.style="position:fixed;inset:0;background:#0008;z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";
  const payload=financeiroPixPayload(chave,pixNome,pixCidade,total);
  box.innerHTML=`<div class="card" style="max-width:560px;width:100%;max-height:92vh;overflow:auto;text-align:center"><h2>💳 Pagamento — ${esc(nome)}</h2><div style="font-size:28px;font-weight:900;color:#55358a;margin:10px 0">${financeiroR$(total)}</div>
+ <div class="card" style="text-align:left;margin:12px 0;background:#f7f5ff"><h3 style="margin:0 0 8px">🔎 Conferência antes de pagar</h3><div class="small" style="margin-bottom:6px">${rows.length} pesagem(ns) selecionada(s) · ${brNum(rows.reduce((a,x)=>a+Number(x.liquido||0),0))} kg no total</div>${conferencia}<div style="display:flex;justify-content:space-between;margin-top:10px;font-size:17px"><b>Total conferido</b><b>${financeiroR$(total)}</b></div></div>
  <div class="card" style="text-align:left;margin:12px 0;border-left:5px solid #e0a000;background:#fffdf5"><h3 style="margin:0 0 8px">💰 Abater adiantamento</h3>
  ${adiantamentos.length?`<label>Adiantamento disponível</label><select id="finAdiantamento" onchange="financeiroSelecionarAdiantamento()"><option value="">Não usar adiantamento</option>${adiantamentos.map(a=>`<option value="${a.id}" data-saldo="${adSaldo(a)}">${esc(a.pessoa)} — saldo ${adR$(adSaldo(a))} — ${adDataBR(a.data)}</option>`).join("")}</select><label style="margin-top:8px">Como deseja usar o adiantamento?</label><select id="finModoAdiantamento" onchange="financeiroAtualizarDescontoPagamento()"><option value="zero">Não descontar nada</option><option value="livre">Descontar o valor que eu escolher</option><option value="todo">Descontar todo o saldo disponível</option></select><label style="margin-top:8px">Valor do desconto</label><input id="finDescontoAdiantamento" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" oninput="financeiroAtualizarDescontoPagamento(false)" onblur="financeiroAtualizarDescontoPagamento(true)"><div class="small" style="margin-top:6px">Digite livremente o valor do abatimento, inclusive centavos, por exemplo <b>51,99</b>. O sistema aceita qualquer valor até o saldo do adiantamento e o total da compra.</div>`:`<p class="small" style="margin:0">Nenhum adiantamento em aberto encontrado para este cliente.</p>`}
- <div style="margin-top:12px;padding-top:10px;border-top:1px solid #ddd"><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div>Valor total: <b>${financeiroR$(total)}</b></div><button type="button" class="btn secondary" style="white-space:nowrap" onclick="financeiroEnviarResumoWhatsApp('${esc(nome).replace(/'/g,"\'")}')">📲 Ticket WhatsApp</button></div><div style="margin-top:7px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div>Saldo do adiantamento: <b id="finSaldoAdiantamento">R$ 0,00</b></div><span class="small">O saldo restante será calculado pelo desconto.</span></div><div style="margin-top:5px">Desconto por adiantamento: <b id="finDescontoPreview">R$ 0,00</b></div><div style="margin-top:8px;font-size:21px">💳 <b>Valor a pagar: <span id="finTotalPagar">${financeiroR$(total)}</span></b></div></div></div>
+ <div style="margin-top:12px;padding-top:10px;border-top:1px solid #ddd"><label>Forma de pagamento</label><select id="finFormaPagamento" style="width:100%;margin:5px 0 12px"><option value="PIX">PIX</option><option value="Dinheiro">Dinheiro</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select><div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div>Valor total: <b>${financeiroR$(total)}</b></div><button type="button" class="btn secondary" style="white-space:nowrap" onclick="financeiroEnviarResumoWhatsApp('${esc(nome).replace(/'/g,"\'")}')">📲 Ticket WhatsApp</button></div><div style="margin-top:7px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div>Saldo do adiantamento: <b id="finSaldoAdiantamento">R$ 0,00</b></div><span class="small">O saldo restante será calculado pelo desconto.</span></div><div style="margin-top:5px">Desconto por adiantamento: <b id="finDescontoPreview">R$ 0,00</b></div><div style="margin-top:8px;font-size:21px">💳 <b>Valor a pagar: <span id="finTotalPagar">${financeiroR$(total)}</span></b></div></div></div>
  ${payload?`<div id="pixQr" style="display:flex;justify-content:center;margin:15px 0"></div><p class="small"><b>PIX para:</b> ${esc(pixNome)}<br><b>Chave:</b> ${esc(chave)}</p><textarea id="pixCopiaCola" readonly style="height:90px;font-size:11px">${esc(financeiroPixPayload(chave,pixNome,pixCidade,total))}</textarea><button class="btn secondary" style="margin-top:8px" onclick="navigator.clipboard?.writeText(document.getElementById('pixCopiaCola').value);alert('PIX copia e cola copiado!')">📋 Copiar PIX</button>`:`<div class="card" style="background:#fff4d6;border:1px solid #e0b84c"><b>⚠️ Este cliente ainda não possui chave PIX cadastrada.</b><p class="small">Cadastre a chave PIX no cadastro do cliente para gerar o QR Code.</p></div>`}
  <div style="display:flex;gap:8px;justify-content:center;margin-top:18px"><button class="btn secondary" onclick="document.getElementById('pixPagamentoModal').remove()">Cancelar</button><button class="btn primary" onclick="financeiroConfirmarPagamento('${lista.join(',')}','${esc(nome).replace(/'/g,"\\'")}')">✅ Pagamento realizado</button></div></div>`;
  document.body.appendChild(box);
@@ -1954,60 +1963,34 @@ function financeiroAtualizarDescontoPagamento(formatar=true){
 }
 
 async function financeiroConfirmarPagamento(ids,nome){
- const lista=String(ids||"").split(",").filter(Boolean), agora=new Date().toISOString();
+ const lista=[...new Set(String(ids||"").split(",").filter(Boolean))];
  if(!lista.length)return alert("Nenhuma conta foi selecionada para pagamento.");
  const modal=document.getElementById("pixPagamentoModal");
+ const forma=modal?.querySelector("#finFormaPagamento")?.value||"PIX";
  const adiantamentoId=modal?.querySelector("#finAdiantamento")?.value||null;
  const descontoTexto=modal?.querySelector("#finDescontoAdiantamento")?.value||"0";
  const descontoSolicitado=Math.max(0,parseBR(descontoTexto));
  const modoAd=modal?.querySelector("#finModoAdiantamento")?.value||"zero";
  if(modoAd==="livre" && String(descontoTexto).trim() && descontoSolicitado<=0)return alert("Digite um valor de adiantamento válido, por exemplo 51,99.");
- if(!confirm("Confirmar que o pagamento de "+nome+" foi realizado?\n\nDepois da confirmação, estas pesagens serão fechadas e arquivadas."))return;
- const {data:contas,error:contasError}=await sb.from("financeiro_pesagens").select("id,pesagem_id,status,total").in("id",lista);
- if(contasError)return alert("Não foi possível localizar as contas: "+contasError.message);
- const contasPendentes=(contas||[]).filter(x=>String(x.status)==="Pendente");
- if(!contasPendentes.length){modal?.remove();await financeiroRender();return alert("Este pagamento já foi registrado anteriormente. Nenhuma nova cobrança foi feita.");}
- const pesagemIds=[...new Set(contasPendentes.map(x=>String(x.pesagem_id)).filter(Boolean))];
- let desconto=0, adiantamentoAtual=null;
- if(descontoSolicitado>0){
-   if(!adiantamentoId)return alert("Selecione qual adiantamento será abatido.");
-   const {data:ad,error:adError}=await sb.from("adiantamentos").select("*").eq("id",adiantamentoId).single();
-   if(adError||!ad)return alert("Não foi possível localizar o adiantamento selecionado.");
-   const saldo=adSaldo(ad);
-   const bruto=contasPendentes.reduce((s,x)=>s+Number(x.total||0),0);
-   desconto=Math.min(descontoSolicitado,saldo,bruto);
-   if(desconto<=0)return alert("O valor do abatimento é inválido.");
-   adiantamentoAtual=ad;
- }
- const pagamentoTotal=contasPendentes.reduce((s,x)=>s+Number(x.total||0),0)-desconto;
- // Distribui o abatimento entre as pesagens, sem alterar o valor bruto da compra.
- let restante=desconto;
- const atualizacoes=[];
- for(const c of contasPendentes){
-   const bruto=Number(c.total||0), abat=Math.min(bruto,restante); restante-=abat;
-   atualizacoes.push({id:c.id,desconto_adiantamento:abat,total_pago:Math.max(0,bruto-abat)});
- }
- for(const u of atualizacoes){
-   const {error}=await sb.from("financeiro_pesagens").update({status:"Pago",pago_em:agora,forma_pagamento:"PIX",desconto_adiantamento:u.desconto_adiantamento,total_pago:u.total_pago,adiantamento_id:adiantamentoId||null,updated_at:agora}).eq("id",u.id);
-   if(error)return alert("Não foi possível registrar o pagamento: "+error.message);
- }
- if(adiantamentoAtual&&desconto>0){
-   const abat=[...(adiantamentoAtual.abatimentos||[]),{id:crypto.randomUUID(),valor:desconto,data:today(),origem:"Financeiro",nome_cliente:nome}];
-   const {error}=await sb.from("adiantamentos").update({abatimentos:abat,updated_at:agora}).eq("id",adiantamentoAtual.id);
-   if(error){
-     await sb.from("financeiro_pesagens").update({status:"Pendente",pago_em:null,forma_pagamento:null,desconto_adiantamento:0,total_pago:0,adiantamento_id:null,updated_at:agora}).in("id",contasPendentes.map(x=>x.id));
-     return alert("Não foi possível registrar o abatimento do adiantamento. O pagamento foi desfeito.");
-   }
- }
- if(pesagemIds.length){
-   const {error:fechError}=await sb.from("pesagens").update({fechada:true,updated_at:agora}).in("id",pesagemIds);
-   if(fechError){console.error(fechError);modal?.remove();await financeiroRender();return alert("O pagamento foi registrado, mas não consegui fechar as pesagens automaticamente.");}
- }
- pesagemCloud=(pesagemCloud||[]).map(p=>pesagemIds.includes(String(p.id))?{...p,fechada:true,updated_at:agora}:p);pesagemCloudReady=true;
+ const selecionadas=(financeiroCloud||[]).filter(x=>lista.includes(String(x.id))&&x.status==="Pendente");
+ if(selecionadas.length!==lista.length)return alert("A lista de pesagens mudou. Atualize o Financeiro e confira novamente antes de pagar.");
+ const totalConferido=selecionadas.reduce((s,x)=>s+Number(x.total||0),0);
+ const desconto=modoAd==="zero"?0:Math.min(descontoSolicitado,totalConferido);
+ if(desconto>0&&!adiantamentoId)return alert("Selecione qual adiantamento será abatido.");
+ if(!confirm("CONFIRMAÇÃO DO PAGAMENTO\n\nCliente: "+nome+"\nPesagens: "+selecionadas.length+"\nValor bruto: "+financeiroR$(totalConferido)+"\nDesconto: "+financeiroR$(desconto)+"\nTotal: "+financeiroR$(totalConferido-desconto)+"\nForma: "+forma+"\n\nTodas as pesagens serão registradas juntas. Confirmar?"))return;
+ const {data:resultado,error}=await sb.rpc("financeiro_confirmar_pagamento_grupo",{
+   p_ids:lista,p_forma_pagamento:forma,p_adiantamento_id:desconto>0?adiantamentoId:null,p_desconto:desconto
+ });
+ if(error){console.error("Pagamento agrupado",error);return alert("Não foi possível confirmar o pagamento. Nenhuma pesagem do grupo foi alterada.\n\n"+(error.message||"Tente atualizar o Financeiro."));}
+ const resumo=Array.isArray(resultado)?resultado[0]:resultado;
+ if(!resumo?.success)return alert("O banco não confirmou o pagamento. Atualize o Financeiro e tente novamente.");
+ const idsPesagens=selecionadas.map(x=>String(x.pesagem_id));
+ pesagemCloud=(pesagemCloud||[]).map(p=>idsPesagens.includes(String(p.id))?{...p,fechada:true,updated_at:resumo.pago_em}:p);pesagemCloudReady=true;
+ financeiroCloud=(financeiroCloud||[]).map(x=>lista.includes(String(x.id))?{...x,status:"Pago",pago_em:resumo.pago_em,forma_pagamento:forma,desconto_adiantamento:Number(x.desconto_adiantamento||0),updated_at:resumo.pago_em}:x);
  modal?.remove();
  try{await adLoad(true)}catch(e){}
  await financeiroRender();
- alert("Pagamento registrado com sucesso!\n\nValor bruto: "+financeiroR$(pagamentoTotal+desconto)+"\nAbatimento do adiantamento: "+financeiroR$(desconto)+"\nValor pago: "+financeiroR$(pagamentoTotal)+"\n\nAs pesagens foram fechadas e arquivadas.");
+ alert("Pagamento registrado com segurança!\n\nCliente: "+nome+"\nPesagens: "+resumo.quantidade+"\nValor bruto: "+financeiroR$(resumo.total_bruto)+"\nAbatimento: "+financeiroR$(resumo.desconto)+"\nValor pago: "+financeiroR$(resumo.total_pago)+"\nForma: "+resumo.forma_pagamento+"\n\nAs pesagens foram fechadas e arquivadas.");
 }
 
 function financeiroEnviarResumoWhatsApp(nome){
@@ -2056,7 +2039,8 @@ function financeiroWhatsAppPagamento(ids,nomeCodificado){
  }).join("\n\n");
  const datas=[...new Set(rows.map(x=>String(x.data||"")))].sort();
  const periodo=datas.length===1?dataBR(datas[0]):`${dataBR(datas[0])} a ${dataBR(datas[datas.length-1])}`;
- const texto=`🧾 *TICKET DE PAGAMENTO — SUCATAS ANALICE*\n\n*Cliente:* ${nome}\n*Período:* ${periodo}\n\n${linhas}\n\n━━━━━━━━━━━━━━━━━━━━\n⚖️ *PESO LÍQUIDO TOTAL:* ${brNum(pesoTotal)} kg\n💰 *VALOR TOTAL:* ${financeiroR$(bruto)}\n💳 *DESCONTO DE ADIANTAMENTO:* ${financeiroR$(desconto)}\n💵 *TOTAL PAGO:* ${financeiroR$(pago)}\n━━━━━━━━━━━━━━━━━━━━\n\n✅ Pagamento realizado.`;
+ const formas=[...new Set(rows.map(x=>String(x.forma_pagamento||"Não informado")))].join(", ");
+ const texto=`🧾 *TICKET DE PAGAMENTO — SUCATAS ANALICE*\n\n*Cliente:* ${nome}\n*Período:* ${periodo}\n\n${linhas}\n\n━━━━━━━━━━━━━━━━━━━━\n⚖️ *PESO LÍQUIDO TOTAL:* ${brNum(pesoTotal)} kg\n💰 *VALOR TOTAL:* ${financeiroR$(bruto)}\n💳 *DESCONTO DE ADIANTAMENTO:* ${financeiroR$(desconto)}\n💵 *TOTAL PAGO:* ${financeiroR$(pago)}\n💳 *FORMA DE PAGAMENTO:* ${formas}\n━━━━━━━━━━━━━━━━━━━━\n\n✅ Pagamento realizado.`;
  window.open("https://wa.me/?text="+encodeURIComponent(texto),"_blank");
 }
 
