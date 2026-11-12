@@ -1213,7 +1213,7 @@ async function pesagemInserirComDestino(row,fluxo,origem=null){
  }
  await pesagensCloudLoad();
  await pesagemRender();
- if(fluxo==="complementar")alert("Pesagem salva no ticket agrupado. Você pode adicionar mais pesos agora ou em outro dia.");
+ if(fluxo==="complementar")alert("Pesagem salva no ticket agrupado e atualizada na lista.");
  if(fluxo==="registro")alert("Pesagem finalizada e enviada para a pasta Registros, sem gerar pagamento.");
 }
 
@@ -1341,7 +1341,7 @@ async function pesagemFinalizar(id){
  if(!x)return;
  if(normalizarTipoOperacao(x.tipo_movimento)==="venda")return alert("Pesagens de venda não entram no Financeiro.");
  const entrada=Number(x.entrada||0), saida=Number(x.saida||0), liquido=Number(x.liquido||0);
- if(!(entrada>0&&saida>0&&liquido>0))return alert("Esta pesagem ainda está incompleta. Informe o peso de saída antes de finalizar.");
+ if(!(entrada>0&&saida>=0&&liquido>0))return alert("Esta pesagem ainda está incompleta. Informe o peso de saída antes de finalizar.");
  if(!confirm("Finalizar esta pesagem?\n\nEla será enviada para o Financeiro como uma compra pendente. O pagamento poderá ser feito junto com outras pesagens deste mesmo cliente."))return;
  const agora=new Date().toISOString();
  const {data,error}=await sb.from("pesagens").update({finalizada:true,updated_at:agora}).eq("id",id).select().single();
@@ -1688,7 +1688,7 @@ async function financeiroSync(force=false){
  if(pesagemCloudReady){
    compras=(pesagensLoad()||[]).filter(x=>{
    const entrada=Number(x.entrada||0), saida=Number(x.saida||0), liquido=Number(x.liquido||0);
-   const completa=entrada>0&&saida>0&&liquido>0;
+   const completa=entrada>0&&saida>=0&&liquido>0;
    return normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&String(x.fluxo_pesagem||"")==="financeiro"&&!x.fechada&&x.finalizada===true&&completa;
  });
  // Pesagens ainda abertas/incompletas (somente entrada, sem saída ou sem líquido)
@@ -1697,7 +1697,7 @@ async function financeiroSync(force=false){
  const todasPesagens=pesagensLoad()||[];
  incompletas=todasPesagens.filter(x=>{
    const entrada=Number(x.entrada||0), saida=Number(x.saida||0), liquido=Number(x.liquido||0);
-   return normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&String(x.fluxo_pesagem||"")==="financeiro"&&!x.fechada&&(x.finalizada!==true||!(entrada>0&&saida>0&&liquido>0));
+   return normalizarTipoOperacao(x.tipo_movimento)!=="venda"&&String(x.fluxo_pesagem||"")==="financeiro"&&!x.fechada&&(x.finalizada!==true||!(entrada>0&&saida>=0&&liquido>0));
  });
  }
  const {data,error}=await sb.from("financeiro_pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
@@ -1714,11 +1714,19 @@ async function financeiroSync(force=false){
    if(byPesagem.has(String(p.id)))continue;
    const prod=financeiroMaterialProduto(p.material);
    const preco=prod&&Number(prod.preco)>0?Number(prod.preco):null;
-   faltantes.push({pesagem_id:p.id,pessoa:p.pessoa||"Cliente não informado",data:p.data||hojeLocal,material:p.material||"Não informado",liquido:Number(p.liquido||0),preco_kg:preco,total:preco?Number(p.liquido||0)*preco:0,status:"Pendente",observacoes:p.observacoes||null});
+   faltantes.push({...(p.user_id?{user_id:p.user_id}:{}),pesagem_id:p.id,pessoa:p.pessoa||"Cliente não informado",data:p.data||hojeLocal,material:p.material||"Não informado",liquido:Number(p.liquido||0),preco_kg:preco,total:preco?Number(p.liquido||0)*preco:0,status:"Pendente",observacoes:p.observacoes||null});
  }
  if(faltantes.length){
-   const ins=await sb.from("financeiro_pesagens").insert(faltantes).select();
-   if(!ins.error)lista=[...(ins.data||[]),...lista]; else console.error("financeiro insert",ins.error);
+   // Upsert idempotente: se duas telas sincronizarem ao mesmo tempo, o vínculo
+   // único por pesagem impede duplicidade e não altera lançamentos já existentes.
+   const ins=await sb.from("financeiro_pesagens").upsert(faltantes,{onConflict:"pesagem_id",ignoreDuplicates:true}).select();
+   if(ins.error){
+     console.error("Falha ao recuperar pesagens no Financeiro",ins.error);
+   }else{
+     const recarga=await sb.from("financeiro_pesagens").select("*").order("data",{ascending:false}).order("created_at",{ascending:false});
+     if(!recarga.error)lista=recarga.data||[...(ins.data||[]),...lista];
+     else lista=[...(ins.data||[]),...lista];
+   }
  }
  // Só atualiza lançamentos pendentes quando algum dado realmente mudou.
  const comprasMap=new Map(compras.map(x=>[String(x.id),x]));
@@ -2333,7 +2341,40 @@ function showPatio(patio){
  </div>`;
  el.scrollIntoView({behavior:"smooth",block:"start"});
 }
+let cacambasRealtimeReady=false;
+let cacambasRealtimeTimer=null;
+function iniciarCacambasRealtime(){
+ if(cacambasRealtimeReady||!sb)return;
+ cacambasRealtimeReady=true;
+ const agendar=()=>{
+  if(cacambasRealtimeTimer)clearTimeout(cacambasRealtimeTimer);
+  cacambasRealtimeTimer=setTimeout(async()=>{
+   const paginas=["cacambas","estado","movimentacoes","ordens"];
+   const ativa=paginas.find(id=>$(id)?.classList.contains("active"));
+   if(!ativa)return;
+   const foco=document.activeElement;
+   if(foco&&$(ativa)?.contains(foco)&&["INPUT","SELECT","TEXTAREA"].includes(foco.tagName))return;
+   try{
+    await loadAll();
+    if(ativa==="cacambas")cacambas();
+    else if(ativa==="estado")estadoCacambas();
+    else if(ativa==="movimentacoes")movimentacoes();
+    else if(ativa==="ordens")ordens();
+   }catch(e){console.error("Atualização automática das caçambas",e);}
+  },500);
+ };
+ sb.channel("cacambas-atualizacao-automatica")
+  .on("postgres_changes",{event:"*",schema:"public",table:"cacambas"},agendar)
+  .on("postgres_changes",{event:"*",schema:"public",table:"movimentacoes"},agendar)
+  .on("postgres_changes",{event:"*",schema:"public",table:"ordens_servico"},agendar)
+  .on("postgres_changes",{event:"*",schema:"public",table:"clientes"},agendar)
+  .on("postgres_changes",{event:"*",schema:"public",table:"caminhoes"},agendar)
+  .on("postgres_changes",{event:"*",schema:"public",table:"motoristas"},agendar)
+  .subscribe(status=>{if(status==="CHANNEL_ERROR"||status==="TIMED_OUT")console.warn("Realtime das caçambas indisponível; confira se as tabelas estão habilitadas no Supabase Realtime.");});
+}
+
 function cacambas(){
+ iniciarCacambasRealtime();
  $("cacambas").innerHTML=`<h2>🗑️ Caçambas</h2>
  <div class="card"><h3>Nova caçamba</h3><div class="grid">
  <div><label>Número *</label><input id="cn"></div>
@@ -2368,6 +2409,7 @@ async function addCacamba(){
 }
 
 function estadoCacambas(){
+ iniciarCacambasRealtime();
  const estados=["Nova","Boa","Com avarias","Danificada","Em manutenção","Inutilizada","Não informado"];
  const counts={};
  estados.forEach(e=>counts[e]=0);
